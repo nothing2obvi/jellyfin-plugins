@@ -1,7 +1,4 @@
-*Status: Active development is temporarily paused while I deepen my understanding of the codebase. The project is not abandoned.
-see [#17](https://github.com/Atilil/jellyfin-plugins/issues/17) for the full context.*
-
-# Jellyfin Plugins by Atilili
+# nothing2obvi Jellyfin Plugins
 
 A collection of plugins for Jellyfin media server.
 
@@ -9,8 +6,8 @@ A collection of plugins for Jellyfin media server.
 
 1. Open Jellyfin and go to **Administration → Dashboard → Plugins → Repositories**
 2. Click **Add** and enter:
-   - **Name:** `Atilili Plugins`
-   - **URL:** `https://raw.githubusercontent.com/Atilil/jellyfin-plugins/main/manifest.json`
+   - **Name:** `nothing2obvi Plugins`
+   - **URL:** `https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json`
 3. Click **Save**
 4. Go to **Catalog** tab and install the plugins you want
 5. Restart Jellyfin
@@ -37,18 +34,19 @@ Automatically synchronizes watch history between libraries of different qualitie
 
 ---
 
-### JellyTag
+### JellyTag-Plus
 
 <p align="center">
     <img src="Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png" />
 </p>
 
-Automatically adds quality resolution badges (4K, 1080p, 720p, SD) to your media posters and thumbnails. Badges are applied server-side via HTTP middleware, visible on all Jellyfin clients without configuration.
+Automatically overlays quality badges on your media posters and thumbnails. Supports resolution, HDR, video codec, audio, language flags, and VOST indicator. Badges are applied server-side via HTTP middleware and are visible on all Jellyfin clients.
 
 **Features:**
-- Automatic quality detection from video metadata
-- Configurable badge position, size, and margin per image type
-- Support for posters, thumbnails, and backdrops
+- Automatic resolution, HDR, codec, audio, and language detection from video metadata
+- Configurable badge position, size, margin, color, and style per image type
+- Support for posters and thumbnails
+- SVG language flags, including mappings for `tgl` and `fil` to `flag-fil.svg`
 - File-based image caching for performance
 - Works on all clients (web, mobile, TV, Kodi)
 
@@ -67,10 +65,10 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Author
 
-**Atilili**
+**nothing2obvi**
 
 ---
 
 ## Disclaimer
 
-This project was developed with the assistance of AI (Claude by Anthropic). The code has been reviewed, tested, and validated before publication.
+This project includes code derived from the original Jellyfin plugin repository and local modifications for JellyTag-Plus.
