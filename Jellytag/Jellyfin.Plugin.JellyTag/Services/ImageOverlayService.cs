@@ -517,6 +517,20 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
         }
 
         var customDir = GetCustomBadgeDir();
+        if (customDir != null && Directory.Exists(customDir))
+        {
+            foreach (var path in Directory.GetFiles(customDir, "badge-*.*"))
+            {
+                var ext = Path.GetExtension(path);
+                if (ext.Equals(".svg", StringComparison.OrdinalIgnoreCase) ||
+                    ext.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                    ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                    ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+                {
+                    badgeBaseNames.Add(Path.GetFileNameWithoutExtension(path));
+                }
+            }
+        }
 
         foreach (var baseName in badgeBaseNames)
         {
@@ -777,7 +791,29 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
         var config = Plugin.Instance?.Configuration;
         var customText = config?.CustomBadgeTexts?.FirstOrDefault(x => string.Equals(x.Key, badgeKey, StringComparison.OrdinalIgnoreCase))?.Text;
         if (!string.IsNullOrEmpty(customText)) return customText;
+        var collectionText = FindCollectionBadgeLabel(config?.PosterConfig, badgeKey) ?? FindCollectionBadgeLabel(config?.ThumbnailConfig, badgeKey);
+        if (!string.IsNullOrEmpty(collectionText)) return collectionText;
         return BadgeDisplayText.TryGetValue(badgeKey, out var text) ? text : badgeKey.ToUpperInvariant();
+    }
+
+    private static string? FindCollectionBadgeLabel(ImageTypeConfig? imageConfig, string badgeKey)
+    {
+        if (imageConfig?.CollectionRules == null)
+        {
+            return null;
+        }
+
+        foreach (var rule in imageConfig.CollectionRules)
+        {
+            var key = !string.IsNullOrWhiteSpace(rule.Key) ? rule.Key : rule.Label;
+            key = System.Text.RegularExpressions.Regex.Replace((key ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9._-]+", "-").Trim('-', '.', '_');
+            if (string.Equals(key, badgeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.IsNullOrWhiteSpace(rule.Label) ? badgeKey.ToUpperInvariant() : rule.Label;
+            }
+        }
+
+        return null;
     }
 
     private static string DetectImageContentType(Stream stream)

@@ -106,6 +106,13 @@ public class LibraryBadgeOptions
     public bool Language { get; set; } = true;
 }
 
+public class CollectionBadgeRule
+{
+    public string Key { get; set; } = string.Empty;
+    public string Regex { get; set; } = string.Empty;
+    public string Label { get; set; } = "COLLECTION";
+}
+
 public class ImageTypeConfig
 {
     public bool Enabled { get; set; } = true;
@@ -115,6 +122,7 @@ public class ImageTypeConfig
     public BadgePanelSettings AudioPanel { get; set; } = new();
     public BadgePanelSettings LanguagePanel { get; set; } = new();
     public BadgePanelSettings CollectionPanel { get; set; } = new();
+    public List<CollectionBadgeRule> CollectionRules { get; set; } = new();
     public string CollectionRegex { get; set; } = string.Empty;
     public string CollectionBadgeText { get; set; } = "COLLECTION";
 
@@ -334,7 +342,7 @@ public class PluginConfiguration : BasePluginConfiguration
             target.CollectionPanel.MarginPercent = old.BadgeMarginPercent;
             target.CollectionPanel.GapPercent = old.BadgeGapPercent;
             target.CollectionPanel.Style = BadgeStyle.Text;
-            target.CollectionPanel.EnabledBadges = new List<string> { "collection" };
+            target.CollectionPanel.EnabledBadges = new List<string>();
 
             // VOST
             target.ShowVostIndicator = ShowSubtitleIndicator ?? true;
@@ -417,8 +425,9 @@ public class PluginConfiguration : BasePluginConfiguration
             Layout = BadgeLayout.Horizontal, SizePercent = 15, MarginPercent = 2f, GapPercent = 10f,
             ShowMode = BadgeDisplayMode.Highest,
             Style = BadgeStyle.Text,
-            EnabledBadges = new List<string> { "collection" }
+            EnabledBadges = new List<string>()
         };
+        config.CollectionRules = new List<CollectionBadgeRule>();
         config.CollectionRegex = string.Empty;
         config.CollectionBadgeText = "COLLECTION";
 
@@ -474,8 +483,9 @@ public class PluginConfiguration : BasePluginConfiguration
             Layout = BadgeLayout.Horizontal, SizePercent = 10, MarginPercent = 2.5f, GapPercent = 10f,
             ShowMode = BadgeDisplayMode.Highest,
             Style = BadgeStyle.Text,
-            EnabledBadges = new List<string> { "collection" }
+            EnabledBadges = new List<string>()
         };
+        config.CollectionRules = new List<CollectionBadgeRule>();
         config.CollectionRegex = string.Empty;
         config.CollectionBadgeText = "COLLECTION";
 

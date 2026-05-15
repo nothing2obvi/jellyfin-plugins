@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -189,30 +190,27 @@ public class QualityDetectionService : IQualityDetectionService
             return;
         }
 
-        var patterns = new[]
-            {
-                config.PosterConfig?.CollectionRegex,
-                config.ThumbnailConfig?.CollectionRegex
-            }
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-
-        if (patterns.Count == 0)
+        var rules = GetCollectionRules(config).ToList();
+        if (rules.Count == 0)
         {
             return;
         }
 
-        List<Regex> regexes;
-        try
+        var compiledRules = new List<(CollectionBadgeRule Rule, Regex Regex)>();
+        foreach (var rule in rules)
         {
-            regexes = patterns
-                .Select(p => new Regex(p!, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250)))
-                .ToList();
+            try
+            {
+                compiledRules.Add((rule, new Regex(rule.Regex, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250))));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid collection badge regex: {Regex}", rule.Regex);
+            }
         }
-        catch (ArgumentException ex)
+
+        if (compiledRules.Count == 0)
         {
-            _logger.LogWarning(ex, "Invalid collection badge regex");
             return;
         }
 
@@ -224,6 +222,7 @@ public class QualityDetectionService : IQualityDetectionService
                 Recursive = true
             });
 
+            var addedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var collection in collections.OfType<BoxSet>())
             {
                 if (!CollectionContainsItem(collection, item.Id))
@@ -231,15 +230,25 @@ public class QualityDetectionService : IQualityDetectionService
                     continue;
                 }
 
-                if (regexes.Any(r => r.IsMatch(collection.Name ?? string.Empty)))
+                foreach (var (rule, regex) in compiledRules)
                 {
+                    if (!regex.IsMatch(collection.Name ?? string.Empty))
+                    {
+                        continue;
+                    }
+
+                    var key = NormalizeCollectionBadgeKey(rule);
+                    if (!addedKeys.Add(key))
+                    {
+                        continue;
+                    }
+
                     badges.Add(new BadgeInfo
                     {
                         Category = BadgeCategory.Collection,
-                        BadgeKey = "collection",
-                        ResourceFileName = "badge-collection.svg"
+                        BadgeKey = key,
+                        ResourceFileName = $"badge-{key}.svg"
                     });
-                    return;
                 }
             }
         }
@@ -247,6 +256,51 @@ public class QualityDetectionService : IQualityDetectionService
         {
             _logger.LogWarning(ex, "Failed to detect collection badge for item: {ItemName}", item.Name);
         }
+    }
+
+    private static IEnumerable<CollectionBadgeRule> GetCollectionRules(PluginConfiguration config)
+    {
+        var rules = new List<CollectionBadgeRule>();
+        AddRules(config.PosterConfig, rules);
+        AddRules(config.ThumbnailConfig, rules);
+
+        return rules
+            .Where(r => !string.IsNullOrWhiteSpace(r.Regex))
+            .GroupBy(NormalizeCollectionBadgeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First());
+    }
+
+    private static void AddRules(ImageTypeConfig? imageConfig, List<CollectionBadgeRule> rules)
+    {
+        if (imageConfig == null)
+        {
+            return;
+        }
+
+        if (imageConfig.CollectionRules?.Count > 0)
+        {
+            rules.AddRange(imageConfig.CollectionRules);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(imageConfig.CollectionRegex))
+        {
+            rules.Add(new CollectionBadgeRule
+            {
+                Key = "collection",
+                Regex = imageConfig.CollectionRegex,
+                Label = string.IsNullOrWhiteSpace(imageConfig.CollectionBadgeText) ? "COLLECTION" : imageConfig.CollectionBadgeText
+            });
+        }
+    }
+
+    private static string NormalizeCollectionBadgeKey(CollectionBadgeRule rule)
+    {
+        var source = !string.IsNullOrWhiteSpace(rule.Key)
+            ? rule.Key
+            : (!string.IsNullOrWhiteSpace(rule.Label) ? rule.Label : "collection");
+        var normalized = Regex.Replace(source.Trim().ToLowerInvariant(), @"[^a-z0-9._-]+", "-").Trim('-', '.', '_');
+        return string.IsNullOrWhiteSpace(normalized) ? "collection" : normalized;
     }
 
     private static bool CollectionContainsItem(BoxSet collection, Guid itemId)
@@ -434,7 +488,10 @@ public class QualityDetectionService : IQualityDetectionService
             }
         }
 
-        return badges;
+        return badges
+            .OrderBy(b => b.Category == BadgeCategory.Subtitle ? 1 : 0)
+            .ThenBy(b => b.BadgeKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static BadgeInfo? DetectHdr(MediaStream videoStream)

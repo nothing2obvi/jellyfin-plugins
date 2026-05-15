@@ -247,7 +247,7 @@
             },
             Collection: {
                 title: 'Collections',
-                badges: [{id:'Collection',key:'collection',label:'Collection Match'}],
+                badges: [],
                 hasShowMode: false
             }
         };
@@ -307,8 +307,8 @@
             def.badges.forEach(function(b) { h += chk(k + b.id, b.label); });
             h += '</div>';
             if (panelId === 'Collection') {
-                h += textInput(k + 'Regex', 'Collection Name Regex', 'Marvel|Star Wars|Criterion');
-                h += textInput(k + 'BadgeText', 'Text Badge Label', 'COLLECTION');
+                h += '<div id="' + k + 'Rules"></div>';
+                h += '<button id="' + k + 'AddRule" type="button" is="emby-button" class="raised block" style="margin:.5em 0 1em 0;"><span>Add Collection Badge</span></button>';
             }
 
             h += sel(k + 'Position', 'Position', POS_OPTS);
@@ -491,6 +491,88 @@
             return { textBgColor: g.bgColor, textBgOpacity: g.bgOpacity, textColor: g.textColor, textCornerRadius: g.cornerRadius, overrides: ov };
         }
 
+        function normalizeCollectionKey(value) {
+            var key = (value || '').trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^[-._]+|[-._]+$/g, '');
+            return key || 'collection';
+        }
+
+        function collectionRuleHTML(k, rule, index) {
+            var rawKey = rule.Key || rule.key || '';
+            var label = rule.Label || rule.label || '';
+            var regex = rule.Regex || rule.regex || '';
+            if (!rawKey && label) rawKey = normalizeCollectionKey(label);
+            var key = rawKey || ('collection-' + (index + 1));
+            return '<div class="jellytag-text-box collection-rule" data-rule-index="' + index + '" style="margin-bottom:.75em;">' +
+                '<div class="jellytag-grid">' +
+                '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Badge Key</label><input class="collectionRuleKey" type="text" is="emby-input" value="' + escapeHtml(key) + '" placeholder="marvel" /></div>' +
+                '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Collection Regex</label><input class="collectionRuleRegex" type="text" is="emby-input" value="' + escapeHtml(regex) + '" placeholder="Marvel|MCU" /></div>' +
+                '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Text Label</label><input class="collectionRuleLabel" type="text" is="emby-input" value="' + escapeHtml(label || key.toUpperCase()) + '" placeholder="MCU" /></div>' +
+                '</div>' +
+                '<button type="button" is="emby-button" class="collectionRuleUpload raised"><span>Upload Image</span></button>' +
+                '<button type="button" is="emby-button" class="collectionRuleRemove raised button-warning" style="margin-left:.5em;"><span>Remove</span></button>' +
+                '</div>';
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, function(ch) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+            });
+        }
+
+        function addCollectionRule(k, rule) {
+            var container = q(k + 'Rules');
+            if (!container) return;
+            var index = container.querySelectorAll('.collection-rule').length;
+            var wrapper = document.createElement('div');
+            wrapper.innerHTML = collectionRuleHTML(k, rule || {}, index);
+            var el = wrapper.firstElementChild;
+            container.appendChild(el);
+            var keyInput = el.querySelector('.collectionRuleKey');
+            var labelInput = el.querySelector('.collectionRuleLabel');
+            el.querySelector('.collectionRuleUpload').addEventListener('click', function() {
+                keyInput.value = normalizeCollectionKey(keyInput.value || labelInput.value);
+                var fi = document.querySelector('#CustomBadgeFile');
+                fi.setAttribute('data-target-key', keyInput.value);
+                fi.click();
+            });
+            el.querySelector('.collectionRuleRemove').addEventListener('click', function() {
+                el.parentNode.removeChild(el);
+                loadBadgeGallery();
+            });
+            keyInput.addEventListener('blur', function() { keyInput.value = normalizeCollectionKey(keyInput.value || labelInput.value); loadBadgeGallery(); });
+            labelInput.addEventListener('blur', function() { if (!keyInput.value) keyInput.value = normalizeCollectionKey(labelInput.value); loadBadgeGallery(); });
+        }
+
+        function loadCollectionRules(prefix, itc) {
+            var k = prefix + 'Collection';
+            var container = q(k + 'Rules');
+            if (!container) return;
+            container.innerHTML = '';
+            var rules = itc.CollectionRules || itc.collectionRules || [];
+            if ((!rules || rules.length === 0) && itc.CollectionRegex) {
+                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION' }];
+            }
+            rules.forEach(function(rule) { addCollectionRule(k, rule); });
+        }
+
+        function collectCollectionRules(prefix) {
+            var k = prefix + 'Collection';
+            var rules = [];
+            var seen = {};
+            document.querySelectorAll('#' + k + 'Rules .collection-rule').forEach(function(row, index) {
+                var label = row.querySelector('.collectionRuleLabel').value.trim();
+                var key = normalizeCollectionKey(row.querySelector('.collectionRuleKey').value || label || ('collection-' + (index + 1)));
+                var regex = row.querySelector('.collectionRuleRegex').value.trim();
+                if (!regex) return;
+                var baseKey = key;
+                var n = 2;
+                while (seen[key]) key = baseKey + '-' + n++;
+                seen[key] = true;
+                rules.push({ Key: key, Regex: regex, Label: label || key.toUpperCase() });
+            });
+            return rules;
+        }
+
         // ===== Show/hide toggles =====
         function setupStyleToggle(key) {
             var styleEl = document.querySelector('#' + key + 'Style');
@@ -628,8 +710,12 @@
             }
 
             if (panelId === 'Collection') {
-                if (q(k + 'Regex')) q(k + 'Regex').value = arguments.length > 3 && arguments[3] ? (arguments[3].CollectionRegex || '') : '';
-                if (q(k + 'BadgeText')) q(k + 'BadgeText').value = arguments.length > 3 && arguments[3] ? (arguments[3].CollectionBadgeText || 'COLLECTION') : 'COLLECTION';
+                loadCollectionRules(prefix, arguments.length > 3 && arguments[3] ? arguments[3] : {});
+                var addBtn = q(k + 'AddRule');
+                if (addBtn && !addBtn.getAttribute('data-bound')) {
+                    addBtn.setAttribute('data-bound', '1');
+                    addBtn.addEventListener('click', function() { addCollectionRule(k, {}); });
+                }
             }
 
             // Text override state
@@ -757,7 +843,7 @@
             var collectionPanel = prefix === 'Poster' ? collectPanelConfig(prefix, 'Collection', order.Collection != null ? order.Collection : 5) : {
                 Enabled: false, Position: 'TopRight', ShowMode: 'Highest', Layout: 'Horizontal', GapPercent: 10, SizePercent: 10, MarginPercent: 2.5,
                 Style: 'Text', Order: 5, TextBgColor: '#000000', TextBgOpacity: 180, TextColor: '#FFFFFF', TextCornerRadius: 25,
-                EnabledBadges: ['collection'], BadgeTypeOverrides: []
+                EnabledBadges: [], BadgeTypeOverrides: []
             };
             return {
                 Enabled: q(prefix + 'Enabled').checked,
@@ -767,8 +853,9 @@
                 AudioPanel: collectPanelConfig(prefix, 'Audio', order.Audio || 0),
                 LanguagePanel: collectLangConfig(prefix),
                 CollectionPanel: collectionPanel,
-                CollectionRegex: prefix === 'Poster' && q(prefix + 'CollectionRegex') ? q(prefix + 'CollectionRegex').value.trim() : '',
-                CollectionBadgeText: prefix === 'Poster' && q(prefix + 'CollectionBadgeText') ? (q(prefix + 'CollectionBadgeText').value.trim() || 'COLLECTION') : 'COLLECTION',
+                CollectionRules: prefix === 'Poster' ? collectCollectionRules(prefix) : [],
+                CollectionRegex: '',
+                CollectionBadgeText: 'COLLECTION',
                 ShowVostIndicator: q(k + 'Vost').checked,
                 VostBgColor: q(k + 'VostBgColor').value || null,
                 VostTextColor: q(k + 'VostTextColor').value || null,
@@ -800,9 +887,6 @@
 
             // Custom Badge Texts
             var saveCbt = [];
-            if (q('PosterCollectionBadgeText') && q('PosterCollectionBadgeText').value.trim()) {
-                saveCbt.push({ Key: 'collection', Text: q('PosterCollectionBadgeText').value.trim() });
-            }
             document.querySelectorAll('#CustomBadgeTextsGrid input[data-badge-key]').forEach(function(el) {
                 var val = el.value.trim();
                 if (val) saveCbt.push({ Key: el.getAttribute('data-badge-key'), Text: val });
@@ -871,6 +955,13 @@
                     html += '</div>';
                     div.innerHTML = html;
                     container.appendChild(div);
+                    var libCb = div.querySelector('.libCheckbox');
+                    var typeCbs = Array.from(div.querySelectorAll('.libBadgeTypeCheckbox'));
+                    function syncLibraryTypes() {
+                        typeCbs.forEach(function(cb) { cb.checked = libCb.checked; cb.disabled = !libCb.checked; });
+                    }
+                    libCb.addEventListener('change', syncLibraryTypes);
+                    if (!libCb.checked) syncLibraryTypes();
                 });
                 if (folders.length === 0) container.innerHTML = '<em>No libraries found.</em>';
             }).catch(function(err) {
@@ -910,13 +1001,21 @@
             {key:'collection',label:'Collection'}
         ];
 
+        function getAllBadgeKeys() {
+            var keys = allBadgeKeys.slice();
+            collectCollectionRules('Poster').forEach(function(rule) {
+                keys.push({ key: rule.Key, label: 'Collection: ' + rule.Label });
+            });
+            return keys;
+        }
+
         function loadBadgeGallery() {
             var url = ApiClient.getUrl('JellyTagPlus/CustomBadges');
             var token = ApiClient.accessToken();
             var headers = {}; if (token) headers['Authorization'] = 'MediaBrowser Token="' + token + '"';
             fetch(url, {headers:headers}).then(function(r){return r.json();}).then(function(customList) {
                 var gallery = document.querySelector('#BadgeGallery'); gallery.innerHTML = '';
-                allBadgeKeys.forEach(function(b) {
+                getAllBadgeKeys().forEach(function(b) {
                     var isCustom = customList.indexOf(b.key) >= 0;
                     var card = document.createElement('div'); card.className = 'badge-card' + (isCustom ? ' custom' : '');
                     card.setAttribute('data-badge-key', b.key);

@@ -245,6 +245,14 @@ public class ImageCacheService : IImageCacheService
         AppendPanelFingerprint(sb, c.LanguagePanel);
         AppendPanelFingerprint(sb, c.CollectionPanel);
         sb.Append(c.CollectionRegex ?? "n").Append(c.CollectionBadgeText ?? "n").Append('|');
+        if (c.CollectionRules != null)
+        {
+            foreach (var rule in c.CollectionRules)
+            {
+                sb.Append(rule.Key).Append('=').Append(rule.Regex).Append('=').Append(rule.Label).Append(',');
+            }
+        }
+        sb.Append('|');
         sb.Append(c.ShowVostIndicator).Append(c.VostBgColor ?? "n").Append(c.VostTextColor ?? "n");
         sb.Append(c.VostBgOpacity).Append(c.VostCornerRadius).Append('|');
     }
