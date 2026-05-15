@@ -86,6 +86,27 @@ public partial class JellyTagController : ControllerBase
     }
 
     /// <summary>
+    /// Saves the plugin configuration.
+    /// </summary>
+    [HttpPost("Configuration")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult SaveConfig([FromBody] PluginConfiguration config)
+    {
+        var plugin = Plugin.Instance;
+        if (plugin == null) return BadRequest("Plugin not loaded");
+        if (config == null) return BadRequest("Invalid configuration");
+
+        plugin.UpdateConfiguration(config);
+        _cacheService.ClearCache();
+        _qualityService.ClearBadgeCache();
+        _overlayService.ReloadBadges();
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Debug endpoint to list embedded resources.
     /// </summary>
     [HttpGet("Debug/Resources")]

@@ -282,12 +282,18 @@ public class QualityDetectionService : IQualityDetectionService
     {
         "fra", "eng", "jpn", "deu", "spa", "ita", "por", "kor", "zho", "rus",
         "nld", "ara", "hin", "tha", "pol", "tur", "swe", "dan", "nor", "fin",
-        "ces", "hun", "ron", "ukr", "vie", "heb"
+        "ces", "hun", "ron", "ukr", "vie", "heb", "ell", "msa", "fil", "slk", "eus", "cym", "cmn", "yue", "nan"
     };
+
+    private static string NormalizeFlagCode(string langCode)
+    {
+        var normalized = langCode.Trim().ToLowerInvariant();
+        return LangCodeToFlag.TryGetValue(normalized, out var mapped) ? mapped : normalized;
+    }
 
     private static string GetFlagResourceFileName(string langCode)
     {
-        var normalized = LangCodeToFlag.TryGetValue(langCode, out var mapped) ? mapped : langCode;
+        var normalized = NormalizeFlagCode(langCode);
         return KnownFlagCodes.Contains(normalized) ? $"flag-{normalized.ToLowerInvariant()}.svg" : string.Empty;
     }
 
@@ -307,9 +313,10 @@ public class QualityDetectionService : IQualityDetectionService
         foreach (var stream in audioStreams)
         {
             var lang = stream.Language;
-            if (!string.IsNullOrEmpty(lang) && addedLanguages.Add(lang))
+            if (!string.IsNullOrWhiteSpace(lang))
             {
-                var langLower = lang.ToLowerInvariant();
+                var langLower = NormalizeFlagCode(lang);
+                if (!addedLanguages.Add(langLower)) continue;
                 badges.Add(new BadgeInfo
                 {
                     Category = BadgeCategory.Language,
@@ -321,13 +328,13 @@ public class QualityDetectionService : IQualityDetectionService
 
         // VOST indicators - always detect, filtering happens in ShouldShowBadge
         var audioLanguages = new HashSet<string>(
-            audioStreams.Where(s => !string.IsNullOrEmpty(s.Language)).Select(s => s.Language!.ToLowerInvariant()),
+            audioStreams.Where(s => !string.IsNullOrWhiteSpace(s.Language)).Select(s => NormalizeFlagCode(s.Language!)),
             StringComparer.OrdinalIgnoreCase);
 
         var subtitleStreams = allStreams.Where(s => s.Type == MediaStreamType.Subtitle).ToList();
         foreach (var sub in subtitleStreams)
         {
-            var subLang = sub.Language?.ToLowerInvariant();
+            var subLang = string.IsNullOrWhiteSpace(sub.Language) ? null : NormalizeFlagCode(sub.Language);
             if (!string.IsNullOrEmpty(subLang) && !audioLanguages.Contains(subLang))
             {
                 var key = "vost" + subLang;

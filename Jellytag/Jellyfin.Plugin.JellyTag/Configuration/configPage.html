@@ -193,7 +193,7 @@
                     </details>
 
                     <div class="verticalSection" style="margin-top:1em;">
-                        <button is="emby-button" type="submit" class="raised button-submit block" style="width:100%;"><span>Save</span></button>
+                        <button id="SaveConfig" is="emby-button" type="button" class="raised button-submit block" style="width:100%;"><span>Save</span></button>
                         <button id="ClearCache" type="button" is="emby-button" class="raised button-warning block" style="width:100%; margin-top:.5em;"><span>Clear Image Cache</span></button>
                         <button id="ExportConfig" type="button" is="emby-button" class="raised block" style="width:100%; margin-top:.5em;"><span>Export Config</span></button>
                         <button id="ImportConfigBtn" type="button" is="emby-button" class="raised block" style="width:100%; margin-top:.5em;"><span>Import Config</span></button>
@@ -944,18 +944,34 @@
             }
         });
 
-        // ===== Form Submit =====
-        document.querySelector('#JellyTagConfigForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        function saveConfigObject(config) {
+            return ApiClient.ajax({
+                type: 'POST',
+                url: ApiClient.getUrl('JellyTag/Configuration'),
+                contentType: 'application/json',
+                data: JSON.stringify(config)
+            });
+        }
+
+        function saveJellyTagConfig(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
             Dashboard.showLoadingMsg();
             ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config) {
                 collectConfigFromForm(config);
-                ApiClient.updatePluginConfiguration(JellyTagConfig.pluginUniqueId, config).then(function() {
-                    Dashboard.processPluginConfigurationUpdateResult();
-                });
+                return saveConfigObject(config);
+            }).then(function() {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('JellyTag configuration saved.');
+            }).catch(function(err) {
+                console.error('[JellyTag] Failed to save config:', err);
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Failed to save JellyTag configuration.');
             });
             return false;
-        });
+        }
+
+        document.querySelector('#JellyTagConfigForm').addEventListener('submit', saveJellyTagConfig);
+        document.querySelector('#SaveConfig').addEventListener('click', saveJellyTagConfig);
 
         // ===== Other Handlers =====
         document.querySelector('#ClearCache').addEventListener('click', function() {
@@ -1023,7 +1039,7 @@
                         searchResults.appendChild(div);});searchResults.style.display='block';});},300);});
             document.addEventListener('click',function(e){if(!searchResults.contains(e.target)&&e.target!==searchInput)searchResults.style.display='none';});
             function refreshPreview(){if(!previewItemId||refreshing)return;refreshing=true;errorEl.style.display='none';errorEl.textContent='';spinner.style.display='block';
-                ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config){collectConfigFromForm(config);return ApiClient.updatePluginConfiguration(JellyTagConfig.pluginUniqueId,config);}).then(function(){
+                ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config){collectConfigFromForm(config);return saveConfigObject(config);}).then(function(){
                     return ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTag/ClearCache')});}).then(function(){
                     var token=ApiClient.accessToken();var bust='_t='+Date.now();var tp=token?'&api_key='+token:'';
                     var pu=ApiClient.getUrl('Items/'+previewItemId+'/Images/Primary')+'?'+bust+tp;
