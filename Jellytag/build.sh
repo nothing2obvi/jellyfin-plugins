@@ -1,55 +1,45 @@
 #!/bin/bash
-# Build script for JellyTag Jellyfin plugin
 set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
+ZIP_NAME="jellytag-plus-1.0.0.0.zip"
 
-echo "=== Building JellyTag Plugin ==="
+echo "=== Building JellyTag-Plus Plugin ==="
 
-# Clean output directory
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
-# Build and publish plugin
 echo "Compiling plugin..."
 cd "$PLUGIN_DIR"
-DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 ~/.dotnet/dotnet restore
-DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 ~/.dotnet/dotnet publish -c Release -o publish_out
+DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet restore
+DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish -c Release -o publish_out
 
-# Copy necessary files
 echo "Copying files..."
 cd ..
-cp "$PLUGIN_DIR/publish_out/Jellyfin.Plugin.JellyTag.dll" "$OUTPUT_DIR/"
-cp "$PLUGIN_DIR/publish_out/SixLabors.ImageSharp.dll" "$OUTPUT_DIR/"
+cp "$PLUGIN_DIR/publish_out/Jellyfin.Plugin.JellyTagPlus.dll" "$OUTPUT_DIR/"
 
-# Create meta.json for the plugin
-cat > "$OUTPUT_DIR/meta.json" << 'EOF'
+for dll in ExCSS.dll ShimSkiaSharp.dll Svg.Custom.dll Svg.Model.dll Svg.Skia.dll; do
+    [ -f "$PLUGIN_DIR/publish_out/$dll" ] && cp "$PLUGIN_DIR/publish_out/$dll" "$OUTPUT_DIR/"
+done
+
+cat > "$OUTPUT_DIR/meta.json" <<'JSON'
 {
-    "guid": "f4a2e8c1-9b3d-4f7a-b6c5-2d8e1a3f9b04",
-    "name": "JellyTag",
-    "overview": "Adds quality badges (4K, 1080p, etc.) to media posters and thumbnails.",
-    "description": "JellyTag automatically adds quality resolution badges to your media posters and thumbnails. Badges are visible on all clients including web, mobile, TV, and Kodi.",
-    "owner": "Atilili",
-    "category": "General",
-    "version": "1.0.0.0",
-    "targetAbi": "10.11.0.0",
-    "timestamp": "2025-01-29T00:00:00Z"
+  "guid": "a3db8d87-9a5a-4f35-94b5-7df409f7dc01",
+  "name": "JellyTag-Plus",
+  "overview": "Overlays quality badges (resolution, HDR, codec, audio, language) on media posters and thumbnails.",
+  "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports resolution, HDR, video codec, audio, language flags, and VOST indicator.",
+  "owner": "nothing2obvi",
+  "category": "General",
+  "version": "1.0.0.0",
+  "targetAbi": "10.11.0.0",
+  "timestamp": "2026-05-15T00:00:00Z"
 }
-EOF
+JSON
 
-# Create ZIP archive
 echo "Creating ZIP archive..."
 cd "$OUTPUT_DIR"
-zip -r "jellytag-1.0.0.0.zip" *.dll meta.json
+zip -r "$ZIP_NAME" *.dll meta.json
 cd ..
 
-echo ""
-echo "=== Build complete ==="
-echo "Output files in: $OUTPUT_DIR/"
-echo ""
-echo "To install:"
-echo "1. Copy the DLLs to your Jellyfin plugins folder:"
-echo "   mkdir -p /path/to/jellyfin/plugins/JellyTag"
-echo "   cp $OUTPUT_DIR/*.dll /path/to/jellyfin/plugins/JellyTag/"
-echo "2. Restart Jellyfin"
+echo "Built $OUTPUT_DIR/$ZIP_NAME"
