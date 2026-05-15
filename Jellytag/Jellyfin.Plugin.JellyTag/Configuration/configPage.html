@@ -244,6 +244,11 @@
                 badges: [{id:'Atmos',key:'atmos',label:'Dolby Atmos'},{id:'DtsX',key:'dtsx',label:'DTS:X'},{id:'TrueHD',key:'truehd',label:'Dolby TrueHD'},{id:'DtsHdMa',key:'dtshdma',label:'DTS-HD MA'},{id:'Channel',key:'channel',label:'Channel Layout (7.1/5.1/Stereo)'}],
                 hasShowMode: true,
                 showModeOptions: [{v:'Highest',l:'Highest only'},{v:'All',l:'All'}]
+            },
+            Collection: {
+                title: 'Collections',
+                badges: [{id:'Collection',key:'collection',label:'Collection Match'}],
+                hasShowMode: false
             }
         };
 
@@ -258,6 +263,10 @@
         function num(id, label, min, max, step) {
             return '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="' + id + '">' + label + '</label>' +
                 '<input id="' + id + '" type="number" min="' + min + '" max="' + max + '" step="' + step + '" is="emby-input" /></div>';
+        }
+        function textInput(id, label, placeholder) {
+            return '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="' + id + '">' + label + '</label>' +
+                '<input id="' + id + '" type="text" is="emby-input" placeholder="' + (placeholder || '') + '" /></div>';
         }
         function chk(id, label, desc) {
             var h = '<div class="checkboxContainer checkboxContainer-withDescription"><label class="emby-checkbox-label">';
@@ -276,7 +285,7 @@
                 '<input id="' + id + '" type="color" value="#FFFFFF" /></div>';
         }
 
-        var POS_OPTS = [{v:'TopLeft',l:'Top Left'},{v:'TopRight',l:'Top Right'},{v:'BottomLeft',l:'Bottom Left'},{v:'BottomRight',l:'Bottom Right'}];
+        var POS_OPTS = [{v:'TopLeft',l:'Top Left'},{v:'TopCenter',l:'Top Center'},{v:'TopRight',l:'Top Right'},{v:'MiddleLeft',l:'Middle Left'},{v:'MiddleRight',l:'Middle Right'},{v:'BottomLeft',l:'Bottom Left'},{v:'BottomCenter',l:'Bottom Center'},{v:'BottomRight',l:'Bottom Right'}];
         var LAYOUT_OPTS = [{v:'Vertical',l:'Vertical'},{v:'Horizontal',l:'Horizontal'}];
 
         function arrowBtns() {
@@ -297,6 +306,10 @@
             h += '<div class="jellytag-grid">';
             def.badges.forEach(function(b) { h += chk(k + b.id, b.label); });
             h += '</div>';
+            if (panelId === 'Collection') {
+                h += textInput(k + 'Regex', 'Collection Name Regex', 'Marvel|Star Wars|Criterion');
+                h += textInput(k + 'BadgeText', 'Text Badge Label', 'COLLECTION');
+            }
 
             h += sel(k + 'Position', 'Position', POS_OPTS);
             if (def.hasShowMode) {
@@ -358,7 +371,9 @@
         }
 
         function generatePanels(prefix) {
-            return panelHTML(prefix, 'Res') + panelHTML(prefix, 'Hdr') + panelHTML(prefix, 'Codec') + panelHTML(prefix, 'Audio') + langPanelHTML(prefix);
+            var html = panelHTML(prefix, 'Res') + panelHTML(prefix, 'Hdr') + panelHTML(prefix, 'Codec') + panelHTML(prefix, 'Audio') + langPanelHTML(prefix);
+            if (prefix === 'Poster') html += panelHTML(prefix, 'Collection');
+            return html;
         }
 
         // ===== Panel reordering =====
@@ -568,7 +583,7 @@
         }
 
         function setupAllToggles(prefix) {
-            ['Res', 'Hdr', 'Codec', 'Audio'].forEach(function(pid) {
+            ['Res', 'Hdr', 'Codec', 'Audio', 'Collection'].forEach(function(pid) {
                 setupEnableToggle(prefix + pid);
                 setupStyleToggle(prefix + pid);
                 setupBadgeSelToggle(prefix + pid);
@@ -612,6 +627,11 @@
                 });
             }
 
+            if (panelId === 'Collection') {
+                if (q(k + 'Regex')) q(k + 'Regex').value = arguments.length > 3 && arguments[3] ? (arguments[3].CollectionRegex || '') : '';
+                if (q(k + 'BadgeText')) q(k + 'BadgeText').value = arguments.length > 3 && arguments[3] ? (arguments[3].CollectionBadgeText || 'COLLECTION') : 'COLLECTION';
+            }
+
             // Text override state
             initOverrides(k, pc, pc.BadgeTypeOverrides || []);
             var g = overrideStates[k].values['__global__'];
@@ -652,6 +672,7 @@
             loadPanelConfig(prefix, 'Hdr', itc.HdrPanel);
             loadPanelConfig(prefix, 'Codec', itc.CodecPanel);
             loadPanelConfig(prefix, 'Audio', itc.AudioPanel);
+            if (prefix === 'Poster') loadPanelConfig(prefix, 'Collection', itc.CollectionPanel, itc);
             loadLangConfig(prefix, itc.LanguagePanel, itc);
             // Sort panels by Order
             var orderMap = {
@@ -659,7 +680,8 @@
                 Hdr: (itc.HdrPanel || {}).Order || 0,
                 Codec: (itc.CodecPanel || {}).Order || 0,
                 Audio: (itc.AudioPanel || {}).Order || 0,
-                Lang: (itc.LanguagePanel || {}).Order || 0
+                Lang: (itc.LanguagePanel || {}).Order || 0,
+                Collection: (itc.CollectionPanel || {}).Order || 0
             };
             var container = document.getElementById(prefix + 'Panels');
             if (container) sortPanelsByOrder(container, orderMap);
@@ -731,7 +753,12 @@
         function collectImageTypeConfig(prefix) {
             var k = prefix + 'Lang';
             var container = document.getElementById(prefix + 'Panels');
-            var order = container ? getPanelOrder(container) : {Res:0,Hdr:1,Codec:2,Audio:3,Lang:4};
+            var order = container ? getPanelOrder(container) : {Res:0,Hdr:1,Codec:2,Audio:3,Lang:4,Collection:5};
+            var collectionPanel = prefix === 'Poster' ? collectPanelConfig(prefix, 'Collection', order.Collection != null ? order.Collection : 5) : {
+                Enabled: false, Position: 'TopRight', ShowMode: 'Highest', Layout: 'Horizontal', GapPercent: 10, SizePercent: 10, MarginPercent: 2.5,
+                Style: 'Text', Order: 5, TextBgColor: '#000000', TextBgOpacity: 180, TextColor: '#FFFFFF', TextCornerRadius: 25,
+                EnabledBadges: ['collection'], BadgeTypeOverrides: []
+            };
             return {
                 Enabled: q(prefix + 'Enabled').checked,
                 ResolutionPanel: collectPanelConfig(prefix, 'Res', order.Res || 0),
@@ -739,6 +766,9 @@
                 CodecPanel: collectPanelConfig(prefix, 'Codec', order.Codec || 0),
                 AudioPanel: collectPanelConfig(prefix, 'Audio', order.Audio || 0),
                 LanguagePanel: collectLangConfig(prefix),
+                CollectionPanel: collectionPanel,
+                CollectionRegex: prefix === 'Poster' && q(prefix + 'CollectionRegex') ? q(prefix + 'CollectionRegex').value.trim() : '',
+                CollectionBadgeText: prefix === 'Poster' && q(prefix + 'CollectionBadgeText') ? (q(prefix + 'CollectionBadgeText').value.trim() || 'COLLECTION') : 'COLLECTION',
                 ShowVostIndicator: q(k + 'Vost').checked,
                 VostBgColor: q(k + 'VostBgColor').value || null,
                 VostTextColor: q(k + 'VostTextColor').value || null,
@@ -754,6 +784,7 @@
             config.PosterConfig = collectImageTypeConfig('Poster');
             config.ThumbnailConfig = collectImageTypeConfig('Thumb');
             config.ExcludedLibraryIds = collectExcludedLibraries();
+            config.LibraryBadgeOptions = collectLibraryBadgeOptions();
 
             // Nullify legacy
             config.PosterSettings = null;
@@ -769,6 +800,9 @@
 
             // Custom Badge Texts
             var saveCbt = [];
+            if (q('PosterCollectionBadgeText') && q('PosterCollectionBadgeText').value.trim()) {
+                saveCbt.push({ Key: 'collection', Text: q('PosterCollectionBadgeText').value.trim() });
+            }
             document.querySelectorAll('#CustomBadgeTextsGrid input[data-badge-key]').forEach(function(el) {
                 var val = el.value.trim();
                 if (val) saveCbt.push({ Key: el.getAttribute('data-badge-key'), Text: val });
@@ -798,20 +832,44 @@
         }
 
         // ===== Library filter =====
-        function loadLibraryCheckboxes(excludedIds) {
+        var LIB_BADGE_TYPES = [
+            {key:'Resolution', label:'Resolution'},
+            {key:'Hdr', label:'HDR'},
+            {key:'Codec', label:'Codec'},
+            {key:'Audio', label:'Audio'},
+            {key:'Language', label:'Language'}
+        ];
+
+        function loadLibraryCheckboxes(excludedIds, libraryBadgeOptions) {
             var container = document.querySelector('#LibraryCheckboxes');
             var token = ApiClient.accessToken();
             var headers = {}; if (token) headers['Authorization'] = 'MediaBrowser Token="' + token + '"';
+            var optionMap = {};
+            (libraryBadgeOptions || []).forEach(function(o) {
+                var id = o.LibraryId || o.libraryId;
+                if (id) optionMap[id] = o;
+            });
             fetch(ApiClient.getUrl('Library/VirtualFolders'), {headers:headers}).then(function(r){return r.json();}).then(function(folders) {
                 container.innerHTML = '';
                 folders.forEach(function(folder) {
                     var folderId = folder.ItemId;
                     var isExcluded = excludedIds.indexOf(folderId) >= 0;
+                    var opts = optionMap[folderId] || {};
                     var div = document.createElement('div');
                     div.className = 'checkboxContainer checkboxContainer-withDescription';
-                    div.innerHTML = '<label class="emby-checkbox-label">' +
+                    var html = '<label class="emby-checkbox-label">' +
                         '<input type="checkbox" is="emby-checkbox" class="libCheckbox" data-library-id="' + folderId + '"' + (isExcluded ? '' : ' checked') + ' />' +
                         '<span>' + folder.Name + '</span></label>';
+                    html += '<div class="fieldDescription" style="margin-left:2.4em; margin-top:.35em;">Badge types for this library</div>';
+                    html += '<div class="jellytag-grid" style="margin-left:2.4em; margin-top:.35em;">';
+                    LIB_BADGE_TYPES.forEach(function(t) {
+                        var value = opts[t.key];
+                        if (value == null) value = opts[t.key.charAt(0).toLowerCase() + t.key.slice(1)];
+                        var checked = value !== false;
+                        html += '<label class="emby-checkbox-label"><input type="checkbox" is="emby-checkbox" class="libBadgeTypeCheckbox" data-library-id="' + folderId + '" data-badge-type="' + t.key + '"' + (checked ? ' checked' : '') + ' /><span>' + t.label + '</span></label>';
+                    });
+                    html += '</div>';
+                    div.innerHTML = html;
                     container.appendChild(div);
                 });
                 if (folders.length === 0) container.innerHTML = '<em>No libraries found.</em>';
@@ -829,13 +887,27 @@
             return excluded;
         }
 
+        function collectLibraryBadgeOptions() {
+            var byLibrary = {};
+            document.querySelectorAll('#LibraryCheckboxes .libBadgeTypeCheckbox').forEach(function(cb) {
+                var id = cb.getAttribute('data-library-id');
+                var type = cb.getAttribute('data-badge-type');
+                if (!byLibrary[id]) {
+                    byLibrary[id] = { LibraryId: id, Resolution: true, Hdr: true, Codec: true, Audio: true, Language: true };
+                }
+                byLibrary[id][type] = cb.checked;
+            });
+            return Object.keys(byLibrary).map(function(id) { return byLibrary[id]; });
+        }
+
         // ===== Badge Gallery =====
         var allBadgeKeys = [
             {key:'4k',label:'4K'},{key:'1080p',label:'1080p'},{key:'720p',label:'720p'},{key:'sd',label:'SD'},
             {key:'hdr10',label:'HDR10'},{key:'hdr10plus',label:'HDR10+'},{key:'dv',label:'Dolby Vision'},{key:'hlg',label:'HLG'},
             {key:'atmos',label:'Atmos'},{key:'dtsx',label:'DTS:X'},{key:'truehd',label:'TrueHD'},{key:'dtshdma',label:'DTS-HD MA'},
             {key:'5.1',label:'5.1'},{key:'7.1',label:'7.1'},{key:'stereo',label:'Stereo'},
-            {key:'h264',label:'H.264'},{key:'hevc',label:'HEVC'},{key:'av1',label:'AV1'},{key:'vp9',label:'VP9'}
+            {key:'h264',label:'H.264'},{key:'hevc',label:'HEVC'},{key:'av1',label:'AV1'},{key:'vp9',label:'VP9'},
+            {key:'collection',label:'Collection'}
         ];
 
         function loadBadgeGallery() {
@@ -919,7 +991,7 @@
                 q('ThumbnailSameAsPoster').addEventListener('change', toggleThumbSameAsPoster);
                 toggleThumbSameAsPoster();
 
-                loadLibraryCheckboxes(config.ExcludedLibraryIds || []);
+                loadLibraryCheckboxes(config.ExcludedLibraryIds || [], config.LibraryBadgeOptions || []);
                 Dashboard.hideLoadingMsg();
             }).catch(function(err) {
                 console.error('[JellyTag] Failed to load config:', err);

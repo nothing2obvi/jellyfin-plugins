@@ -3,7 +3,7 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-ZIP_NAME="jellytag-plus-1.0.0.0.zip"
+ZIP_NAME="jellytag-plus-1.2.0.0.zip"
 
 echo "=== Building JellyTag-Plus Plugin ==="
 
@@ -27,11 +27,11 @@ cat > "$OUTPUT_DIR/meta.json" <<'JSON'
 {
   "guid": "a3db8d87-9a5a-4f35-94b5-7df409f7dc01",
   "name": "JellyTag-Plus",
-  "overview": "Overlays quality badges (resolution, HDR, codec, audio, language) on media posters and thumbnails.",
-  "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports resolution, HDR, video codec, audio, language flags, and VOST indicator.",
+  "overview": "Overlays quality badges (resolution, HDR, codec, audio, language, collections) on media posters and thumbnails.",
+  "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports per-library badge type controls, resolution, HDR, video codec, audio, language flags, VOST indicator, and regex-matched collection badges.",
   "owner": "nothing2obvi",
   "category": "General",
-  "version": "1.0.0.0",
+  "version": "1.2.0.0",
   "targetAbi": "10.11.0.0",
   "timestamp": "2026-05-15T00:00:00Z"
 }

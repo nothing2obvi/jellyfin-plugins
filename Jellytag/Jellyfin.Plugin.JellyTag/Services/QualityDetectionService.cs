@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Querying;
 using Microsoft.Extensions.Logging;
@@ -129,6 +131,8 @@ public class QualityDetectionService : IQualityDetectionService
     {
         var badges = new List<BadgeInfo>();
 
+        DetectCollectionBadge(item, badges);
+
         if (item is Video video)
         {
             DetectBadgesFromVideo(video, badges);
@@ -174,6 +178,86 @@ public class QualityDetectionService : IQualityDetectionService
         }
 
         return badges;
+    }
+
+
+    private void DetectCollectionBadge(BaseItem item, List<BadgeInfo> badges)
+    {
+        var config = Plugin.Instance?.Configuration;
+        if (config == null)
+        {
+            return;
+        }
+
+        var patterns = new[]
+            {
+                config.PosterConfig?.CollectionRegex,
+                config.ThumbnailConfig?.CollectionRegex
+            }
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (patterns.Count == 0)
+        {
+            return;
+        }
+
+        List<Regex> regexes;
+        try
+        {
+            regexes = patterns
+                .Select(p => new Regex(p!, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250)))
+                .ToList();
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid collection badge regex");
+            return;
+        }
+
+        try
+        {
+            var collections = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = [BaseItemKind.BoxSet],
+                Recursive = true
+            });
+
+            foreach (var collection in collections.OfType<BoxSet>())
+            {
+                if (!CollectionContainsItem(collection, item.Id))
+                {
+                    continue;
+                }
+
+                if (regexes.Any(r => r.IsMatch(collection.Name ?? string.Empty)))
+                {
+                    badges.Add(new BadgeInfo
+                    {
+                        Category = BadgeCategory.Collection,
+                        BadgeKey = "collection",
+                        ResourceFileName = "badge-collection.svg"
+                    });
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to detect collection badge for item: {ItemName}", item.Name);
+        }
+    }
+
+    private static bool CollectionContainsItem(BoxSet collection, Guid itemId)
+    {
+        var method = collection.GetType().GetMethod("ContainsLinkedChildByItemId", [typeof(Guid)]);
+        if (method?.Invoke(collection, [itemId]) is bool contains)
+        {
+            return contains;
+        }
+
+        return collection.GetLinkedChildren().Any(child => child.Id == itemId);
     }
 
     private void DetectBadgesFromVideo(Video video, List<BadgeInfo> badges)

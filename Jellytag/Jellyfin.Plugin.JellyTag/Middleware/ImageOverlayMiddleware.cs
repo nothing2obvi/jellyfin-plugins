@@ -77,10 +77,11 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
+        var collectionFolders = libraryManager.GetCollectionFolders(item).ToList();
+
         // Check if item's library is excluded
-        if (config.ExcludedLibraryIds.Count > 0)
+        if (config.ExcludedLibraryIds?.Count > 0)
         {
-            var collectionFolders = libraryManager.GetCollectionFolders(item);
             if (collectionFolders.Any(f => config.ExcludedLibraryIds.Contains(f.Id.ToString("N"))))
             {
                 await _next(context).ConfigureAwait(false);
@@ -100,7 +101,10 @@ public partial class ImageOverlayMiddleware
         _logger.LogDebug("DetectAllBadges for {Item}: {Count} badges found: {Badges}",
             item.Name, allBadges.Count, string.Join(", ", allBadges.Select(b => $"{b.Category}:{b.BadgeKey}")));
 
-        var visibleBadges = allBadges.Where(b => overlayService.ShouldShowBadge(b, imageConfig)).ToList();
+        var visibleBadges = allBadges
+            .Where(b => overlayService.ShouldShowBadge(b, imageConfig))
+            .Where(b => ShouldShowBadgeForLibrary(b, config, collectionFolders))
+            .ToList();
         _logger.LogDebug("Visible badges after filter: {Count}: {Badges}",
             visibleBadges.Count, string.Join(", ", visibleBadges.Select(b => b.BadgeKey)));
 
@@ -178,6 +182,36 @@ public partial class ImageOverlayMiddleware
         }
     }
 
+
+    private static bool ShouldShowBadgeForLibrary(BadgeInfo badge, PluginConfiguration config, IReadOnlyList<Folder> collectionFolders)
+    {
+        if (collectionFolders.Count == 0 || config.LibraryBadgeOptions == null || config.LibraryBadgeOptions.Count == 0)
+        {
+            return true;
+        }
+
+        foreach (var folder in collectionFolders)
+        {
+            var options = config.LibraryBadgeOptions.FirstOrDefault(o => string.Equals(o.LibraryId, folder.Id.ToString("N"), StringComparison.OrdinalIgnoreCase));
+            if (options == null)
+            {
+                continue;
+            }
+
+            return badge.Category switch
+            {
+                BadgeCategory.Resolution => options.Resolution,
+                BadgeCategory.Hdr or BadgeCategory.ThreeD => options.Hdr,
+                BadgeCategory.VideoCodec => options.Codec,
+                BadgeCategory.Audio => options.Audio,
+                BadgeCategory.Language or BadgeCategory.Subtitle => options.Language,
+                _ => true
+            };
+        }
+
+        return true;
+    }
+
     private static ImageTypeConfig? GetImageTypeConfig(PluginConfiguration config, string imageType, BaseItem item)
     {
         var type = imageType.ToUpperInvariant();
@@ -215,6 +249,9 @@ public partial class ImageOverlayMiddleware
             CodecPanel = ClonePanelWithReduction(source.CodecPanel, reduction),
             AudioPanel = ClonePanelWithReduction(source.AudioPanel, reduction),
             LanguagePanel = ClonePanelWithReduction(source.LanguagePanel, reduction),
+            CollectionPanel = ClonePanelWithReduction(source.CollectionPanel, reduction),
+            CollectionRegex = source.CollectionRegex,
+            CollectionBadgeText = source.CollectionBadgeText,
             ShowVostIndicator = source.ShowVostIndicator,
             VostBgColor = source.VostBgColor,
             VostTextColor = source.VostTextColor,

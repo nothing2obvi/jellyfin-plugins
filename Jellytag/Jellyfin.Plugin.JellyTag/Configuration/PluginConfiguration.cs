@@ -8,8 +8,12 @@ namespace Jellyfin.Plugin.JellyTag.Configuration;
 public enum BadgePosition
 {
     TopLeft,
+    TopCenter,
     TopRight,
+    MiddleLeft,
+    MiddleRight,
     BottomLeft,
+    BottomCenter,
     BottomRight
 }
 
@@ -92,6 +96,16 @@ public class BadgePanelSettings
 /// <summary>
 /// Configuration for a specific image type (Poster, Thumbnail).
 /// </summary>
+public class LibraryBadgeOptions
+{
+    public string LibraryId { get; set; } = string.Empty;
+    public bool Resolution { get; set; } = true;
+    public bool Hdr { get; set; } = true;
+    public bool Codec { get; set; } = true;
+    public bool Audio { get; set; } = true;
+    public bool Language { get; set; } = true;
+}
+
 public class ImageTypeConfig
 {
     public bool Enabled { get; set; } = true;
@@ -100,6 +114,9 @@ public class ImageTypeConfig
     public BadgePanelSettings CodecPanel { get; set; } = new();
     public BadgePanelSettings AudioPanel { get; set; } = new();
     public BadgePanelSettings LanguagePanel { get; set; } = new();
+    public BadgePanelSettings CollectionPanel { get; set; } = new();
+    public string CollectionRegex { get; set; } = string.Empty;
+    public string CollectionBadgeText { get; set; } = "COLLECTION";
 
     // VOST settings (attached to Language panel)
     public bool ShowVostIndicator { get; set; } = true;
@@ -123,6 +140,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ThumbnailSameAsPoster = true;
         ThumbnailSizeReduction = 5;
         ExcludedLibraryIds = new List<string>();
+        LibraryBadgeOptions = new List<LibraryBadgeOptions>();
 
         CustomBadgeTexts = new List<BadgeTextOverride>();
         CacheDurationHours = 24;
@@ -147,6 +165,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Library IDs excluded from badge generation. Empty means all libraries are included.
     /// </summary>
     public List<string> ExcludedLibraryIds { get; set; }
+    public List<LibraryBadgeOptions> LibraryBadgeOptions { get; set; }
 
     public List<BadgeTextOverride> CustomBadgeTexts { get; set; }
     public int CacheDurationHours { get; set; }
@@ -307,6 +326,16 @@ public class PluginConfiguration : BasePluginConfiguration
             target.LanguagePanel.ShowMode = langMode == Configuration.LanguageBadgeMode.DefaultOnly ? BadgeDisplayMode.Highest : BadgeDisplayMode.All;
             target.LanguagePanel.Order = 4;
 
+            target.CollectionPanel.Enabled = false;
+            target.CollectionPanel.Order = 5;
+            target.CollectionPanel.Position = BadgePosition.TopRight;
+            target.CollectionPanel.Layout = BadgeLayout.Horizontal;
+            target.CollectionPanel.SizePercent = old.BadgeSizePercent;
+            target.CollectionPanel.MarginPercent = old.BadgeMarginPercent;
+            target.CollectionPanel.GapPercent = old.BadgeGapPercent;
+            target.CollectionPanel.Style = BadgeStyle.Text;
+            target.CollectionPanel.EnabledBadges = new List<string> { "collection" };
+
             // VOST
             target.ShowVostIndicator = ShowSubtitleIndicator ?? true;
             target.VostBgColor = old.SubtitleBadgeBgColor;
@@ -382,6 +411,17 @@ public class PluginConfiguration : BasePluginConfiguration
             EnabledBadges = new List<string>()
         };
 
+        config.CollectionPanel = new BadgePanelSettings
+        {
+            Enabled = false, Order = 5, Position = BadgePosition.TopRight,
+            Layout = BadgeLayout.Horizontal, SizePercent = 15, MarginPercent = 2f, GapPercent = 10f,
+            ShowMode = BadgeDisplayMode.Highest,
+            Style = BadgeStyle.Text,
+            EnabledBadges = new List<string> { "collection" }
+        };
+        config.CollectionRegex = string.Empty;
+        config.CollectionBadgeText = "COLLECTION";
+
         config.ShowVostIndicator = true;
         config.VostBgColor = "#000000";
         config.VostTextColor = "#ffffff";
@@ -427,6 +467,17 @@ public class PluginConfiguration : BasePluginConfiguration
             Style = BadgeStyle.Image,
             EnabledBadges = new List<string>()
         };
+
+        config.CollectionPanel = new BadgePanelSettings
+        {
+            Enabled = false, Order = 5, Position = BadgePosition.TopRight,
+            Layout = BadgeLayout.Horizontal, SizePercent = 10, MarginPercent = 2.5f, GapPercent = 10f,
+            ShowMode = BadgeDisplayMode.Highest,
+            Style = BadgeStyle.Text,
+            EnabledBadges = new List<string> { "collection" }
+        };
+        config.CollectionRegex = string.Empty;
+        config.CollectionBadgeText = "COLLECTION";
 
         config.ShowVostIndicator = true;
         config.VostBgOpacity = 255;

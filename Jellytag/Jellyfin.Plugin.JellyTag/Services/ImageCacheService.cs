@@ -210,6 +210,17 @@ public class ImageCacheService : IImageCacheService
         sb.Append(config.Enabled).Append('|');
         sb.Append((int)config.OutputFormat).Append(config.JpegQuality).Append(config.WebPQuality).Append('|');
         sb.Append(config.ThumbnailSameAsPoster).Append('|');
+        sb.Append(string.Join(",", config.ExcludedLibraryIds ?? new List<string>())).Append('|');
+        if (config.LibraryBadgeOptions != null)
+        {
+            foreach (var option in config.LibraryBadgeOptions.OrderBy(o => o.LibraryId, StringComparer.OrdinalIgnoreCase))
+            {
+                sb.Append(option.LibraryId).Append(':')
+                    .Append(option.Resolution).Append(option.Hdr).Append(option.Codec)
+                    .Append(option.Audio).Append(option.Language).Append(',');
+            }
+        }
+        sb.Append('|');
         AppendImageTypeFingerprint(sb, config.PosterConfig);
         AppendImageTypeFingerprint(sb, config.ThumbnailConfig);
         if (config.CustomBadgeTexts != null)
@@ -232,6 +243,8 @@ public class ImageCacheService : IImageCacheService
         AppendPanelFingerprint(sb, c.CodecPanel);
         AppendPanelFingerprint(sb, c.AudioPanel);
         AppendPanelFingerprint(sb, c.LanguagePanel);
+        AppendPanelFingerprint(sb, c.CollectionPanel);
+        sb.Append(c.CollectionRegex ?? "n").Append(c.CollectionBadgeText ?? "n").Append('|');
         sb.Append(c.ShowVostIndicator).Append(c.VostBgColor ?? "n").Append(c.VostTextColor ?? "n");
         sb.Append(c.VostBgOpacity).Append(c.VostCornerRadius).Append('|');
     }
