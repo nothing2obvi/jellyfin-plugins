@@ -104,6 +104,7 @@ public class LibraryBadgeOptions
     public bool Codec { get; set; } = true;
     public bool Audio { get; set; } = true;
     public bool Language { get; set; } = true;
+    public bool Collections { get; set; } = true;
 }
 
 public class CollectionBadgeRule

@@ -205,6 +205,7 @@ public partial class ImageOverlayMiddleware
                 BadgeCategory.VideoCodec => options.Codec,
                 BadgeCategory.Audio => options.Audio,
                 BadgeCategory.Language or BadgeCategory.Subtitle => options.Language,
+                BadgeCategory.Collection => options.Collections,
                 _ => true
             };
         }

@@ -217,7 +217,7 @@ public class ImageCacheService : IImageCacheService
             {
                 sb.Append(option.LibraryId).Append(':')
                     .Append(option.Resolution).Append(option.Hdr).Append(option.Codec)
-                    .Append(option.Audio).Append(option.Language).Append(',');
+                    .Append(option.Audio).Append(option.Language).Append(option.Collections).Append(',');
             }
         }
         sb.Append('|');

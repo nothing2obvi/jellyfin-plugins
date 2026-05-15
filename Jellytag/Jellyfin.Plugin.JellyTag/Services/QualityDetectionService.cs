@@ -420,7 +420,7 @@ public class QualityDetectionService : IQualityDetectionService
     {
         "fra", "eng", "jpn", "deu", "spa", "ita", "por", "kor", "zho", "rus",
         "nld", "ara", "hin", "tha", "pol", "tur", "swe", "dan", "nor", "fin",
-        "ces", "hun", "ron", "ukr", "vie", "heb", "ell", "msa", "fil", "slk", "eus", "cym", "cmn", "yue", "nan"
+        "ces", "hun", "ron", "ukr", "vie", "heb", "ell", "msa", "fil", "slk", "eus", "cym", "cmn", "yue", "nan", "und"
     };
 
     private static string NormalizeFlagCode(string langCode)
@@ -432,7 +432,10 @@ public class QualityDetectionService : IQualityDetectionService
     private static string GetFlagResourceFileName(string langCode)
     {
         var normalized = NormalizeFlagCode(langCode);
-        return KnownFlagCodes.Contains(normalized) ? $"flag-{normalized.ToLowerInvariant()}.svg" : string.Empty;
+        if (!KnownFlagCodes.Contains(normalized)) return string.Empty;
+        return string.Equals(normalized, "und", StringComparison.OrdinalIgnoreCase)
+            ? "flag-und.png"
+            : $"flag-{normalized.ToLowerInvariant()}.svg";
     }
 
     /// <summary>
@@ -443,7 +446,11 @@ public class QualityDetectionService : IQualityDetectionService
     {
         var badges = new List<BadgeInfo>();
         var audioStreams = allStreams.Where(s => s.Type == MediaStreamType.Audio).ToList();
-        if (audioStreams.Count == 0) return badges;
+        if (audioStreams.Count == 0)
+        {
+            badges.Add(CreateUndeterminedLanguageBadge());
+            return badges;
+        }
 
         var addedLanguages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -462,6 +469,11 @@ public class QualityDetectionService : IQualityDetectionService
                     ResourceFileName = GetFlagResourceFileName(langLower)
                 });
             }
+        }
+
+        if (badges.Count == 0)
+        {
+            badges.Add(CreateUndeterminedLanguageBadge());
         }
 
         // VOST indicators - always detect, filtering happens in ShouldShowBadge
@@ -493,6 +505,13 @@ public class QualityDetectionService : IQualityDetectionService
             .ThenBy(b => b.BadgeKey, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private static BadgeInfo CreateUndeterminedLanguageBadge() => new()
+    {
+        Category = BadgeCategory.Language,
+        BadgeKey = "und",
+        ResourceFileName = "flag-und.png"
+    };
 
     private static BadgeInfo? DetectHdr(MediaStream videoStream)
     {

@@ -921,7 +921,8 @@
             {key:'Hdr', label:'HDR'},
             {key:'Codec', label:'Codec'},
             {key:'Audio', label:'Audio'},
-            {key:'Language', label:'Language'}
+            {key:'Language', label:'Language'},
+            {key:'Collections', label:'Collections'}
         ];
 
         function loadLibraryCheckboxes(excludedIds, libraryBadgeOptions) {
@@ -984,7 +985,7 @@
                 var id = cb.getAttribute('data-library-id');
                 var type = cb.getAttribute('data-badge-type');
                 if (!byLibrary[id]) {
-                    byLibrary[id] = { LibraryId: id, Resolution: true, Hdr: true, Codec: true, Audio: true, Language: true };
+                    byLibrary[id] = { LibraryId: id, Resolution: true, Hdr: true, Codec: true, Audio: true, Language: true, Collections: true };
                 }
                 byLibrary[id][type] = cb.checked;
             });

@@ -22,17 +22,17 @@
     "guid": "a3db8d87-9a5a-4f35-94b5-7df409f7dc01",
     "name": "JellyTag-Plus",
     "overview": "Overlays quality badges (resolution, HDR, codec, audio, language, collections) on media posters and thumbnails",
-    "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports per-library badge type controls, resolution, HDR, video codec, audio, alphabetized language flags, VOST indicator, and multiple regex-matched collection badges with custom images.",
+    "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports per-library badge type controls, resolution, HDR, video codec, audio, alphabetized language flags with undetermined fallback, VOST indicator, and multiple regex-matched collection badges with custom images.",
     "owner": "nothing2obvi",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
         "version": "1.3.0.0",
-        "changelog": "Add multiple collection badge rules with per-rule custom images, improve per-library badge type controls, and alphabetize language badges.",
+        "changelog": "Add multiple collection badge rules with per-rule custom images, improve per-library badge type controls including Collections, alphabetize language badges, and add undetermined language fallback.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.3.0.0.zip",
-        "checksum": "41897644583cf98fdfa5872f5d39724b",
+        "checksum": "f3f56eff2557923b2bf07098ea179ffb",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]
