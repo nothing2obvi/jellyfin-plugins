@@ -33,10 +33,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "JellyTag";
+    public override string Name => "JellyTag-Plus";
 
     /// <inheritdoc />
-    public override Guid Id => Guid.Parse("f4a2e8c1-9b3d-4f7a-b6c5-2d8e1a3f9b04");
+    public override Guid Id => Guid.Parse("a3db8d87-9a5a-4f35-94b5-7df409f7dc01");
 
     /// <inheritdoc />
     public override string Description => "Adds quality badges (4K, 1080p, etc.) to media posters and thumbnails.";

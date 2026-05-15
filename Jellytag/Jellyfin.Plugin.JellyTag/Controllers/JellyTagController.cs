@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.JellyTag.Controllers;
 /// Controller for JellyTag plugin admin and debug endpoints.
 /// </summary>
 [ApiController]
-[Route("JellyTag")]
+[Route("JellyTagPlus")]
 public partial class JellyTagController : ControllerBase
 {
     private readonly IImageCacheService _cacheService;
@@ -83,6 +83,24 @@ public partial class JellyTagController : ControllerBase
             ThumbnailSameAsPoster = config?.ThumbnailSameAsPoster ?? false,
             OutputFormat = config?.OutputFormat.ToString() ?? "Jpeg"
         });
+    }
+
+    [HttpPost("Configuration")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult SaveConfig([FromBody] PluginConfiguration config)
+    {
+        var plugin = Plugin.Instance;
+        if (plugin == null) return BadRequest("Plugin not loaded");
+        if (config == null) return BadRequest("Invalid configuration");
+
+        plugin.UpdateConfiguration(config);
+        _cacheService.ClearCache();
+        _qualityService.ClearBadgeCache();
+        _overlayService.ReloadBadges();
+
+        return NoContent();
     }
 
     /// <summary>

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.JellyTag</RootNamespace>
-    <AssemblyName>Jellyfin.Plugin.JellyTag</AssemblyName>
+    <AssemblyName>Jellyfin.Plugin.JellyTagPlus</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>

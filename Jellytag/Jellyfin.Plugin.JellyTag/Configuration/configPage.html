@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JellyTag</title>
+    <title>JellyTag-Plus</title>
 </head>
 <body>
     <div id="JellyTagConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
@@ -61,14 +61,14 @@
                 <div class="jellytag-config-layout">
                 <form id="JellyTagConfigForm">
                     <div class="sectionTitleContainer flex align-items-center">
-                        <h2 class="sectionTitle">JellyTag Configuration</h2>
+                        <h2 class="sectionTitle">JellyTag-Plus Configuration</h2>
                     </div>
                     <div class="verticalSection">
                         <h3 class="sectionTitle">General</h3>
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label class="emby-checkbox-label">
                                 <input id="Enabled" type="checkbox" is="emby-checkbox" />
-                                <span>Enable JellyTag</span>
+                                <span>Enable JellyTag-Plus</span>
                             </label>
                         </div>
                     </div>
@@ -193,7 +193,7 @@
                     </details>
 
                     <div class="verticalSection" style="margin-top:1em;">
-                        <button is="emby-button" type="submit" class="raised button-submit block" style="width:100%;"><span>Save</span></button>
+                        <button id="SaveConfig" is="emby-button" type="button" class="raised button-submit block" style="width:100%;"><span>Save</span></button>
                         <button id="ClearCache" type="button" is="emby-button" class="raised button-warning block" style="width:100%; margin-top:.5em;"><span>Clear Image Cache</span></button>
                         <button id="ExportConfig" type="button" is="emby-button" class="raised block" style="width:100%; margin-top:.5em;"><span>Export Config</span></button>
                         <button id="ImportConfigBtn" type="button" is="emby-button" class="raised block" style="width:100%; margin-top:.5em;"><span>Import Config</span></button>
@@ -219,7 +219,7 @@
         </div>
 
         <script type="text/javascript">
-        var JellyTagConfig = { pluginUniqueId: 'f4a2e8c1-9b3d-4f7a-b6c5-2d8e1a3f9b04' };
+        var JellyTagConfig = { pluginUniqueId: 'a3db8d87-9a5a-4f35-94b5-7df409f7dc01' };
 
         // ===== Panel definitions =====
         var PANEL_DEFS = {
@@ -839,7 +839,7 @@
         ];
 
         function loadBadgeGallery() {
-            var url = ApiClient.getUrl('JellyTag/CustomBadges');
+            var url = ApiClient.getUrl('JellyTagPlus/CustomBadges');
             var token = ApiClient.accessToken();
             var headers = {}; if (token) headers['Authorization'] = 'MediaBrowser Token="' + token + '"';
             fetch(url, {headers:headers}).then(function(r){return r.json();}).then(function(customList) {
@@ -849,7 +849,7 @@
                     var card = document.createElement('div'); card.className = 'badge-card' + (isCustom ? ' custom' : '');
                     card.setAttribute('data-badge-key', b.key);
                     var img = document.createElement('img');
-                    var previewUrl = ApiClient.getUrl('JellyTag/BadgePreview/' + b.key);
+                    var previewUrl = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + b.key);
                     img.src = previewUrl + '?t=' + Date.now() + (token ? '&api_key=' + token : ''); img.alt = b.label;
                     card.appendChild(img);
                     var lbl = document.createElement('div'); lbl.className = 'badge-label';
@@ -860,7 +860,7 @@
                         resetBtn.addEventListener('click', function(ev) { ev.stopPropagation();
                             if (confirm('Reset "' + b.label + '" badge to default?')) {
                                 Dashboard.showLoadingMsg();
-                                ApiClient.ajax({type:'DELETE',url:ApiClient.getUrl('JellyTag/CustomBadge/'+b.key)}).then(function(){Dashboard.hideLoadingMsg();loadBadgeGallery();});
+                                ApiClient.ajax({type:'DELETE',url:ApiClient.getUrl('JellyTagPlus/CustomBadge/'+b.key)}).then(function(){Dashboard.hideLoadingMsg();loadBadgeGallery();});
                             }
                         }); card.appendChild(resetBtn);
                     }
@@ -873,7 +873,7 @@
         }
 
         function loadCacheStats() {
-            var url = ApiClient.getUrl('JellyTag/CacheStats');
+            var url = ApiClient.getUrl('JellyTagPlus/CacheStats');
             var token = ApiClient.accessToken(); var headers = {};
             if (token) headers['Authorization'] = 'MediaBrowser Token="' + token + '"';
             fetch(url, {headers:headers}).then(function(r){return r.json();}).then(function(stats) {
@@ -944,24 +944,40 @@
             }
         });
 
-        // ===== Form Submit =====
-        document.querySelector('#JellyTagConfigForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        function saveConfigObject(config) {
+            return ApiClient.ajax({
+                type: 'POST',
+                url: ApiClient.getUrl('JellyTagPlus/Configuration'),
+                contentType: 'application/json',
+                data: JSON.stringify(config)
+            });
+        }
+
+        function saveJellyTagConfig(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
             Dashboard.showLoadingMsg();
             ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config) {
                 collectConfigFromForm(config);
-                ApiClient.updatePluginConfiguration(JellyTagConfig.pluginUniqueId, config).then(function() {
-                    Dashboard.processPluginConfigurationUpdateResult();
-                });
+                return saveConfigObject(config);
+            }).then(function() {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('JellyTag-Plus configuration saved.');
+            }).catch(function(err) {
+                console.error('[JellyTag-Plus] Failed to save config:', err);
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Failed to save JellyTag-Plus configuration.');
             });
             return false;
-        });
+        }
+
+        document.querySelector('#JellyTagConfigForm').addEventListener('submit', saveJellyTagConfig);
+        document.querySelector('#SaveConfig').addEventListener('click', saveJellyTagConfig);
 
         // ===== Other Handlers =====
         document.querySelector('#ClearCache').addEventListener('click', function() {
             if (confirm('Are you sure you want to clear the image cache?')) {
                 Dashboard.showLoadingMsg();
-                ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTag/ClearCache')}).then(function(){
+                ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTagPlus/ClearCache')}).then(function(){
                     Dashboard.hideLoadingMsg(); Dashboard.alert('Cache cleared successfully.'); loadCacheStats();
                 }).catch(function(){Dashboard.hideLoadingMsg();Dashboard.alert('Failed to clear cache.');});
             }
@@ -973,7 +989,7 @@
             var fd = new FormData(); fd.append('file', fi.files[0]);
             Dashboard.showLoadingMsg();
             var xhr = new XMLHttpRequest();
-            xhr.open('POST', ApiClient.getUrl('JellyTag/CustomBadge/' + bk), true);
+            xhr.open('POST', ApiClient.getUrl('JellyTagPlus/CustomBadge/' + bk), true);
             var token = ApiClient.accessToken();
             if (token) xhr.setRequestHeader('Authorization', 'MediaBrowser Token="' + token + '"');
             xhr.onload = function(){Dashboard.hideLoadingMsg();fi.value='';if(xhr.status===204){Dashboard.alert('Badge uploaded.');loadBadgeGallery();}else{Dashboard.alert('Upload failed.');}};
@@ -982,14 +998,14 @@
         });
 
         document.querySelector('#ExportConfig').addEventListener('click', function() {
-            window.location = ApiClient.getUrl('JellyTag/ExportConfig') + '?api_key=' + ApiClient.accessToken();
+            window.location = ApiClient.getUrl('JellyTagPlus/ExportConfig') + '?api_key=' + ApiClient.accessToken();
         });
         document.querySelector('#ImportConfigBtn').addEventListener('click', function() { document.querySelector('#ImportConfigFile').click(); });
         document.querySelector('#ImportConfigFile').addEventListener('change', function() {
             var fi = this; var file = fi.files[0]; if (!file) return;
             if (confirm('Import this configuration? Current settings will be overwritten.')) {
                 Dashboard.showLoadingMsg(); var fd = new FormData(); fd.append('file', file);
-                fetch(ApiClient.getUrl('JellyTag/ImportConfig'), {method:'POST',headers:{'Authorization':'MediaBrowser Token="'+ApiClient.accessToken()+'"'},body:fd}).then(function(r){
+                fetch(ApiClient.getUrl('JellyTagPlus/ImportConfig'), {method:'POST',headers:{'Authorization':'MediaBrowser Token="'+ApiClient.accessToken()+'"'},body:fd}).then(function(r){
                     Dashboard.hideLoadingMsg();fi.value='';if(r.ok){Dashboard.alert('Configuration imported. Reloading...');window.location.reload();}else{r.text().then(function(t){Dashboard.alert('Import failed: '+t);});}
                 }).catch(function(){Dashboard.hideLoadingMsg();fi.value='';Dashboard.alert('Failed to import configuration.');});
             } else { fi.value=''; }
@@ -997,7 +1013,7 @@
         document.querySelector('#ResetAllSettings').addEventListener('click', function() {
             if (confirm('Reset ALL settings to their default values? This cannot be undone.')) {
                 Dashboard.showLoadingMsg();
-                ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTag/ResetConfig')}).then(function(){
+                ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTagPlus/ResetConfig')}).then(function(){
                     Dashboard.hideLoadingMsg();Dashboard.alert('Settings reset. Reloading...');window.location.reload();
                 }).catch(function(){Dashboard.hideLoadingMsg();Dashboard.alert('Failed to reset settings.');});
             }
@@ -1023,8 +1039,8 @@
                         searchResults.appendChild(div);});searchResults.style.display='block';});},300);});
             document.addEventListener('click',function(e){if(!searchResults.contains(e.target)&&e.target!==searchInput)searchResults.style.display='none';});
             function refreshPreview(){if(!previewItemId||refreshing)return;refreshing=true;errorEl.style.display='none';errorEl.textContent='';spinner.style.display='block';
-                ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config){collectConfigFromForm(config);return ApiClient.updatePluginConfiguration(JellyTagConfig.pluginUniqueId,config);}).then(function(){
-                    return ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTag/ClearCache')});}).then(function(){
+                ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config){collectConfigFromForm(config);return saveConfigObject(config);}).then(function(){
+                    return ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTagPlus/ClearCache')});}).then(function(){
                     var token=ApiClient.accessToken();var bust='_t='+Date.now();var tp=token?'&api_key='+token:'';
                     var pu=ApiClient.getUrl('Items/'+previewItemId+'/Images/Primary')+'?'+bust+tp;
                     var tu=ApiClient.getUrl('Items/'+previewItemId+'/Images/Thumb')+'?'+bust+tp;
