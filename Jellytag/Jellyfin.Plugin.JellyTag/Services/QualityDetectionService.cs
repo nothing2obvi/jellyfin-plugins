@@ -141,13 +141,7 @@ public class QualityDetectionService : IQualityDetectionService
         }
         else
         {
-            var query = new InternalItemsQuery
-            {
-                ParentId = item.Id,
-                Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode]
-            };
-            var childVideos = _libraryManager.GetItemList(query).OfType<Video>().ToList();
+            var childVideos = GetChildVideos(item);
 
             var bestResolution = VideoQuality.Unknown;
             Video? bestVideo = null;
@@ -172,11 +166,41 @@ public class QualityDetectionService : IQualityDetectionService
             if (bestVideo != null)
             {
                 DetectHdrAndAudioBadges(bestVideo, badges, includeLanguages: false);
+            }
+
+            if (childVideos.Count > 0)
+            {
                 DetectLanguageBadgesFromVideos(childVideos, badges);
             }
         }
 
         return badges;
+    }
+
+    private List<Video> GetChildVideos(BaseItem item)
+    {
+        var query = new InternalItemsQuery
+        {
+            ParentId = item.Id,
+            Recursive = true,
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode]
+        };
+
+        var childVideos = _libraryManager.GetItemList(query).OfType<Video>().ToList();
+        if (childVideos.Count > 0)
+        {
+            return childVideos;
+        }
+
+        try
+        {
+            return item.GetRecursiveChildren().OfType<Video>().ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to inspect recursive children for item: {ItemName}", item.Name);
+            return childVideos;
+        }
     }
 
 

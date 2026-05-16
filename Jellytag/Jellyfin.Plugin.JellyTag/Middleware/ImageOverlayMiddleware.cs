@@ -197,10 +197,15 @@ public partial class ImageOverlayMiddleware
             return !string.IsNullOrWhiteSpace(imageConfig.CollectionRegex);
         }
 
+        if (item is Season)
+        {
+            return rule.ShowOnSeasonPosters;
+        }
+
         var isThumb = IsThumbnailRequest(imageType, item);
         if (!isThumb)
         {
-            return item is Season ? rule.ShowOnSeasonPosters : rule.ShowOnPosters;
+            return rule.ShowOnPosters;
         }
 
         return item is Episode ? rule.ShowOnEpisodeThumbnails : rule.ShowOnSeriesThumbnails;

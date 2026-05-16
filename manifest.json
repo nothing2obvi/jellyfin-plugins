@@ -28,12 +28,12 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.19.0.0",
-        "changelog": "Normalize full language names like Japanese to flag codes and ignore unsupported language metadata instead of rendering stray text badges.",
+        "version": "1.20.0.0",
+        "changelog": "Fix season collection target filtering and series language fallback for undetermined episode audio.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.19.0.0.zip",
-        "checksum": "dbf24b2d52f65aa3f139e30f0a3bcc71",
-        "timestamp": "2026-05-15T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.20.0.0.zip",
+        "checksum": "",
+        "timestamp": "2026-05-16T00:00:00Z"
       }
     ]
   }
