@@ -32,7 +32,7 @@
         "changelog": "Fix season collection target filtering and series language fallback for undetermined episode audio.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.20.0.0.zip",
-        "checksum": "",
+        "checksum": "be69144ad06f6b2672076e6736c7b950",
         "timestamp": "2026-05-16T00:00:00Z"
       }
     ]

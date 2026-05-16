@@ -192,15 +192,14 @@ public class QualityDetectionService : IQualityDetectionService
             return childVideos;
         }
 
-        try
+        var descendantQuery = new InternalItemsQuery
         {
-            return item.GetRecursiveChildren().OfType<Video>().ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to inspect recursive children for item: {ItemName}", item.Name);
-            return childVideos;
-        }
+            AncestorIds = [item.Id],
+            Recursive = true,
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode]
+        };
+
+        return _libraryManager.GetItemList(descendantQuery).OfType<Video>().ToList();
     }
 
 
