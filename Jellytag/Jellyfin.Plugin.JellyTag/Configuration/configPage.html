@@ -371,9 +371,7 @@
         }
 
         function generatePanels(prefix) {
-            var html = panelHTML(prefix, 'Res') + panelHTML(prefix, 'Hdr') + panelHTML(prefix, 'Codec') + panelHTML(prefix, 'Audio') + langPanelHTML(prefix);
-            if (prefix === 'Poster') html += panelHTML(prefix, 'Collection');
-            return html;
+            return panelHTML(prefix, 'Res') + panelHTML(prefix, 'Hdr') + panelHTML(prefix, 'Codec') + panelHTML(prefix, 'Audio') + langPanelHTML(prefix) + panelHTML(prefix, 'Collection');
         }
 
         // ===== Panel reordering =====
@@ -758,7 +756,7 @@
             loadPanelConfig(prefix, 'Hdr', itc.HdrPanel);
             loadPanelConfig(prefix, 'Codec', itc.CodecPanel);
             loadPanelConfig(prefix, 'Audio', itc.AudioPanel);
-            if (prefix === 'Poster') loadPanelConfig(prefix, 'Collection', itc.CollectionPanel, itc);
+            loadPanelConfig(prefix, 'Collection', itc.CollectionPanel, itc);
             loadLangConfig(prefix, itc.LanguagePanel, itc);
             // Sort panels by Order
             var orderMap = {
@@ -840,11 +838,7 @@
             var k = prefix + 'Lang';
             var container = document.getElementById(prefix + 'Panels');
             var order = container ? getPanelOrder(container) : {Res:0,Hdr:1,Codec:2,Audio:3,Lang:4,Collection:5};
-            var collectionPanel = prefix === 'Poster' ? collectPanelConfig(prefix, 'Collection', order.Collection != null ? order.Collection : 5) : {
-                Enabled: false, Position: 'TopRight', ShowMode: 'Highest', Layout: 'Horizontal', GapPercent: 10, SizePercent: 10, MarginPercent: 2.5,
-                Style: 'Text', Order: 5, TextBgColor: '#000000', TextBgOpacity: 180, TextColor: '#FFFFFF', TextCornerRadius: 25,
-                EnabledBadges: [], BadgeTypeOverrides: []
-            };
+            var collectionPanel = collectPanelConfig(prefix, 'Collection', order.Collection != null ? order.Collection : 5);
             return {
                 Enabled: q(prefix + 'Enabled').checked,
                 ResolutionPanel: collectPanelConfig(prefix, 'Res', order.Res || 0),
@@ -853,7 +847,7 @@
                 AudioPanel: collectPanelConfig(prefix, 'Audio', order.Audio || 0),
                 LanguagePanel: collectLangConfig(prefix),
                 CollectionPanel: collectionPanel,
-                CollectionRules: prefix === 'Poster' ? collectCollectionRules(prefix) : [],
+                CollectionRules: collectCollectionRules(prefix),
                 CollectionRegex: '',
                 CollectionBadgeText: 'COLLECTION',
                 ShowVostIndicator: q(k + 'Vost').checked,
@@ -1004,7 +998,7 @@
 
         function getAllBadgeKeys() {
             var keys = allBadgeKeys.slice();
-            collectCollectionRules('Poster').forEach(function(rule) {
+            collectCollectionRules('Poster').concat(collectCollectionRules('Thumb')).forEach(function(rule) {
                 keys.push({ key: rule.Key, label: 'Collection: ' + rule.Label });
             });
             return keys;

@@ -251,6 +251,7 @@ public partial class ImageOverlayMiddleware
             AudioPanel = ClonePanelWithReduction(source.AudioPanel, reduction),
             LanguagePanel = ClonePanelWithReduction(source.LanguagePanel, reduction),
             CollectionPanel = ClonePanelWithReduction(source.CollectionPanel, reduction),
+            CollectionRules = source.CollectionRules?.Select(r => new CollectionBadgeRule { Key = r.Key, Regex = r.Regex, Label = r.Label }).ToList() ?? new List<CollectionBadgeRule>(),
             CollectionRegex = source.CollectionRegex,
             CollectionBadgeText = source.CollectionBadgeText,
             ShowVostIndicator = source.ShowVostIndicator,
