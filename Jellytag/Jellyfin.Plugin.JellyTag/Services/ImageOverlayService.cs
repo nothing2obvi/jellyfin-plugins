@@ -702,8 +702,8 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
     }
 
     private static bool ShouldReverseOrder(BadgeLayout layout, BadgePosition position) =>
-        (layout == BadgeLayout.Vertical && (position == BadgePosition.BottomLeft || position == BadgePosition.BottomCenter || position == BadgePosition.BottomRight))
-        || (layout == BadgeLayout.Horizontal && (position == BadgePosition.TopRight || position == BadgePosition.MiddleRight || position == BadgePosition.BottomRight));
+        layout == BadgeLayout.Horizontal &&
+        (position == BadgePosition.TopRight || position == BadgePosition.MiddleRight || position == BadgePosition.BottomRight);
 
     private static List<SKPointI> CalculateStackedPositions(
         int imageWidth, int imageHeight,
