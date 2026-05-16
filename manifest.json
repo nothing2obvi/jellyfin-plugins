@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.25.0.0",
-        "changelog": "Make collection badges apply only to the exact movie or series item in the matching collection, with no parent-child inheritance.",
+        "version": "1.26.0.0",
+        "changelog": "Try a direct collection lookup before falling back to the existing cached collection lookup so new collection membership is detected sooner.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.25.0.0.zip",
-        "checksum": "f31e8a3377e645900547ca7bd79911c7",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.26.0.0.zip",
+        "checksum": "fd395f16d1111fa959f748a49b3b3e28",
         "timestamp": "2026-05-16T00:00:00Z"
       }
     ]

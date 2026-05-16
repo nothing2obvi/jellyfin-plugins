@@ -258,27 +258,51 @@ public class QualityDetectionService : IQualityDetectionService
                 AddMatchingCollectionBadges(movie.TmdbCollectionName, compiledRules, addedKeys, badges);
             }
 
-            var collections = _libraryManager.GetItemList(new InternalItemsQuery
+            var collectionItems = GetCollectionCandidateItems(item).ToList();
+            var directCollections = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = [BaseItemKind.BoxSet],
-                Recursive = true
+                Recursive = true,
+                ForceDirect = true
             });
 
-            var collectionItems = GetCollectionCandidateItems(item).ToList();
-            foreach (var collection in collections.OfType<BoxSet>())
+            var foundDirectMatch = AddMatchingCollectionBadgesFromCollections(directCollections, collectionItems, compiledRules, addedKeys, badges);
+            if (!foundDirectMatch)
             {
-                if (!collectionItems.Any(candidate => CollectionContainsItem(collection, candidate)))
+                var cachedCollections = _libraryManager.GetItemList(new InternalItemsQuery
                 {
-                    continue;
-                }
+                    IncludeItemTypes = [BaseItemKind.BoxSet],
+                    Recursive = true
+                });
 
-                AddMatchingCollectionBadges(collection.Name ?? string.Empty, compiledRules, addedKeys, badges);
+                AddMatchingCollectionBadgesFromCollections(cachedCollections, collectionItems, compiledRules, addedKeys, badges);
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to detect collection badge for item: {ItemName}", item.Name);
         }
+    }
+
+    private static bool AddMatchingCollectionBadgesFromCollections(
+        IEnumerable<BaseItem> collections,
+        List<BaseItem> collectionItems,
+        List<(CollectionBadgeRule Rule, Regex Regex)> compiledRules,
+        HashSet<string> addedKeys,
+        List<BadgeInfo> badges)
+    {
+        var originalCount = badges.Count;
+        foreach (var collection in collections.OfType<BoxSet>())
+        {
+            if (!collectionItems.Any(candidate => CollectionContainsItem(collection, candidate)))
+            {
+                continue;
+            }
+
+            AddMatchingCollectionBadges(collection.Name ?? string.Empty, compiledRules, addedKeys, badges);
+        }
+
+        return badges.Count > originalCount;
     }
 
     private static IEnumerable<CollectionBadgeRule> GetCollectionRules(PluginConfiguration config, ImageTypeConfig? imageConfig)
