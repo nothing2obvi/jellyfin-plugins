@@ -1,3 +1,4 @@
+using Jellyfin.Plugin.JellyTag.Configuration;
 using MediaBrowser.Controller.Entities;
 
 namespace Jellyfin.Plugin.JellyTag.Services;
@@ -26,7 +27,7 @@ public interface IQualityDetectionService
     /// </summary>
     /// <param name="item">The base item.</param>
     /// <returns>A list of detected badges.</returns>
-    List<BadgeInfo> DetectAllBadges(BaseItem item);
+    List<BadgeInfo> DetectAllBadges(BaseItem item, ImageTypeConfig? imageConfig = null);
 
     /// <summary>
     /// Clears the in-memory badge detection cache.

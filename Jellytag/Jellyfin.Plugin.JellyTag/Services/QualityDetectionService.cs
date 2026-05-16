@@ -97,7 +97,7 @@ public class QualityDetectionService : IQualityDetectionService
     }
 
     /// <inheritdoc />
-    public List<BadgeInfo> DetectAllBadges(BaseItem item)
+    public List<BadgeInfo> DetectAllBadges(BaseItem item, ImageTypeConfig? imageConfig = null)
     {
         if (_badgeCache.TryGetValue(item.Id, out var cached) && DateTime.UtcNow - cached.CachedAt < BadgeCacheTtl)
         {
@@ -129,11 +129,11 @@ public class QualityDetectionService : IQualityDetectionService
         _badgeCache.Clear();
     }
 
-    private List<BadgeInfo> DetectAllBadgesInternal(BaseItem item)
+    private List<BadgeInfo> DetectAllBadgesInternal(BaseItem item, ImageTypeConfig? imageConfig = null)
     {
         var badges = new List<BadgeInfo>();
 
-        DetectCollectionBadge(item, badges);
+        DetectCollectionBadge(item, badges, imageConfig);
 
         if (item is Video video)
         {
@@ -217,7 +217,7 @@ public class QualityDetectionService : IQualityDetectionService
         return videos;
     }
 
-    private void DetectCollectionBadge(BaseItem item, List<BadgeInfo> badges)
+    private void DetectCollectionBadge(BaseItem item, List<BadgeInfo> badges, ImageTypeConfig? imageConfig)
     {
         var config = Plugin.Instance?.Configuration;
         if (config == null)
@@ -225,7 +225,7 @@ public class QualityDetectionService : IQualityDetectionService
             return;
         }
 
-        var rules = GetCollectionRules(config).ToList();
+        var rules = GetCollectionRules(config, imageConfig).ToList();
         if (rules.Count == 0)
         {
             return;
@@ -281,11 +281,19 @@ public class QualityDetectionService : IQualityDetectionService
         }
     }
 
-    private static IEnumerable<CollectionBadgeRule> GetCollectionRules(PluginConfiguration config)
+    private static IEnumerable<CollectionBadgeRule> GetCollectionRules(PluginConfiguration config, ImageTypeConfig? imageConfig)
     {
         var rules = new List<CollectionBadgeRule>();
-        AddRules(config.PosterConfig, rules);
-        AddRules(config.ThumbnailConfig, rules);
+
+        if (imageConfig != null)
+        {
+            AddRules(imageConfig, rules);
+        }
+        else
+        {
+            AddRules(config.PosterConfig, rules);
+            AddRules(config.ThumbnailConfig, rules);
+        }
 
         return rules
             .Where(r => !string.IsNullOrWhiteSpace(r.Regex))
@@ -435,15 +443,6 @@ public class QualityDetectionService : IQualityDetectionService
             string.Equals(candidate.Path, target.Path, StringComparison.OrdinalIgnoreCase))
         {
             return true;
-        }
-
-        foreach (var provider in target.ProviderIds)
-        {
-            if (candidate.ProviderIds.TryGetValue(provider.Key, out var value) &&
-                string.Equals(value, provider.Value, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
         }
 
         return false;

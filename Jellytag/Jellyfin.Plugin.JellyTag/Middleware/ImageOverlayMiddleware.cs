@@ -97,7 +97,7 @@ public partial class ImageOverlayMiddleware
         }
 
         // Detect all badges and filter by config
-        var allBadges = qualityService.DetectAllBadges(item);
+        var allBadges = qualityService.DetectAllBadges(item, imageConfig);
         _logger.LogDebug("DetectAllBadges for {Item}: {Count} badges found: {Badges}",
             item.Name, allBadges.Count, string.Join(", ", allBadges.Select(b => $"{b.Category}:{b.BadgeKey}")));
 
