@@ -578,7 +578,7 @@ public class QualityDetectionService : IQualityDetectionService
         var normalized = NormalizeFlagCode(langCode);
         if (!KnownFlagCodes.Contains(normalized)) return string.Empty;
         return string.Equals(normalized, "und", StringComparison.OrdinalIgnoreCase)
-            ? "flag-und.png"
+            ? "flag-und.svg"
             : $"flag-{normalized.ToLowerInvariant()}.svg";
     }
 
@@ -686,7 +686,7 @@ public class QualityDetectionService : IQualityDetectionService
     {
         Category = BadgeCategory.Language,
         BadgeKey = "und",
-        ResourceFileName = "flag-und.png"
+        ResourceFileName = "flag-und.svg"
     };
 
     private static BadgeInfo? DetectHdr(MediaStream videoStream)

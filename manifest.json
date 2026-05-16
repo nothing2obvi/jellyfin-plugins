@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.15.0.0",
-        "changelog": "Force compact clickable collection target checkboxes and keep image preview rows visible in collection rule configuration.",
+        "version": "1.17.0.0",
+        "changelog": "Update English, Basque, and undetermined language flag assets, and use flag-und.svg for undetermined language badges.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.15.0.0.zip",
-        "checksum": "7a024480793c04f18a25670da3dc6db8",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.17.0.0.zip",
+        "checksum": "7007a3d53509f467cf32caee3f636fae",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]
