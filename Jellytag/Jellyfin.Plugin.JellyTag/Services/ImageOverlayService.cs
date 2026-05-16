@@ -564,6 +564,7 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                         if (customBadge != null)
                         {
                             customBadge = TrimTransparent(customBadge);
+                            _rasterCache[pngFileName] = customBadge;
                             _rasterCache[svgFileName] = customBadge;
                             _logger.LogInformation("Loaded custom PNG badge: {FileName}", pngFileName);
                             continue;
@@ -587,6 +588,7 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                             if (customBadge != null)
                             {
                                 customBadge = TrimTransparent(customBadge);
+                                _rasterCache[baseName + ext] = customBadge;
                                 _rasterCache[svgFileName] = customBadge;
                                 _logger.LogInformation("Loaded custom JPEG badge: {FileName}", baseName + ext);
                                 foundJpeg = true;
@@ -642,6 +644,7 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                         if (badge != null)
                         {
                             badge = TrimTransparent(badge);
+                            _rasterCache[pngFileName] = badge;
                             _rasterCache[svgFileName] = badge;
                             _logger.LogInformation("Loaded embedded PNG fallback: {FileName}", pngFileName);
                         }

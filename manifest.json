@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.9.0.0",
-        "changelog": "Keep vertical badge stacks in detected order so alphabetized language flags render alphabetically from top to bottom.",
+        "version": "1.10.0.0",
+        "changelog": "Fix PNG badge lookup so undetermined language uses flag-und.png instead of falling back to UND text.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.9.0.0.zip",
-        "checksum": "b17d08173259ce73142e9d542eeed53a",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.10.0.0.zip",
+        "checksum": "7bb26c3a2497423d1350685703202680",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]
