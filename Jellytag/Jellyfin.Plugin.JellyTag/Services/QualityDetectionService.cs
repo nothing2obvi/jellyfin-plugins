@@ -362,38 +362,9 @@ public class QualityDetectionService : IQualityDetectionService
         }
     }
 
-    private IEnumerable<BaseItem> GetCollectionCandidateItems(BaseItem item)
+    private static IEnumerable<BaseItem> GetCollectionCandidateItems(BaseItem item)
     {
-        var seen = new HashSet<Guid>();
-        if (seen.Add(item.Id))
-        {
-            yield return item;
-        }
-
-        if (item is Episode episode)
-        {
-            var series = episode.Series ?? (episode.SeriesId == Guid.Empty ? null : _libraryManager.GetItemById(episode.SeriesId) as Series);
-            if (series != null && seen.Add(series.Id))
-            {
-                yield return series;
-            }
-        }
-        else if (item is Season season)
-        {
-            var series = season.Series ?? (season.SeriesId == Guid.Empty ? null : _libraryManager.GetItemById(season.SeriesId) as Series);
-            if (series != null && seen.Add(series.Id))
-            {
-                yield return series;
-            }
-        }
-
-        foreach (var parent in item.GetParents())
-        {
-            if (parent is Series or Season && seen.Add(parent.Id))
-            {
-                yield return parent;
-            }
-        }
+        yield return item;
     }
 
     private static bool CollectionContainsItem(BoxSet collection, BaseItem item)
