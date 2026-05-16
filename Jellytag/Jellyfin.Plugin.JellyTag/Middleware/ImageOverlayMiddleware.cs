@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Services;
@@ -116,11 +118,12 @@ public partial class ImageOverlayMiddleware
         }
 
         var badgeKey = string.Join("_", visibleBadges.Select(b => b.BadgeKey));
+        var badgeState = GetBadgeStateFingerprint(visibleBadges);
         _logger.LogInformation("Applying {Count} badges to {Item}: {BadgeKey}", visibleBadges.Count, item.Name, badgeKey);
 
         var query = context.Request.QueryString.Value ?? string.Empty;
         var tag = context.Request.Query["tag"].FirstOrDefault() ?? item.DateModified.Ticks.ToString();
-        var imageTag = $"{tag}_{imageType}_{query}";
+        var imageTag = $"{tag}_{imageType}_{query}_{badgeState}";
 
         var cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
         if (cachedImage != null)
@@ -183,6 +186,17 @@ public partial class ImageOverlayMiddleware
         }
     }
 
+
+
+    private static string GetBadgeStateFingerprint(IReadOnlyList<BadgeInfo> badges)
+    {
+        var state = string.Join("|", badges
+            .OrderBy(b => b.Category)
+            .ThenBy(b => b.BadgeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(b => $"{b.Category}:{b.BadgeKey}:{b.ResourceFileName}"));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(state));
+        return Convert.ToHexString(hash)[..16];
+    }
 
     private static bool ShouldShowCollectionBadgeForImage(BadgeInfo badge, ImageTypeConfig imageConfig, string imageType, BaseItem item)
     {
