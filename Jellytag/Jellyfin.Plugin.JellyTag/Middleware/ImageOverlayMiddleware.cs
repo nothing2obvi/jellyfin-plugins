@@ -200,7 +200,7 @@ public partial class ImageOverlayMiddleware
         var isThumb = IsThumbnailRequest(imageType, item);
         if (!isThumb)
         {
-            return rule.ShowOnPosters;
+            return item is Season ? rule.ShowOnSeasonPosters : rule.ShowOnPosters;
         }
 
         return item is Episode ? rule.ShowOnEpisodeThumbnails : rule.ShowOnSeriesThumbnails;
@@ -295,6 +295,7 @@ public partial class ImageOverlayMiddleware
                 Regex = r.Regex,
                 Label = r.Label,
                 ShowOnPosters = r.ShowOnPosters,
+                ShowOnSeasonPosters = r.ShowOnSeasonPosters,
                 ShowOnSeriesThumbnails = r.ShowOnSeriesThumbnails,
                 ShowOnEpisodeThumbnails = r.ShowOnEpisodeThumbnails
             }).ToList() ?? new List<CollectionBadgeRule>(),

@@ -506,6 +506,7 @@
             var label = rule.Label || rule.label || '';
             var regex = rule.Regex || rule.regex || '';
             var showOnPosters = rule.ShowOnPosters !== false && rule.showOnPosters !== false;
+            var showOnSeasonPosters = rule.ShowOnSeasonPosters !== false && rule.showOnSeasonPosters !== false;
             var showOnSeriesThumbs = rule.ShowOnSeriesThumbnails !== false && rule.showOnSeriesThumbnails !== false;
             var showOnEpisodeThumbs = rule.ShowOnEpisodeThumbnails !== false && rule.showOnEpisodeThumbnails !== false;
             if (!rawKey && label) rawKey = normalizeCollectionKey(label);
@@ -520,6 +521,7 @@
                 '</div>' +
                 '<div class="collection-rule-targets">' +
                 '<input id="' + idBase + 'Poster" class="collectionRulePoster collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnPosters ? 'checked' : '') + ' /><label for="' + idBase + 'Poster">Posters</label>' +
+                '<input id="' + idBase + 'SeasonPoster" class="collectionRuleSeasonPoster collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnSeasonPosters ? 'checked' : '') + ' /><label for="' + idBase + 'SeasonPoster">Season posters</label>' +
                 '<input id="' + idBase + 'SeriesThumb" class="collectionRuleSeriesThumb collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnSeriesThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'SeriesThumb">Series thumbnails</label>' +
                 '<input id="' + idBase + 'EpisodeThumb" class="collectionRuleEpisodeThumb collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'EpisodeThumb">Episode thumbnails</label>' +
                 '</div>' +
@@ -585,7 +587,7 @@
             container.innerHTML = '';
             var rules = itc.CollectionRules || itc.collectionRules || [];
             if ((!rules || rules.length === 0) && itc.CollectionRegex) {
-                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION', ShowOnPosters: true, ShowOnSeriesThumbnails: true, ShowOnEpisodeThumbnails: true }];
+                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION', ShowOnPosters: true, ShowOnSeasonPosters: true, ShowOnSeriesThumbnails: true, ShowOnEpisodeThumbnails: true }];
             }
             rules.forEach(function(rule) { addCollectionRule(k, rule); });
         }
@@ -608,6 +610,7 @@
                     Regex: regex,
                     Label: label || key.toUpperCase(),
                     ShowOnPosters: row.querySelector('.collectionRulePoster').checked,
+                    ShowOnSeasonPosters: row.querySelector('.collectionRuleSeasonPoster').checked,
                     ShowOnSeriesThumbnails: row.querySelector('.collectionRuleSeriesThumb').checked,
                     ShowOnEpisodeThumbnails: row.querySelector('.collectionRuleEpisodeThumb').checked
                 });

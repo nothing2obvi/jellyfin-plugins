@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.17.0.0",
-        "changelog": "Update English, Basque, and undetermined language flag assets, and use flag-und.svg for undetermined language badges.",
+        "version": "1.18.0.0",
+        "changelog": "Add season poster targeting for collection badges and keep updated language flag SVG assets.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.17.0.0.zip",
-        "checksum": "7007a3d53509f467cf32caee3f636fae",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.18.0.0.zip",
+        "checksum": "0ae0d404daccda7ce34dbae3cd83771f",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]
