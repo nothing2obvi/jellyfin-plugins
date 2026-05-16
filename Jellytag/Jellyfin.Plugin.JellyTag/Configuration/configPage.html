@@ -37,10 +37,11 @@
             .badge-card .badge-reset { position: absolute; top: 4px; right: 4px; background: #c62828; color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; display: none; padding: 0; }
             .badge-card.custom .badge-reset { display: block; }
             .collection-rule-targets { margin: .5em 0; display: flex; flex-wrap: wrap; gap: .75em; align-items: center; }
-            .collection-rule-targets label { display: inline-flex; align-items: center; gap: .35em; font-size: .9em; line-height: 1.2; cursor: pointer; }
-            .collection-rule-targets input { width: 14px; height: 14px; margin: 0; flex: 0 0 14px; }
-            .collection-rule-preview { display: flex; align-items: center; gap: .75em; margin: .5em 0; min-height: 42px; }
-            .collection-rule-preview img { display: none; width: 64px; height: 40px; object-fit: contain; border: 1px solid rgba(255,255,255,.15); border-radius: .25em; background: rgba(0,0,0,.2); padding: .2em; }
+            .collection-rule-targets label { display: inline-flex; align-items: center; gap: .35em; font-size: .9em; line-height: 1.2; cursor: pointer; user-select: none; }
+            .collection-rule-targets input.collection-target-checkbox { appearance: auto !important; -webkit-appearance: checkbox !important; position: static !important; opacity: 1 !important; pointer-events: auto !important; width: 14px !important; min-width: 14px !important; max-width: 14px !important; height: 14px !important; min-height: 14px !important; max-height: 14px !important; margin: 0 !important; padding: 0 !important; transform: none !important; flex: 0 0 14px !important; }
+            .collection-rule-preview { display: flex; align-items: center; gap: .75em; margin: .5em 0; min-height: 46px; }
+            .collection-rule-preview img { display: block; width: 64px; height: 40px; object-fit: contain; border: 1px solid rgba(255,255,255,.15); border-radius: .25em; background: rgba(0,0,0,.2); padding: .2em; }
+            .collection-rule-preview img.missing { visibility: hidden; }
             .collection-rule-preview span { font-size: .85em; color: #aaa; }
             .jellytag-config-layout { display: block; margin-right: 350px; }
             .jellytag-config-layout > form { min-width: 0; }
@@ -509,6 +510,8 @@
             var showOnEpisodeThumbs = rule.ShowOnEpisodeThumbnails !== false && rule.showOnEpisodeThumbnails !== false;
             if (!rawKey && label) rawKey = normalizeCollectionKey(label);
             var key = rawKey || ('collection-' + (index + 1));
+            var idBase = k + 'Rule' + index;
+            var boxStyle = 'style="appearance:auto!important;-webkit-appearance:checkbox!important;position:static!important;opacity:1!important;pointer-events:auto!important;width:14px!important;min-width:14px!important;max-width:14px!important;height:14px!important;min-height:14px!important;max-height:14px!important;margin:0!important;padding:0!important;transform:none!important;"';
             return '<div class="jellytag-text-box collection-rule" data-rule-index="' + index + '" style="margin-bottom:.75em;">' +
                 '<div class="jellytag-grid">' +
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Badge Key</label><input class="collectionRuleKey" type="text" is="emby-input" value="' + escapeHtml(key) + '" placeholder="marvel" /></div>' +
@@ -516,11 +519,11 @@
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Text Label</label><input class="collectionRuleLabel" type="text" is="emby-input" value="' + escapeHtml(label || key.toUpperCase()) + '" placeholder="MCU" /></div>' +
                 '</div>' +
                 '<div class="collection-rule-targets">' +
-                '<label><input class="collectionRulePoster" type="checkbox" ' + (showOnPosters ? 'checked' : '') + ' /> Posters</label>' +
-                '<label><input class="collectionRuleSeriesThumb" type="checkbox" ' + (showOnSeriesThumbs ? 'checked' : '') + ' /> Series thumbnails</label>' +
-                '<label><input class="collectionRuleEpisodeThumb" type="checkbox" ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /> Episode thumbnails</label>' +
+                '<input id="' + idBase + 'Poster" class="collectionRulePoster collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnPosters ? 'checked' : '') + ' /><label for="' + idBase + 'Poster">Posters</label>' +
+                '<input id="' + idBase + 'SeriesThumb" class="collectionRuleSeriesThumb collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnSeriesThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'SeriesThumb">Series thumbnails</label>' +
+                '<input id="' + idBase + 'EpisodeThumb" class="collectionRuleEpisodeThumb collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'EpisodeThumb">Episode thumbnails</label>' +
                 '</div>' +
-                '<div class="collection-rule-preview"><img alt="Collection badge preview" /><span>No image uploaded</span></div>' +
+                '<div class="collection-rule-preview"><img class="missing" alt="Collection badge preview" /><span>Image preview: none uploaded</span></div>' +
                 '<button type="button" is="emby-button" class="collectionRuleUpload raised"><span>Upload Image</span></button>' +
                 '<button type="button" is="emby-button" class="collectionRuleRemove raised button-warning" style="margin-left:.5em;"><span>Remove</span></button>' +
                 '</div>';
@@ -540,8 +543,8 @@
             var key = normalizeCollectionKey(keyInput.value);
             var token = ApiClient.accessToken();
             var url = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + key) + '?t=' + Date.now() + (token ? '&api_key=' + token : '');
-            img.onload = function() { img.style.display = 'block'; label.textContent = 'Uploaded image'; };
-            img.onerror = function() { img.style.display = 'none'; label.textContent = 'No image uploaded'; };
+            img.onload = function() { img.classList.remove('missing'); label.textContent = 'Image preview'; };
+            img.onerror = function() { img.classList.add('missing'); label.textContent = 'Image preview: none uploaded'; };
             img.src = url;
         }
 
