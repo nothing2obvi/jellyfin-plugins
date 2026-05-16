@@ -555,11 +555,43 @@ public class QualityDetectionService : IQualityDetectionService
 
     private static readonly Dictionary<string, string> LangCodeToFlag = new(StringComparer.OrdinalIgnoreCase)
     {
-        { "fre", "fra" }, { "ger", "deu" }, { "dut", "nld" }, { "cze", "ces" }, { "rum", "ron" }, { "chi", "zho" },
-        { "gre", "ell" }, { "may", "msa" }, { "tgl", "fil" }, { "slo", "slk" }, { "baq", "eus" }, { "wel", "cym" }
+        { "en", "eng" }, { "english", "eng" },
+        { "ja", "jpn" }, { "jp", "jpn" }, { "japanese", "jpn" },
+        { "fr", "fra" }, { "fre", "fra" }, { "french", "fra" },
+        { "de", "deu" }, { "ger", "deu" }, { "german", "deu" },
+        { "nl", "nld" }, { "dut", "nld" }, { "dutch", "nld" },
+        { "es", "spa" }, { "spanish", "spa" },
+        { "it", "ita" }, { "italian", "ita" },
+        { "pt", "por" }, { "portuguese", "por" },
+        { "ko", "kor" }, { "korean", "kor" },
+        { "zh", "zho" }, { "chi", "zho" }, { "chinese", "zho" },
+        { "ru", "rus" }, { "russian", "rus" },
+        { "ar", "ara" }, { "arabic", "ara" },
+        { "hi", "hin" }, { "hindi", "hin" },
+        { "th", "tha" }, { "thai", "tha" },
+        { "pl", "pol" }, { "polish", "pol" },
+        { "tr", "tur" }, { "turkish", "tur" },
+        { "sv", "swe" }, { "swedish", "swe" },
+        { "da", "dan" }, { "danish", "dan" },
+        { "no", "nor" }, { "nb", "nor" }, { "nn", "nor" }, { "norwegian", "nor" },
+        { "fi", "fin" }, { "finnish", "fin" },
+        { "cs", "ces" }, { "cze", "ces" }, { "czech", "ces" },
+        { "hu", "hun" }, { "hungarian", "hun" },
+        { "ro", "ron" }, { "rum", "ron" }, { "romanian", "ron" },
+        { "uk", "ukr" }, { "ukrainian", "ukr" },
+        { "vi", "vie" }, { "vietnamese", "vie" },
+        { "he", "heb" }, { "iw", "heb" }, { "hebrew", "heb" },
+        { "el", "ell" }, { "gre", "ell" }, { "greek", "ell" },
+        { "ms", "msa" }, { "may", "msa" }, { "malay", "msa" },
+        { "tl", "fil" }, { "tgl", "fil" }, { "tagalog", "fil" }, { "filipino", "fil" },
+        { "sk", "slk" }, { "slo", "slk" }, { "slovak", "slk" },
+        { "eu", "eus" }, { "baq", "eus" }, { "basque", "eus" },
+        { "cy", "cym" }, { "wel", "cym" }, { "welsh", "cym" },
+        { "mandarin", "cmn" }, { "cantonese", "yue" }, { "taiwanese", "nan" },
+        { "unknown", "und" }, { "undetermined", "und" }, { "undefined", "und" }
     };
 
-    // Only include language codes that have a matching flag-{code}.svg asset
+    // Only include language codes that have a matching flag-{code}.svg asset.
     private static readonly HashSet<string> KnownFlagCodes = new(StringComparer.OrdinalIgnoreCase)
     {
         "fra", "eng", "jpn", "deu", "spa", "ita", "por", "kor", "zho", "rus",
@@ -567,16 +599,29 @@ public class QualityDetectionService : IQualityDetectionService
         "ces", "hun", "ron", "ukr", "vie", "heb", "ell", "msa", "fil", "slk", "eus", "cym", "cmn", "yue", "nan", "und"
     };
 
-    private static string NormalizeFlagCode(string langCode)
+    private static string NormalizeLanguageToken(string langCode)
     {
         var normalized = langCode.Trim().ToLowerInvariant();
-        return LangCodeToFlag.TryGetValue(normalized, out var mapped) ? mapped : normalized;
+        var firstToken = Regex.Split(normalized, @"[^a-z0-9]+").FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+        return firstToken ?? normalized;
+    }
+
+    private static string? TryNormalizeFlagCode(string? langCode)
+    {
+        if (string.IsNullOrWhiteSpace(langCode))
+        {
+            return null;
+        }
+
+        var normalized = NormalizeLanguageToken(langCode);
+        var mapped = LangCodeToFlag.TryGetValue(normalized, out var mappedCode) ? mappedCode : normalized;
+        return KnownFlagCodes.Contains(mapped) ? mapped : null;
     }
 
     private static string GetFlagResourceFileName(string langCode)
     {
-        var normalized = NormalizeFlagCode(langCode);
-        if (!KnownFlagCodes.Contains(normalized)) return string.Empty;
+        var normalized = TryNormalizeFlagCode(langCode);
+        if (string.IsNullOrEmpty(normalized)) return string.Empty;
         return string.Equals(normalized, "und", StringComparison.OrdinalIgnoreCase)
             ? "flag-und.svg"
             : $"flag-{normalized.ToLowerInvariant()}.svg";
@@ -633,10 +678,9 @@ public class QualityDetectionService : IQualityDetectionService
         // Detect all audio languages
         foreach (var stream in audioStreams)
         {
-            var lang = stream.Language;
-            if (!string.IsNullOrWhiteSpace(lang))
+            var langLower = TryNormalizeFlagCode(stream.Language);
+            if (!string.IsNullOrEmpty(langLower))
             {
-                var langLower = NormalizeFlagCode(lang);
                 if (!addedLanguages.Add(langLower)) continue;
                 badges.Add(new BadgeInfo
                 {
@@ -654,13 +698,13 @@ public class QualityDetectionService : IQualityDetectionService
 
         // VOST indicators - always detect, filtering happens in ShouldShowBadge
         var audioLanguages = new HashSet<string>(
-            audioStreams.Where(s => !string.IsNullOrWhiteSpace(s.Language)).Select(s => NormalizeFlagCode(s.Language!)),
+            audioStreams.Select(s => TryNormalizeFlagCode(s.Language)).Where(s => !string.IsNullOrEmpty(s))!,
             StringComparer.OrdinalIgnoreCase);
 
         var subtitleStreams = allStreams.Where(s => s.Type == MediaStreamType.Subtitle).ToList();
         foreach (var sub in subtitleStreams)
         {
-            var subLang = string.IsNullOrWhiteSpace(sub.Language) ? null : NormalizeFlagCode(sub.Language);
+            var subLang = TryNormalizeFlagCode(sub.Language);
             if (!string.IsNullOrEmpty(subLang) && !audioLanguages.Contains(subLang))
             {
                 var key = "vost" + subLang;
