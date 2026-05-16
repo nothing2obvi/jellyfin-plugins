@@ -36,6 +36,12 @@
             .badge-card .badge-label { margin-top: .4em; font-size: .85em; text-align: center; }
             .badge-card .badge-reset { position: absolute; top: 4px; right: 4px; background: #c62828; color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; display: none; padding: 0; }
             .badge-card.custom .badge-reset { display: block; }
+            .collection-rule-targets { margin: .5em 0; display: flex; flex-wrap: wrap; gap: .75em; align-items: center; }
+            .collection-rule-targets label { display: inline-flex; align-items: center; gap: .35em; font-size: .9em; line-height: 1.2; cursor: pointer; }
+            .collection-rule-targets input { width: 14px; height: 14px; margin: 0; flex: 0 0 14px; }
+            .collection-rule-preview { display: flex; align-items: center; gap: .75em; margin: .5em 0; min-height: 42px; }
+            .collection-rule-preview img { display: none; width: 64px; height: 40px; object-fit: contain; border: 1px solid rgba(255,255,255,.15); border-radius: .25em; background: rgba(0,0,0,.2); padding: .2em; }
+            .collection-rule-preview span { font-size: .85em; color: #aaa; }
             .jellytag-config-layout { display: block; margin-right: 350px; }
             .jellytag-config-layout > form { min-width: 0; }
             .jellytag-preview-panel { position: fixed; top: 4.5em; width: 322px; max-height: calc(100vh - 5.5em); overflow-y: auto; border: 1px solid rgba(255,255,255,.12); border-radius: .4em; background: rgba(20,20,20,.95); padding: 1em; z-index: 50; }
@@ -509,11 +515,12 @@
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Collection Regex</label><input class="collectionRuleRegex" type="text" is="emby-input" value="' + escapeHtml(regex) + '" placeholder="Marvel|MCU" /></div>' +
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Text Label</label><input class="collectionRuleLabel" type="text" is="emby-input" value="' + escapeHtml(label || key.toUpperCase()) + '" placeholder="MCU" /></div>' +
                 '</div>' +
-                '<div class="checkboxContainer" style="margin:.5em 0; display:flex; flex-wrap:wrap; gap:1em;">' +
-                '<label><input class="collectionRulePoster" type="checkbox" is="emby-checkbox" ' + (showOnPosters ? 'checked' : '') + ' /> Posters</label>' +
-                '<label><input class="collectionRuleSeriesThumb" type="checkbox" is="emby-checkbox" ' + (showOnSeriesThumbs ? 'checked' : '') + ' /> Series thumbnails</label>' +
-                '<label><input class="collectionRuleEpisodeThumb" type="checkbox" is="emby-checkbox" ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /> Episode thumbnails</label>' +
+                '<div class="collection-rule-targets">' +
+                '<label><input class="collectionRulePoster" type="checkbox" ' + (showOnPosters ? 'checked' : '') + ' /> Posters</label>' +
+                '<label><input class="collectionRuleSeriesThumb" type="checkbox" ' + (showOnSeriesThumbs ? 'checked' : '') + ' /> Series thumbnails</label>' +
+                '<label><input class="collectionRuleEpisodeThumb" type="checkbox" ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /> Episode thumbnails</label>' +
                 '</div>' +
+                '<div class="collection-rule-preview"><img alt="Collection badge preview" /><span>No image uploaded</span></div>' +
                 '<button type="button" is="emby-button" class="collectionRuleUpload raised"><span>Upload Image</span></button>' +
                 '<button type="button" is="emby-button" class="collectionRuleRemove raised button-warning" style="margin-left:.5em;"><span>Remove</span></button>' +
                 '</div>';
@@ -523,6 +530,23 @@
             return String(value || '').replace(/[&<>"']/g, function(ch) {
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
             });
+        }
+
+        function updateCollectionRulePreview(row) {
+            var keyInput = row.querySelector('.collectionRuleKey');
+            var img = row.querySelector('.collection-rule-preview img');
+            var label = row.querySelector('.collection-rule-preview span');
+            if (!keyInput || !img || !label) return;
+            var key = normalizeCollectionKey(keyInput.value);
+            var token = ApiClient.accessToken();
+            var url = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + key) + '?t=' + Date.now() + (token ? '&api_key=' + token : '');
+            img.onload = function() { img.style.display = 'block'; label.textContent = 'Uploaded image'; };
+            img.onerror = function() { img.style.display = 'none'; label.textContent = 'No image uploaded'; };
+            img.src = url;
+        }
+
+        function updateCollectionRulePreviews() {
+            document.querySelectorAll('.collection-rule').forEach(updateCollectionRulePreview);
         }
 
         function addCollectionRule(k, rule) {
@@ -537,6 +561,7 @@
             var labelInput = el.querySelector('.collectionRuleLabel');
             el.querySelector('.collectionRuleUpload').addEventListener('click', function() {
                 keyInput.value = normalizeCollectionKey(keyInput.value || labelInput.value);
+                updateCollectionRulePreview(el);
                 var fi = document.querySelector('#CustomBadgeFile');
                 fi.setAttribute('data-target-key', keyInput.value);
                 fi.click();
@@ -545,8 +570,9 @@
                 el.parentNode.removeChild(el);
                 loadBadgeGallery();
             });
-            keyInput.addEventListener('blur', function() { keyInput.value = normalizeCollectionKey(keyInput.value || labelInput.value); loadBadgeGallery(); });
-            labelInput.addEventListener('blur', function() { if (!keyInput.value) keyInput.value = normalizeCollectionKey(labelInput.value); loadBadgeGallery(); });
+            keyInput.addEventListener('blur', function() { keyInput.value = normalizeCollectionKey(keyInput.value || labelInput.value); updateCollectionRulePreview(el); loadBadgeGallery(); });
+            labelInput.addEventListener('blur', function() { if (!keyInput.value) keyInput.value = normalizeCollectionKey(labelInput.value); updateCollectionRulePreview(el); loadBadgeGallery(); });
+            updateCollectionRulePreview(el);
         }
 
         function loadCollectionRules(prefix, itc) {
@@ -1173,7 +1199,7 @@
             xhr.open('POST', ApiClient.getUrl('JellyTagPlus/CustomBadge/' + bk), true);
             var token = ApiClient.accessToken();
             if (token) xhr.setRequestHeader('Authorization', 'MediaBrowser Token="' + token + '"');
-            xhr.onload = function(){Dashboard.hideLoadingMsg();fi.value='';if(xhr.status===204){Dashboard.alert('Badge uploaded.');loadBadgeGallery();}else{Dashboard.alert('Upload failed.');}};
+            xhr.onload = function(){Dashboard.hideLoadingMsg();fi.value='';if(xhr.status===204){Dashboard.alert('Badge uploaded.');loadBadgeGallery();updateCollectionRulePreviews();}else{Dashboard.alert('Upload failed.');}};
             xhr.onerror = function(){Dashboard.hideLoadingMsg();fi.value='';Dashboard.alert('Upload failed.');};
             xhr.send(fd);
         });

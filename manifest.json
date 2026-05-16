@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.13.0.0",
-        "changelog": "Add per-collection target checkboxes for posters, series thumbnails, and episode thumbnails.",
+        "version": "1.14.0.0",
+        "changelog": "Improve collection target checkbox layout and show uploaded image previews for collection badge rules.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.13.0.0.zip",
-        "checksum": "b84106ae002857cda3f32dbf70ceafb6",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.14.0.0.zip",
+        "checksum": "ab9c47004c389bce1f33642c1015d578",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]
