@@ -1,28 +1,25 @@
-name: "JellyTag"
-guid: "f4a2e8c1-9b3d-4f7a-b6c5-2d8e1a3f9b04"
-version: "1.5.0.0"
-targetAbi: "10.10.0.0"
+name: "JellyTag-Plus"
+guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
+version: "1.8.0.0"
+targetAbi: "10.11.0.0"
 framework: "net9.0"
-owner: "JellyTag"
+owner: "nothing2obvi"
 overview: "Overlays quality badges (resolution, HDR, codec, audio, language, collections) on media posters and thumbnails."
 description: |
-  JellyTag automatically adds quality resolution badges to your media posters and thumbnails.
+  JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails.
   Badges are visible on all clients including web, mobile, TV, and Kodi.
 
   Features:
-  - Automatic quality detection based on video resolution
-  - Configurable badge position (corners)
-  - Configurable badge size
+  - Per-library badge type controls
+  - Resolution, HDR, codec, audio, language, and collection badges
+  - Custom collection badge images matched by regex
   - Image caching for performance
-  - Support for 4K, 1080p, 720p, and SD badges
 
 category: "General"
 artifacts:
-  - "Jellyfin.Plugin.JellyTag.dll"
+  - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
-  ## v1.0.0.0
-  - Initial release
-  - Quality detection for 4K, 1080p, 720p, SD
-  - Configurable badge position and size
-  - Image caching
+  ## v1.8.0.0
+  - Fix custom Jellyfin collection badge detection
+  - Match BoxSet linked child tuples, item IDs, library item IDs, and paths
   - HTTP middleware for universal client support

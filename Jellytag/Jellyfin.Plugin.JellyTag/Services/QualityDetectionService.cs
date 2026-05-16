@@ -144,27 +144,23 @@ public class QualityDetectionService : IQualityDetectionService
             {
                 ParentId = item.Id,
                 Recursive = true,
-                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode],
-                Limit = 10
+                IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode]
             };
-            var children = _libraryManager.GetItemList(query);
+            var childVideos = _libraryManager.GetItemList(query).OfType<Video>().ToList();
 
             var bestResolution = VideoQuality.Unknown;
             Video? bestVideo = null;
 
-            foreach (var child in children)
+            foreach (var childVideo in childVideos)
             {
-                if (child is Video childVideo)
+                var q = GetQualityFromVideo(childVideo);
+                if (q != VideoQuality.Unknown && (bestResolution == VideoQuality.Unknown || q > bestResolution))
                 {
-                    var q = GetQualityFromVideo(childVideo);
-                    if (q != VideoQuality.Unknown && (bestResolution == VideoQuality.Unknown || q > bestResolution))
-                    {
-                        bestResolution = q;
-                        bestVideo = childVideo;
-                    }
-
-                    bestVideo ??= childVideo;
+                    bestResolution = q;
+                    bestVideo = childVideo;
                 }
+
+                bestVideo ??= childVideo;
             }
 
             if (bestResolution != VideoQuality.Unknown)
@@ -174,7 +170,8 @@ public class QualityDetectionService : IQualityDetectionService
 
             if (bestVideo != null)
             {
-                DetectHdrAndAudioBadges(bestVideo, badges);
+                DetectHdrAndAudioBadges(bestVideo, badges, includeLanguages: false);
+                DetectLanguageBadgesFromVideos(childVideos, badges);
             }
         }
 
@@ -216,40 +213,27 @@ public class QualityDetectionService : IQualityDetectionService
 
         try
         {
+            var addedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (item is Movie movie && !string.IsNullOrWhiteSpace(movie.TmdbCollectionName))
+            {
+                AddMatchingCollectionBadges(movie.TmdbCollectionName, compiledRules, addedKeys, badges);
+            }
+
             var collections = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = [BaseItemKind.BoxSet],
                 Recursive = true
             });
 
-            var addedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var collection in collections.OfType<BoxSet>())
             {
-                if (!CollectionContainsItem(collection, item.Id))
+                if (!CollectionContainsItem(collection, item))
                 {
                     continue;
                 }
 
-                foreach (var (rule, regex) in compiledRules)
-                {
-                    if (!regex.IsMatch(collection.Name ?? string.Empty))
-                    {
-                        continue;
-                    }
-
-                    var key = NormalizeCollectionBadgeKey(rule);
-                    if (!addedKeys.Add(key))
-                    {
-                        continue;
-                    }
-
-                    badges.Add(new BadgeInfo
-                    {
-                        Category = BadgeCategory.Collection,
-                        BadgeKey = key,
-                        ResourceFileName = $"badge-{key}.svg"
-                    });
-                }
+                AddMatchingCollectionBadges(collection.Name ?? string.Empty, compiledRules, addedKeys, badges);
             }
         }
         catch (Exception ex)
@@ -303,15 +287,132 @@ public class QualityDetectionService : IQualityDetectionService
         return string.IsNullOrWhiteSpace(normalized) ? "collection" : normalized;
     }
 
-    private static bool CollectionContainsItem(BoxSet collection, Guid itemId)
+    private static void AddMatchingCollectionBadges(
+        string collectionName,
+        List<(CollectionBadgeRule Rule, Regex Regex)> compiledRules,
+        HashSet<string> addedKeys,
+        List<BadgeInfo> badges)
     {
-        var method = collection.GetType().GetMethod("ContainsLinkedChildByItemId", [typeof(Guid)]);
-        if (method?.Invoke(collection, [itemId]) is bool contains)
+        foreach (var (rule, regex) in compiledRules)
         {
-            return contains;
+            if (!regex.IsMatch(collectionName))
+            {
+                continue;
+            }
+
+            var key = NormalizeCollectionBadgeKey(rule);
+            if (!addedKeys.Add(key))
+            {
+                continue;
+            }
+
+            badges.Add(new BadgeInfo
+            {
+                Category = BadgeCategory.Collection,
+                BadgeKey = key,
+                ResourceFileName = $"badge-{key}.svg"
+            });
+        }
+    }
+
+    private static bool CollectionContainsItem(BoxSet collection, BaseItem item)
+    {
+        var containsMethod = collection.GetType().GetMethod("ContainsLinkedChildByItemId", [typeof(Guid)]);
+        if (containsMethod?.Invoke(collection, [item.Id]) is true)
+        {
+            return true;
         }
 
-        return collection.GetLinkedChildren().Any(child => child.Id == itemId);
+        try
+        {
+            if (collection.GetLinkedChildren().Any(child => ItemsMatch(child, item)))
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            // Fall through to linked child metadata checks.
+        }
+
+        try
+        {
+            if (collection.GetLinkedChildrenInfos().Any(info => LinkedChildMatches(info, item)))
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            // Some collection implementations may not have refreshed linked child metadata.
+        }
+
+        return false;
+    }
+
+    private static bool ItemsMatch(BaseItem candidate, BaseItem target)
+    {
+        if (candidate.Id == target.Id)
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(candidate.Path) &&
+            !string.IsNullOrWhiteSpace(target.Path) &&
+            string.Equals(candidate.Path, target.Path, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var provider in target.ProviderIds)
+        {
+            if (candidate.ProviderIds.TryGetValue(provider.Key, out var value) &&
+                string.Equals(value, provider.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool LinkedChildMatches(object linkedChildInfo, BaseItem item)
+    {
+        if (linkedChildInfo is null)
+        {
+            return false;
+        }
+
+        var infoType = linkedChildInfo.GetType();
+        var itemValue = infoType.GetProperty("Item2")?.GetValue(linkedChildInfo);
+        if (itemValue is BaseItem linkedItem && ItemsMatch(linkedItem, item))
+        {
+            return true;
+        }
+
+        var linkedChildValue = infoType.GetProperty("Item1")?.GetValue(linkedChildInfo) ?? linkedChildInfo;
+        var linkedChildType = linkedChildValue.GetType();
+
+        if (GuidValueMatches(linkedChildType.GetProperty("ItemId")?.GetValue(linkedChildValue), item.Id) ||
+            GuidValueMatches(linkedChildType.GetProperty("LibraryItemId")?.GetValue(linkedChildValue), item.Id))
+        {
+            return true;
+        }
+
+        var pathValue = linkedChildType.GetProperty("Path")?.GetValue(linkedChildValue) as string;
+        return !string.IsNullOrWhiteSpace(pathValue) &&
+            !string.IsNullOrWhiteSpace(item.Path) &&
+            string.Equals(pathValue, item.Path, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool GuidValueMatches(object? value, Guid expected)
+    {
+        return value switch
+        {
+            Guid guid => guid == expected,
+            string idString when Guid.TryParse(idString, out var parsed) => parsed == expected,
+            _ => false
+        };
     }
 
     private void DetectBadgesFromVideo(Video video, List<BadgeInfo> badges)
@@ -321,10 +422,20 @@ public class QualityDetectionService : IQualityDetectionService
 
     private void DetectHdrAndAudioBadges(Video video, List<BadgeInfo> badges)
     {
-        DetectBadgesFromVideo(video, badges, includeResolution: false);
+        DetectHdrAndAudioBadges(video, badges, includeLanguages: true);
+    }
+
+    private void DetectHdrAndAudioBadges(Video video, List<BadgeInfo> badges, bool includeLanguages)
+    {
+        DetectBadgesFromVideo(video, badges, includeResolution: false, includeLanguages: includeLanguages);
     }
 
     private void DetectBadgesFromVideo(Video video, List<BadgeInfo> badges, bool includeResolution)
+    {
+        DetectBadgesFromVideo(video, badges, includeResolution, includeLanguages: true);
+    }
+
+    private void DetectBadgesFromVideo(Video video, List<BadgeInfo> badges, bool includeResolution, bool includeLanguages)
     {
         try
         {
@@ -395,12 +506,9 @@ public class QualityDetectionService : IQualityDetectionService
                 badges.AddRange(audioBadges);
             }
 
-            // Language detection - always detect all, filtering by mode happens in ShouldShowBadge
-            var allStreams = mediaSource?.MediaStreams;
-            if (allStreams != null)
+            if (includeLanguages)
             {
-                var langBadges = DetectLanguages(allStreams.ToList());
-                badges.AddRange(langBadges);
+                AddLanguageBadgesFromMediaStreams(mediaSource?.MediaStreams, badges);
             }
         }
         catch (Exception ex)
@@ -436,6 +544,38 @@ public class QualityDetectionService : IQualityDetectionService
         return string.Equals(normalized, "und", StringComparison.OrdinalIgnoreCase)
             ? "flag-und.png"
             : $"flag-{normalized.ToLowerInvariant()}.svg";
+    }
+
+    private void DetectLanguageBadgesFromVideos(IEnumerable<Video> videos, List<BadgeInfo> badges)
+    {
+        var allStreams = new List<MediaStream>();
+        foreach (var video in videos)
+        {
+            try
+            {
+                var mediaSource = video.GetMediaSources(false)?.FirstOrDefault();
+                var streams = mediaSource?.MediaStreams;
+                if (streams == null)
+                {
+                    continue;
+                }
+
+                allStreams.AddRange(streams.Where(s => s.Type is MediaStreamType.Audio or MediaStreamType.Subtitle));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to inspect language streams for child item: {ItemName}", video.Name);
+            }
+        }
+
+        AddLanguageBadgesFromMediaStreams(allStreams, badges);
+    }
+
+    private static void AddLanguageBadgesFromMediaStreams(IEnumerable<MediaStream>? streams, List<BadgeInfo> badges)
+    {
+        var streamList = streams?.ToList() ?? [];
+        var langBadges = DetectLanguages(streamList);
+        badges.AddRange(langBadges);
     }
 
     /// <summary>

@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.5.0.0",
-        "changelog": "Fix collection badge rule rendering, add undetermined language fallback, and keep per-library badge controls including Collections.",
+        "version": "1.8.0.0",
+        "changelog": "Fix series and season language badges to include all audio languages found across descendant episodes, while retaining custom collection detection fixes.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.5.0.0.zip",
-        "checksum": "504968927bea4ddc17aad3b71828cf09",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.8.0.0.zip",
+        "checksum": "c973fd6aed3a7b5aad125e31eab23d88",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]
