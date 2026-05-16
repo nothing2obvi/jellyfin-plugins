@@ -179,18 +179,27 @@ public class QualityDetectionService : IQualityDetectionService
 
     private List<Video> GetChildVideos(BaseItem item)
     {
-        var query = new InternalItemsQuery
+        var videos = new List<Video>();
+        var seen = new HashSet<Guid>();
+
+        void AddVideos(IEnumerable<BaseItem> items)
+        {
+            foreach (var video in items.OfType<Video>())
+            {
+                if (seen.Add(video.Id))
+                {
+                    videos.Add(video);
+                }
+            }
+        }
+
+        var parentQuery = new InternalItemsQuery
         {
             ParentId = item.Id,
             Recursive = true,
             IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode, BaseItemKind.Video]
         };
-
-        var childVideos = _libraryManager.GetItemList(query).OfType<Video>().ToList();
-        if (childVideos.Count > 0)
-        {
-            return childVideos;
-        }
+        AddVideos(_libraryManager.GetItemList(parentQuery));
 
         var descendantQuery = new InternalItemsQuery
         {
@@ -198,10 +207,15 @@ public class QualityDetectionService : IQualityDetectionService
             Recursive = true,
             IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode, BaseItemKind.Video]
         };
+        AddVideos(_libraryManager.GetItemList(descendantQuery));
 
-        return _libraryManager.GetItemList(descendantQuery).OfType<Video>().ToList();
+        if (item is Folder folder)
+        {
+            AddVideos(folder.GetRecursiveChildren(includeLinkedChildren: true));
+        }
+
+        return videos;
     }
-
 
     private void DetectCollectionBadge(BaseItem item, List<BadgeInfo> badges)
     {

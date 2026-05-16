@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.21.0.0",
-        "changelog": "Include plain video children when aggregating series and season language badges.",
+        "version": "1.22.0.0",
+        "changelog": "Aggregate language badges from folder children so loose TV videos without episode numbers contribute UND to season and series posters.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.21.0.0.zip",
-        "checksum": "9e793cfedb250254b356d291ed7d1ab1",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.22.0.0.zip",
+        "checksum": "8d7b10b594a2ba3fa2edbee29ad88a92",
         "timestamp": "2026-05-16T00:00:00Z"
       }
     ]
