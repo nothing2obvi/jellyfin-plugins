@@ -5,6 +5,7 @@ using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Querying;
 using Microsoft.Extensions.Logging;
@@ -226,9 +227,10 @@ public class QualityDetectionService : IQualityDetectionService
                 Recursive = true
             });
 
+            var collectionItems = GetCollectionCandidateItems(item).ToList();
             foreach (var collection in collections.OfType<BoxSet>())
             {
-                if (!CollectionContainsItem(collection, item))
+                if (!collectionItems.Any(candidate => CollectionContainsItem(collection, candidate)))
                 {
                     continue;
                 }
@@ -312,6 +314,40 @@ public class QualityDetectionService : IQualityDetectionService
                 BadgeKey = key,
                 ResourceFileName = $"badge-{key}.svg"
             });
+        }
+    }
+
+    private IEnumerable<BaseItem> GetCollectionCandidateItems(BaseItem item)
+    {
+        var seen = new HashSet<Guid>();
+        if (seen.Add(item.Id))
+        {
+            yield return item;
+        }
+
+        if (item is Episode episode)
+        {
+            var series = episode.Series ?? (episode.SeriesId == Guid.Empty ? null : _libraryManager.GetItemById(episode.SeriesId) as Series);
+            if (series != null && seen.Add(series.Id))
+            {
+                yield return series;
+            }
+        }
+        else if (item is Season season)
+        {
+            var series = season.Series ?? (season.SeriesId == Guid.Empty ? null : _libraryManager.GetItemById(season.SeriesId) as Series);
+            if (series != null && seen.Add(series.Id))
+            {
+                yield return series;
+            }
+        }
+
+        foreach (var parent in item.GetParents())
+        {
+            if (parent is Series or Season && seen.Add(parent.Id))
+            {
+                yield return parent;
+            }
         }
     }
 
