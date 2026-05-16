@@ -70,7 +70,7 @@ public class QualityDetectionService : IQualityDetectionService
         {
             ParentId = item.Id,
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode],
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode, BaseItemKind.Video],
             Limit = 10
         };
         var children = _libraryManager.GetItemList(query);
@@ -183,7 +183,7 @@ public class QualityDetectionService : IQualityDetectionService
         {
             ParentId = item.Id,
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode]
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode, BaseItemKind.Video]
         };
 
         var childVideos = _libraryManager.GetItemList(query).OfType<Video>().ToList();
@@ -196,7 +196,7 @@ public class QualityDetectionService : IQualityDetectionService
         {
             AncestorIds = [item.Id],
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode]
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Episode, BaseItemKind.Video]
         };
 
         return _libraryManager.GetItemList(descendantQuery).OfType<Video>().ToList();
