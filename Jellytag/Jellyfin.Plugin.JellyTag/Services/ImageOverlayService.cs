@@ -99,7 +99,7 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
 
         if (badge.Category == BadgeCategory.Collection)
         {
-            return !string.IsNullOrWhiteSpace(imageConfig.CollectionRegex);
+            return (imageConfig.CollectionRules?.Count > 0) || !string.IsNullOrWhiteSpace(imageConfig.CollectionRegex);
         }
 
         // For language/subtitle badges, EnabledBadges is empty = show all (language codes are dynamic)
