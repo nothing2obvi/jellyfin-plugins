@@ -103,6 +103,7 @@ public partial class ImageOverlayMiddleware
 
         var visibleBadges = allBadges
             .Where(b => overlayService.ShouldShowBadge(b, imageConfig))
+            .Where(b => ShouldShowCollectionBadgeForImage(b, imageConfig, imageType, item))
             .Where(b => ShouldShowBadgeForLibrary(b, config, collectionFolders))
             .ToList();
         _logger.LogDebug("Visible badges after filter: {Count}: {Badges}",
@@ -183,6 +184,43 @@ public partial class ImageOverlayMiddleware
     }
 
 
+    private static bool ShouldShowCollectionBadgeForImage(BadgeInfo badge, ImageTypeConfig imageConfig, string imageType, BaseItem item)
+    {
+        if (badge.Category != BadgeCategory.Collection)
+        {
+            return true;
+        }
+
+        var rule = imageConfig.CollectionRules?.FirstOrDefault(r => string.Equals(NormalizeCollectionBadgeKey(r), badge.BadgeKey, StringComparison.OrdinalIgnoreCase));
+        if (rule == null)
+        {
+            return !string.IsNullOrWhiteSpace(imageConfig.CollectionRegex);
+        }
+
+        var isThumb = IsThumbnailRequest(imageType, item);
+        if (!isThumb)
+        {
+            return rule.ShowOnPosters;
+        }
+
+        return item is Episode ? rule.ShowOnEpisodeThumbnails : rule.ShowOnSeriesThumbnails;
+    }
+
+    private static bool IsThumbnailRequest(string imageType, BaseItem item)
+    {
+        var type = imageType.ToUpperInvariant();
+        return type == "THUMB" || (type == "PRIMARY" && item is Episode);
+    }
+
+    private static string NormalizeCollectionBadgeKey(CollectionBadgeRule rule)
+    {
+        var source = !string.IsNullOrWhiteSpace(rule.Key)
+            ? rule.Key
+            : (!string.IsNullOrWhiteSpace(rule.Label) ? rule.Label : "collection");
+        var normalized = Regex.Replace(source.Trim().ToLowerInvariant(), @"[^a-z0-9._-]+", "-").Trim('-', '.', '_');
+        return string.IsNullOrWhiteSpace(normalized) ? "collection" : normalized;
+    }
+
     private static bool ShouldShowBadgeForLibrary(BadgeInfo badge, PluginConfiguration config, IReadOnlyList<Folder> collectionFolders)
     {
         if (collectionFolders.Count == 0 || config.LibraryBadgeOptions == null || config.LibraryBadgeOptions.Count == 0)
@@ -251,7 +289,15 @@ public partial class ImageOverlayMiddleware
             AudioPanel = ClonePanelWithReduction(source.AudioPanel, reduction),
             LanguagePanel = ClonePanelWithReduction(source.LanguagePanel, reduction),
             CollectionPanel = ClonePanelWithReduction(source.CollectionPanel, reduction),
-            CollectionRules = source.CollectionRules?.Select(r => new CollectionBadgeRule { Key = r.Key, Regex = r.Regex, Label = r.Label }).ToList() ?? new List<CollectionBadgeRule>(),
+            CollectionRules = source.CollectionRules?.Select(r => new CollectionBadgeRule
+            {
+                Key = r.Key,
+                Regex = r.Regex,
+                Label = r.Label,
+                ShowOnPosters = r.ShowOnPosters,
+                ShowOnSeriesThumbnails = r.ShowOnSeriesThumbnails,
+                ShowOnEpisodeThumbnails = r.ShowOnEpisodeThumbnails
+            }).ToList() ?? new List<CollectionBadgeRule>(),
             CollectionRegex = source.CollectionRegex,
             CollectionBadgeText = source.CollectionBadgeText,
             ShowVostIndicator = source.ShowVostIndicator,

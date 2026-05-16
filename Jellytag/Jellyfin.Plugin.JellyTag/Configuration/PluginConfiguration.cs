@@ -112,6 +112,9 @@ public class CollectionBadgeRule
     public string Key { get; set; } = string.Empty;
     public string Regex { get; set; } = string.Empty;
     public string Label { get; set; } = "COLLECTION";
+    public bool ShowOnPosters { get; set; } = true;
+    public bool ShowOnSeriesThumbnails { get; set; } = true;
+    public bool ShowOnEpisodeThumbnails { get; set; } = true;
 }
 
 public class ImageTypeConfig

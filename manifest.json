@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.12.0.0",
-        "changelog": "Let episode and season thumbnails inherit collection badges from their parent series collection membership.",
+        "version": "1.13.0.0",
+        "changelog": "Add per-collection target checkboxes for posters, series thumbnails, and episode thumbnails.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.12.0.0.zip",
-        "checksum": "0bfa8353925f895474b79b2b1ef03353",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.13.0.0.zip",
+        "checksum": "b84106ae002857cda3f32dbf70ceafb6",
         "timestamp": "2026-05-15T00:00:00Z"
       }
     ]

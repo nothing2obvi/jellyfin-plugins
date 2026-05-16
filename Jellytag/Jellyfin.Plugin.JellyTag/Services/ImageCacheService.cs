@@ -249,7 +249,8 @@ public class ImageCacheService : IImageCacheService
         {
             foreach (var rule in c.CollectionRules)
             {
-                sb.Append(rule.Key).Append('=').Append(rule.Regex).Append('=').Append(rule.Label).Append(',');
+                sb.Append(rule.Key).Append('=').Append(rule.Regex).Append('=').Append(rule.Label)
+                    .Append('=').Append(rule.ShowOnPosters).Append(rule.ShowOnSeriesThumbnails).Append(rule.ShowOnEpisodeThumbnails).Append(',');
             }
         }
         sb.Append('|');

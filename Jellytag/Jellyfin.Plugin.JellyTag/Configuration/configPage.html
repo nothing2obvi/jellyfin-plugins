@@ -498,6 +498,9 @@
             var rawKey = rule.Key || rule.key || '';
             var label = rule.Label || rule.label || '';
             var regex = rule.Regex || rule.regex || '';
+            var showOnPosters = rule.ShowOnPosters !== false && rule.showOnPosters !== false;
+            var showOnSeriesThumbs = rule.ShowOnSeriesThumbnails !== false && rule.showOnSeriesThumbnails !== false;
+            var showOnEpisodeThumbs = rule.ShowOnEpisodeThumbnails !== false && rule.showOnEpisodeThumbnails !== false;
             if (!rawKey && label) rawKey = normalizeCollectionKey(label);
             var key = rawKey || ('collection-' + (index + 1));
             return '<div class="jellytag-text-box collection-rule" data-rule-index="' + index + '" style="margin-bottom:.75em;">' +
@@ -505,6 +508,11 @@
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Badge Key</label><input class="collectionRuleKey" type="text" is="emby-input" value="' + escapeHtml(key) + '" placeholder="marvel" /></div>' +
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Collection Regex</label><input class="collectionRuleRegex" type="text" is="emby-input" value="' + escapeHtml(regex) + '" placeholder="Marvel|MCU" /></div>' +
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Text Label</label><input class="collectionRuleLabel" type="text" is="emby-input" value="' + escapeHtml(label || key.toUpperCase()) + '" placeholder="MCU" /></div>' +
+                '</div>' +
+                '<div class="checkboxContainer" style="margin:.5em 0; display:flex; flex-wrap:wrap; gap:1em;">' +
+                '<label><input class="collectionRulePoster" type="checkbox" is="emby-checkbox" ' + (showOnPosters ? 'checked' : '') + ' /> Posters</label>' +
+                '<label><input class="collectionRuleSeriesThumb" type="checkbox" is="emby-checkbox" ' + (showOnSeriesThumbs ? 'checked' : '') + ' /> Series thumbnails</label>' +
+                '<label><input class="collectionRuleEpisodeThumb" type="checkbox" is="emby-checkbox" ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /> Episode thumbnails</label>' +
                 '</div>' +
                 '<button type="button" is="emby-button" class="collectionRuleUpload raised"><span>Upload Image</span></button>' +
                 '<button type="button" is="emby-button" class="collectionRuleRemove raised button-warning" style="margin-left:.5em;"><span>Remove</span></button>' +
@@ -548,7 +556,7 @@
             container.innerHTML = '';
             var rules = itc.CollectionRules || itc.collectionRules || [];
             if ((!rules || rules.length === 0) && itc.CollectionRegex) {
-                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION' }];
+                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION', ShowOnPosters: true, ShowOnSeriesThumbnails: true, ShowOnEpisodeThumbnails: true }];
             }
             rules.forEach(function(rule) { addCollectionRule(k, rule); });
         }
@@ -566,7 +574,14 @@
                 var n = 2;
                 while (seen[key]) key = baseKey + '-' + n++;
                 seen[key] = true;
-                rules.push({ Key: key, Regex: regex, Label: label || key.toUpperCase() });
+                rules.push({
+                    Key: key,
+                    Regex: regex,
+                    Label: label || key.toUpperCase(),
+                    ShowOnPosters: row.querySelector('.collectionRulePoster').checked,
+                    ShowOnSeriesThumbnails: row.querySelector('.collectionRuleSeriesThumb').checked,
+                    ShowOnEpisodeThumbnails: row.querySelector('.collectionRuleEpisodeThumb').checked
+                });
             });
             return rules;
         }
