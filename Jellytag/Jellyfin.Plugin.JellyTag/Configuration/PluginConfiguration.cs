@@ -160,6 +160,7 @@ public class PluginConfiguration : BasePluginConfiguration
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;
+        ForceImageRefresh = false;
     }
 
     public bool Enabled { get; set; }
@@ -185,6 +186,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public int JpegQuality { get; set; }
     public OutputImageFormat OutputFormat { get; set; }
     public int WebPQuality { get; set; }
+    public bool ForceImageRefresh { get; set; }
 
     // Legacy properties kept for deserialization migration
     // These will be read during migration and then ignored

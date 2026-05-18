@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -7,6 +8,8 @@ using static Jellyfin.Plugin.JellyTag.Configuration.OutputImageFormat;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +22,10 @@ public partial class ImageOverlayMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ImageOverlayMiddleware> _logger;
+    private static readonly ConcurrentDictionary<string, string> ForceRefreshStates = new();
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ForceRefreshLocks = new();
+    private static readonly string EmptyBadgeState = GetBadgeStateFingerprint(Array.Empty<BadgeInfo>());
+    private static readonly byte[] StockRefreshImage = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
 
     [GeneratedRegex(@"/Items/([0-9a-f]{32}|[0-9a-f-]{36})/Images/(Primary|Thumb)(/\d+)?$", RegexOptions.IgnoreCase)]
     private static partial Regex ImagePathRegex();
@@ -34,7 +41,8 @@ public partial class ImageOverlayMiddleware
         IQualityDetectionService qualityService,
         IImageOverlayService overlayService,
         IImageCacheService cacheService,
-        MediaBrowser.Controller.Library.ILibraryManager libraryManager)
+        MediaBrowser.Controller.Library.ILibraryManager libraryManager,
+        IProviderManager providerManager)
     {
         var path = context.Request.Path.Value;
         if (path == null)
@@ -111,6 +119,9 @@ public partial class ImageOverlayMiddleware
         _logger.LogDebug("Visible badges after filter: {Count}: {Badges}",
             visibleBadges.Count, string.Join(", ", visibleBadges.Select(b => b.BadgeKey)));
 
+        var badgeState = GetBadgeStateFingerprint(visibleBadges);
+        await TryForceImageRefreshAsync(item, imageType, badgeState, visibleBadges.Count > 0, providerManager, context.RequestAborted).ConfigureAwait(false);
+
         if (visibleBadges.Count == 0)
         {
             await _next(context).ConfigureAwait(false);
@@ -118,7 +129,6 @@ public partial class ImageOverlayMiddleware
         }
 
         var badgeKey = string.Join("_", visibleBadges.Select(b => b.BadgeKey));
-        var badgeState = GetBadgeStateFingerprint(visibleBadges);
         _logger.LogInformation("Applying {Count} badges to {Item}: {BadgeKey}", visibleBadges.Count, item.Name, badgeKey);
 
         var query = context.Request.QueryString.Value ?? string.Empty;
@@ -187,6 +197,65 @@ public partial class ImageOverlayMiddleware
     }
 
 
+
+
+    private async Task TryForceImageRefreshAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, CancellationToken cancellationToken)
+    {
+        var config = Plugin.Instance?.Configuration;
+        if (config?.ForceImageRefresh != true || !TryParseImageType(imageType, out var parsedImageType)) return;
+
+        var refreshKey = $"{item.Id:N}:{parsedImageType}";
+        if (ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == badgeState) return;
+        if (!hasVisibleBadges && !ForceRefreshStates.ContainsKey(refreshKey)) return;
+
+        var refreshLock = ForceRefreshLocks.GetOrAdd(refreshKey, _ => new SemaphoreSlim(1, 1));
+        if (!await refreshLock.WaitAsync(0, cancellationToken).ConfigureAwait(false)) return;
+
+        try
+        {
+            var imagePath = item.GetImagePath(parsedImageType, 0);
+            if (string.IsNullOrWhiteSpace(imagePath) || !System.IO.File.Exists(imagePath)) return;
+
+            var originalBytes = await System.IO.File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
+            if (originalBytes.Length == 0) return;
+
+            await using (var stockStream = new MemoryStream(StockRefreshImage, writable: false))
+                await providerManager.SaveImage(item, stockStream, "image/png", parsedImageType, null, cancellationToken).ConfigureAwait(false);
+
+            await using (var originalStream = new MemoryStream(originalBytes, writable: false))
+                await providerManager.SaveImage(item, originalStream, GetImageMimeType(imagePath), parsedImageType, null, cancellationToken).ConfigureAwait(false);
+
+            ForceRefreshStates[refreshKey] = badgeState;
+            _logger.LogInformation("Force-refreshed {ImageType} image metadata for {ItemName}", parsedImageType, item.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to force-refresh {ImageType} image metadata for {ItemName}", imageType, item.Name);
+        }
+        finally
+        {
+            refreshLock.Release();
+        }
+    }
+
+    private static bool TryParseImageType(string imageType, out ImageType parsedImageType)
+    {
+        parsedImageType = ImageType.Primary;
+        if (string.Equals(imageType, "Primary", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase)) { parsedImageType = ImageType.Thumb; return true; }
+        return false;
+    }
+
+    private static string GetImageMimeType(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "image/jpeg"
+        };
+    }
 
     private static string GetBadgeStateFingerprint(IReadOnlyList<BadgeInfo> badges)
     {

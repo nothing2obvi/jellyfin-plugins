@@ -195,6 +195,13 @@
                                 <label class="inputLabel inputLabelUnfocused" for="WebPQuality">WebP Quality</label>
                                 <input id="WebPQuality" type="number" min="1" max="100" step="1" is="emby-input" />
                             </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ForceImageRefresh" type="checkbox" is="emby-checkbox" />
+                                    <span>Force image refresh</span>
+                                </label>
+                                <div class="fieldDescription">Advanced: when visible badges change for an image request, temporarily touches the real Jellyfin image and restores it so clients are more likely to request refreshed artwork.</div>
+                            </div>
                             <div id="CacheStatsInfo" class="fieldDescription" style="margin-top:.5em;"></div>
                         </div>
                     </details>
@@ -938,6 +945,7 @@
             config.OutputFormat = q('OutputFormat').value;
             config.JpegQuality = parseInt(q('JpegQuality').value, 10);
             config.WebPQuality = parseInt(q('WebPQuality').value, 10);
+            config.ForceImageRefresh = q('ForceImageRefresh').checked;
             return config;
         }
 
@@ -1124,6 +1132,7 @@
                 q('OutputFormat').value = config.OutputFormat;
                 q('JpegQuality').value = config.JpegQuality;
                 q('WebPQuality').value = config.WebPQuality;
+                q('ForceImageRefresh').checked = config.ForceImageRefresh === true;
                 toggleOutputQuality();
 
                 // Setup all toggles
