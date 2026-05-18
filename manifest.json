@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.31.0.0",
-        "changelog": "Group JellyTag-Plus scheduled tasks under the same category.",
+        "version": "1.32.0.0",
+        "changelog": "Expand the JellyTag-Plus cache warmer to pre-render client-specific image size variants for Findroid, Jellyfin Web, Android/iOS/Desktop Qt web-shell clients, Android TV, Roku, and Streamyfin.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.31.0.0.zip",
-        "checksum": "195e25c790fde0c50eaac8b807876774",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.32.0.0.zip",
+        "checksum": "c86adcf83c3b67cb4302e0dc25787479",
         "timestamp": "2026-05-18T00:00:00Z"
       }
     ]
