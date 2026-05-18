@@ -1,65 +1,101 @@
-# JellyTag — Quality Badge Plugin for Jellyfin
+# JellyTag-Plus
 
-JellyTag automatically overlays quality badges (resolution, HDR, codec, audio, language) on your media posters and thumbnails. Badges are rendered server-side via HTTP middleware, so they appear on **all Jellyfin clients** without any configuration.
+JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It is a fork/continuation of JellyTag from [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins), renamed so it can live separately from the original plugin.
 
 <p align="center">
-    <img src="Jellyfin.Plugin.JellyTag/JellyTag.png" />
+    <img src="JellyTag-Plus.png" alt="JellyTag-Plus" />
 </p>
+
+## What Is Different From JellyTag
+
+JellyTag-Plus keeps the original server-side badge overlay idea and adds a lot of practical library-management behavior:
+
+- **Collection badges**: Add one or more collection rules. If an item belongs to a Jellyfin collection whose title matches your regex, it can receive that collection's badge.
+- **Custom collection images**: Each collection badge rule can use its own uploaded image.
+- **Collection targeting**: Collection badges can be enabled separately for posters, season posters, series thumbnails, and episode thumbnails.
+- **Per-library badge controls**: Choose which badge categories each library gets: resolution, HDR, codec, audio, language, and collections.
+- **Expanded language flags**: Added and adjusted language flag assets, including `tgl` and `fil` mapping to `flag-fil.svg`.
+- **Undetermined language fallback**: Missing, unknown, or undetermined languages use `flag-und.svg` instead of falling back to text.
+- **Alphabetized language badges**: Language badges are rendered in stable alphabetical order.
+- **Series language aggregation**: Series-level language badges can reflect languages found across episodes.
+- **Force image refresh**: Optional refresh flow intended to help clients notice that artwork has changed.
+- **Aggressive cache warmer**: Scheduled task that pre-renders common image request variants used by major Jellyfin clients.
 
 ## Features
 
-- **Multi-category badges**: Resolution, HDR, Video Codec, Audio, Language flags, and VOST indicator
-- **Universal client support**: Server-side rendering via HTTP middleware — works on all Jellyfin clients
-- **Per-image-type configuration**: Independent settings for posters and thumbnails (position, size, layout, style)
-- **Per-panel customization**: Each badge category has its own panel with position, layout, ordering, colors, and display mode (highest only or all)
-- **SVG & text badge styles**: Choose between SVG image badges or text-based badges with customizable colors, opacity, and corner radius
-- **Custom badges**: Replace any default badge with your own SVG/PNG/JPEG, or customize text labels — via the config UI or API
-- **Live preview**: See badge changes in real-time directly in the configuration page
-- **Library filtering**: Exclude specific libraries from badge generation
-- **Config export/import**: Backup and restore your configuration as JSON
-- **File-based caching**: Processed images are cached to disk with automatic expiration
+- Resolution, HDR, video codec, audio, language flag, VOST, and collection badges
+- Server-side rendering through Jellyfin image middleware
+- Poster and thumbnail support
+- Per-panel controls for position, order, layout, size, margin, gap, style, and text colors
+- SVG/image badge mode and text badge mode
+- Custom badge uploads
+- Multiple collection rules with regex matching and custom images
+- Per-library badge category filtering
+- Config export/import
+- File-based image cache with configurable cache duration
+- Scheduled cache cleanup task
+- Scheduled cache warmer task
 
-## Screenshots
+## Cache Warmer
 
-![Library view with badges](Jellyfin.Plugin.JellyTag/screenshots/library.png)
-![Configuration page](Jellyfin.Plugin.JellyTag/screenshots/config.png)
+The **JellyTag-Plus Cache Warmer** is a scheduled task that walks enabled libraries and requests poster/thumbnail image URLs ahead of time. Those requests pass through JellyTag-Plus exactly like real client requests, causing badged images to be rendered and stored in the plugin cache before users browse to them.
+
+The warmer now includes organized client profiles for:
+
+- Findroid
+- Jellyfin Web
+- WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell
+- Android TV
+- Roku
+- Streamyfin
+
+It warms bare images plus common client-specific variants such as `maxWidth`/`maxHeight`, `fillWidth`/`fillHeight`, `width`, and quality combinations.
+
+> **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. This can make clients faster after warming, but plugin cache storage may become quite large. Use it deliberately and keep an eye on disk usage.
+
+## Force Image Refresh
+
+Force Image Refresh is an optional helper for stubborn client-side image caches. It attempts to make Jellyfin clients notice changed artwork by briefly swapping/restoring item images and then requesting the restored image. This is meant to help devices such as Android TV or Roku fetch fresh artwork when badges change.
+
+This feature is intentionally more invasive than normal rendering. Keep image backups and use it carefully.
 
 ## Installation
 
-1. In Jellyfin, go to **Dashboard** → **Plugins** → **Repositories**
-2. Add a new repository with this URL:
+1. In Jellyfin, go to **Dashboard -> Plugins -> Repositories**
+2. Add this repository URL:
+   ```text
+   https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json
    ```
-   https://raw.githubusercontent.com/Atilil/jellyfin-plugins/main/manifest.json
-   ```
-3. Go to **Catalog**, find **JellyTag** and install it
+3. Go to **Catalog**, find **JellyTag-Plus**, and install it
 4. Restart Jellyfin
 
 ## Configuration
 
-Go to **Dashboard** → **Plugins** → **JellyTag** to access the configuration page.
+Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page.
 
 ### Global Settings
 
 | Option | Description | Default |
-|--------|-------------|--------|
-| Enable JellyTag | Enable/disable the plugin globally | Enabled |
+|--------|-------------|---------|
+| Enable JellyTag-Plus | Enable or disable the plugin globally | Enabled |
 | Output Format | JPEG or WebP | JPEG |
-| JPEG Quality | Output image quality (50-100) | 90 |
-| Cache Duration | How long cached images are kept (hours) | 24 |
+| JPEG Quality | Output image quality | 90 |
+| Cache Duration | How long cached images are kept, in hours | 168 |
+| Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 
-### Image Type Settings (Poster / Thumbnail)
+### Poster And Thumbnail Settings
 
 Each image type has independent panel settings. Thumbnails can optionally mirror poster settings with a size reduction.
 
-Each badge category (Resolution, HDR, Codec, Audio, Language) is configured as a **panel** with:
+Each badge category is configured as a panel with:
 
 | Setting | Description |
 |---------|-------------|
-| Enabled | Show/hide this category |
-| Position | Corner placement (TopLeft, TopRight, BottomLeft, BottomRight) |
-| Layout | Horizontal or Vertical stacking |
-| Style | Image (SVG) or Text badges |
+| Enabled | Show or hide this category |
+| Position | Corner, border-center, or edge placement |
+| Layout | Horizontal or vertical stacking |
+| Style | Image or text badges |
 | Size % | Badge width as percentage of image |
 | Margin % | Distance from edge |
 | Gap % | Spacing between badges |
@@ -67,29 +103,40 @@ Each badge category (Resolution, HDR, Codec, Audio, Language) is configured as a
 | Order | Panel stacking order |
 | Text colors | Background color, text color, opacity, corner radius |
 
+## Collection Badges
+
+Collection rules are configured by regex. A rule matches the **Jellyfin collection title**, not a TMDB collection id. Custom collections are supported.
+
+Each collection rule can have:
+
+- Badge key
+- Collection regex
+- Text label
+- Uploaded custom image
+- Poster toggle
+- Season poster toggle
+- Series thumbnail toggle
+- Episode thumbnail toggle
+
 ## Custom Badges
 
-You can replace any default badge with your own image or customize the text label for text-style badges.
-
-- **Via the config UI**: Use the Custom Badges section to upload SVG, PNG, or JPEG files, and set custom text per badge
-- **Via the API**: `POST /JellyTag/CustomBadge/{badgeKey}` to upload, `DELETE` to revert to default
-
-Custom badges are stored in the plugin data folder and survive updates.
+You can replace default badges with your own image assets or customize text labels for text-style badges. Custom assets are stored in the Jellyfin plugin data folder and survive updates.
 
 ## How It Works
 
-JellyTag intercepts Jellyfin image requests via HTTP middleware, detects media quality from metadata, composites badges onto images using SkiaSharp, and caches the results to disk. No reverse proxy or client-side configuration needed.
+JellyTag-Plus intercepts Jellyfin image requests for supported image types, detects applicable badges from item metadata and collection membership, filters them through your configuration, renders the badges onto the requested image size, and caches the result. Future requests for the same image variant can be served from the plugin cache.
 
 ## Requirements
 
 - Jellyfin 10.11.x or later
-- .NET 9.0 runtime (included with Jellyfin 10.11+)
+- .NET 9.0 runtime, included with Jellyfin 10.11+
 
 ## Troubleshooting
 
-- **Badges not appearing**: Verify the plugin is enabled, check that badge categories are enabled, clear browser cache and plugin image cache
-- **Clearing the cache**: Use the "Clear Image Cache" button in the config page
-- **Performance**: Increase cache duration, lower JPEG quality, disable unneeded badge categories
+- **Badges not appearing:** Verify the plugin is enabled, the item library is enabled, and the badge category is enabled for that library.
+- **Old images still showing on clients:** Clear the client image cache, use Force Image Refresh carefully, or run the cache warmer after clearing the JellyTag-Plus image cache.
+- **Cache getting large:** Lower cache duration, clear the plugin image cache, disable unneeded badge categories, or run the warmer less often.
+- **Slow first warmer run:** Expected. The first run may render many image variants. Later runs should be faster when cached variants are still valid.
 
 ## License
 

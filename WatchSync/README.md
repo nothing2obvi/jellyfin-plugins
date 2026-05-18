@@ -1,19 +1,21 @@
 # WatchSync
 
-Jellyfin plugin to automatically synchronize watch history between libraries of different qualities (4K/HD).
+Jellyfin plugin to automatically synchronize watch history between libraries of different qualities, such as 4K and HD libraries.
 
 <p align="center">
     <img src="https://github.com/Atilil/jellyfin-plugins/raw/main/WatchSync/Jellyfin.Plugin.WatchSync/WatchSync.png" />
 </p>
 
+> **Fork status:** This repository is a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins), but WatchSync has not been touched yet. If you only want WatchSync, it is best to use the original Atilil repository.
+
 ## Features
 
 - **Automatic synchronization**: When media is watched, all matching versions are updated
 - **Smart identification**: Uses IMDB, TMDB and TVDB to match media
-- **Full support**: Movies and TV series (episodes)
+- **Full support**: Movies and TV series episodes
 - **Granular configuration**:
   - Customizable completion threshold
-  - Choice of data to sync (status, position, play count, date)
+  - Choice of data to sync, including status, position, play count, and date
   - Exclude specific libraries or users
 - **Full sync task**: Scheduled task to synchronize all history
 
@@ -21,19 +23,20 @@ Jellyfin plugin to automatically synchronize watch history between libraries of 
 
 See the [main repository README](../README.md) for installation via Jellyfin plugin repository.
 
-> **Warning:** It is recommended to backup your Jellyfin database before installing and using this plugin. The plugin modifies user watch data, and a backup ensures you can restore your data if needed.
+> **Warning:** It is recommended to back up your Jellyfin database before installing and using this plugin. The plugin modifies user watch data, and a backup ensures you can restore your data if needed.
 
 ## Configuration
 
-After installation, configure the plugin in: **Administration → Plugins → WatchSync**
+After installation, configure the plugin in: **Administration -> Plugins -> WatchSync**
 
 ### Media Identification
 
 The plugin uses external identifiers in this priority order:
+
 1. **IMDB ID**
 2. **TMDB ID**
 3. **TVDB ID**
-4. **Title + Year** (fallback, disabled by default)
+4. **Title + Year** fallback, disabled by default
 
 ## Building from Source
 
@@ -63,7 +66,7 @@ The plugin listens to the `PlaybackStopped` event via `ISessionManager`. When me
 
 ## Architecture
 
-```
+```text
 Jellyfin.Plugin.WatchSync/
 ├── Plugin.cs                    # Entry point
 ├── PluginServiceRegistrator.cs  # Dependency injection
@@ -71,7 +74,7 @@ Jellyfin.Plugin.WatchSync/
 │   ├── PluginConfiguration.cs   # Configuration model
 │   └── configPage.html          # Admin interface
 ├── Services/
-│   ├── WatchSyncService.cs      # Main service (listens to PlaybackStopped)
+│   ├── WatchSyncService.cs      # Main service
 │   ├── MediaMatcher.cs          # Matching logic
 │   └── ConflictResolver.cs      # Data resolution
 ├── Tasks/
