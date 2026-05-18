@@ -22,16 +22,16 @@ public class CacheCleanupTask : IScheduledTask
     }
 
     /// <inheritdoc />
-    public string Name => "JellyTag Cache Cleanup";
+    public string Name => "JellyTag-Plus Cache Cleanup";
 
     /// <inheritdoc />
     public string Key => "JellyTagCacheCleanup";
 
     /// <inheritdoc />
-    public string Description => "Removes expired JellyTag image cache files";
+    public string Description => "Removes expired JellyTag-Plus image cache files";
 
     /// <inheritdoc />
-    public string Category => "JellyTag";
+    public string Category => "JellyTag-Plus";
 
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
