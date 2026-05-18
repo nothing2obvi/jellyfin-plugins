@@ -156,7 +156,7 @@ public class PluginConfiguration : BasePluginConfiguration
         LibraryBadgeOptions = new List<LibraryBadgeOptions>();
 
         CustomBadgeTexts = new List<BadgeTextOverride>();
-        CacheDurationHours = 24;
+        CacheDurationHours = 168;
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;

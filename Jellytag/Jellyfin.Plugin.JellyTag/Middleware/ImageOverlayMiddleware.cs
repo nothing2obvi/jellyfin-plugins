@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Services;
@@ -22,8 +23,11 @@ public partial class ImageOverlayMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ImageOverlayMiddleware> _logger;
+    private const string ForceRefreshStateFileName = "force-refresh-state.json";
     private static readonly ConcurrentDictionary<string, string> ForceRefreshStates = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ForceRefreshLocks = new();
+    private static readonly object ForceRefreshStateFileLock = new();
+    private static bool ForceRefreshStateLoaded;
     private static readonly string EmptyBadgeState = GetBadgeStateFingerprint(Array.Empty<BadgeInfo>());
     private static readonly byte[] StockRefreshImage = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
 
@@ -39,7 +43,16 @@ public partial class ImageOverlayMiddleware
 
     public static void ResetForceRefreshState()
     {
-        ForceRefreshStates.Clear();
+        lock (ForceRefreshStateFileLock)
+        {
+            ForceRefreshStates.Clear();
+            ForceRefreshStateLoaded = true;
+            var path = GetForceRefreshStatePath();
+            if (!string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
+            {
+                System.IO.File.Delete(path);
+            }
+        }
     }
 
     public async Task InvokeAsync(
@@ -137,9 +150,9 @@ public partial class ImageOverlayMiddleware
         var badgeKey = string.Join("_", visibleBadges.Select(b => b.BadgeKey));
         _logger.LogInformation("Applying {Count} badges to {Item}: {BadgeKey}", visibleBadges.Count, item.Name, badgeKey);
 
-        var query = context.Request.QueryString.Value ?? string.Empty;
-        var tag = context.Request.Query["tag"].FirstOrDefault() ?? item.DateModified.Ticks.ToString();
-        var imageTag = $"{tag}_{imageType}_{query}_{badgeState}";
+        var query = GetCacheRelevantQuery(context.Request.Query);
+        var imageVersion = GetImageVersion(item, imageType);
+        var imageTag = $"{imageVersion}_{imageType}_{query}_{badgeState}";
 
         var cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
         if (cachedImage != null)
@@ -215,6 +228,8 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
+        EnsureForceRefreshStateLoaded();
+
         var refreshKey = $"{item.Id:N}:{parsedImageType}";
         if (ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == badgeState) return;
         if (!hasVisibleBadges && !ForceRefreshStates.ContainsKey(refreshKey)) return;
@@ -243,6 +258,7 @@ public partial class ImageOverlayMiddleware
             }
 
             ForceRefreshStates[refreshKey] = badgeState;
+            SaveForceRefreshState();
             _logger.LogInformation("Force-refreshed {ImageType} image metadata for {ItemName}", parsedImageType, item.Name);
         }
         catch (Exception ex)
@@ -334,6 +350,83 @@ public partial class ImageOverlayMiddleware
             ".gif" => "image/gif",
             _ => "image/jpeg"
         };
+    }
+
+
+    private static string GetCacheRelevantQuery(IQueryCollection query)
+    {
+        var parts = query
+            .Where(kvp => !string.Equals(kvp.Key, "tag", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(kvp.Key, "api_key", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(kvp.Key, "jellytagwarm", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp => $"{kvp.Key}={string.Join(",", kvp.Value.ToArray())}");
+        return string.Join("&", parts);
+    }
+
+    private static string GetImageVersion(BaseItem item, string imageType)
+    {
+        if (TryParseImageType(imageType, out var parsedImageType))
+        {
+            try
+            {
+                var imageInfo = item.GetImageInfo(parsedImageType, 0);
+                if (imageInfo != null)
+                {
+                    return imageInfo.DateModified.Ticks.ToString();
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        return item.DateModified.Ticks.ToString();
+    }
+
+    private static void EnsureForceRefreshStateLoaded()
+    {
+        if (ForceRefreshStateLoaded) return;
+        lock (ForceRefreshStateFileLock)
+        {
+            if (ForceRefreshStateLoaded) return;
+            var path = GetForceRefreshStatePath();
+            if (!string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
+            {
+                try
+                {
+                    var loaded = JsonSerializer.Deserialize<Dictionary<string, string>>(System.IO.File.ReadAllText(path));
+                    if (loaded != null)
+                    {
+                        foreach (var pair in loaded) ForceRefreshStates[pair.Key] = pair.Value;
+                    }
+                }
+                catch
+                {
+                }
+            }
+            ForceRefreshStateLoaded = true;
+        }
+    }
+
+    private static void SaveForceRefreshState()
+    {
+        lock (ForceRefreshStateFileLock)
+        {
+            var path = GetForceRefreshStatePath();
+            if (string.IsNullOrWhiteSpace(path)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var snapshot = ForceRefreshStates.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            var tempPath = path + ".tmp";
+            System.IO.File.WriteAllText(tempPath, JsonSerializer.Serialize(snapshot));
+            System.IO.File.Move(tempPath, path, overwrite: true);
+        }
+    }
+
+    private static string? GetForceRefreshStatePath()
+    {
+        var dataFolder = Plugin.Instance?.DataFolderPath;
+        return string.IsNullOrWhiteSpace(dataFolder) ? null : Path.Combine(dataFolder, ForceRefreshStateFileName);
     }
 
     private static string GetBadgeStateFingerprint(IReadOnlyList<BadgeInfo> badges)

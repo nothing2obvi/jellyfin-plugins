@@ -28,12 +28,12 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.29.0.0",
-        "changelog": "Harden Force Image Refresh by excluding plain video items and verifying the original image is restored before marking refresh complete.",
+        "version": "1.30.0.0",
+        "changelog": "Persist Force Image Refresh state across restarts, add a Scheduled Tasks cache warmer, and set default cache duration to 168 hours.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.29.0.0.zip",
-        "checksum": "8ef30d701c4b7d041f584ffa1e89baef",
-        "timestamp": "2026-05-17T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.30.0.0.zip",
+        "checksum": "9c93a240d91856bb5c120c27b537e026",
+        "timestamp": "2026-05-18T00:00:00Z"
       }
     ]
   }

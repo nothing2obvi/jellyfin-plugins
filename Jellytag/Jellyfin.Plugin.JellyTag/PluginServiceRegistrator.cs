@@ -1,5 +1,7 @@
 using Jellyfin.Plugin.JellyTag.Middleware;
 using Jellyfin.Plugin.JellyTag.Services;
+using Jellyfin.Plugin.JellyTag.Tasks;
+using MediaBrowser.Model.Tasks;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.AspNetCore.Hosting;
@@ -18,6 +20,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IQualityDetectionService, QualityDetectionService>();
         serviceCollection.AddSingleton<IImageOverlayService, ImageOverlayService>();
         serviceCollection.AddSingleton<IImageCacheService, ImageCacheService>();
+        serviceCollection.AddSingleton<IScheduledTask, CacheCleanupTask>();
+        serviceCollection.AddSingleton<IScheduledTask, CacheWarmTask>();
 
         // Register middleware via IStartupFilter to intercept image requests for ALL clients
         serviceCollection.AddSingleton<IStartupFilter, JellyTagStartupFilter>();
