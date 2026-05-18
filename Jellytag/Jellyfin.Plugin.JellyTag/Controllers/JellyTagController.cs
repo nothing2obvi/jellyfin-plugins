@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
+using Jellyfin.Plugin.JellyTag.Middleware;
 using Jellyfin.Plugin.JellyTag.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -45,6 +46,7 @@ public partial class JellyTagController : ControllerBase
     {
         _cacheService.ClearCache();
         _qualityService.ClearBadgeCache();
+        ImageOverlayMiddleware.ResetForceRefreshState();
         return NoContent();
     }
 

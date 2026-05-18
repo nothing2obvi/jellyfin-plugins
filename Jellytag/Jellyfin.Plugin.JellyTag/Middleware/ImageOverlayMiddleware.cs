@@ -36,6 +36,12 @@ public partial class ImageOverlayMiddleware
         _logger = logger;
     }
 
+
+    public static void ResetForceRefreshState()
+    {
+        ForceRefreshStates.Clear();
+    }
+
     public async Task InvokeAsync(
         HttpContext context,
         IQualityDetectionService qualityService,
