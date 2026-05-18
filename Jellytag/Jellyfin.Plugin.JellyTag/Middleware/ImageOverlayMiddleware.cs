@@ -210,6 +210,11 @@ public partial class ImageOverlayMiddleware
         var config = Plugin.Instance?.Configuration;
         if (config?.ForceImageRefresh != true || !TryParseImageType(imageType, out var parsedImageType)) return;
 
+        if (item is not (Movie or Series or Season or Episode))
+        {
+            return;
+        }
+
         var refreshKey = $"{item.Id:N}:{parsedImageType}";
         if (ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == badgeState) return;
         if (!hasVisibleBadges && !ForceRefreshStates.ContainsKey(refreshKey)) return;
@@ -217,25 +222,36 @@ public partial class ImageOverlayMiddleware
         var refreshLock = ForceRefreshLocks.GetOrAdd(refreshKey, _ => new SemaphoreSlim(1, 1));
         if (!await refreshLock.WaitAsync(0, cancellationToken).ConfigureAwait(false)) return;
 
+        byte[]? originalBytes = null;
+
         try
         {
-            var imagePath = item.GetImagePath(parsedImageType, 0);
-            if (string.IsNullOrWhiteSpace(imagePath) || !System.IO.File.Exists(imagePath)) return;
+            var originalPath = item.GetImagePath(parsedImageType, 0);
+            if (string.IsNullOrWhiteSpace(originalPath) || !System.IO.File.Exists(originalPath)) return;
 
-            var originalBytes = await System.IO.File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
-            if (originalBytes.Length == 0) return;
+            originalBytes = await System.IO.File.ReadAllBytesAsync(originalPath, cancellationToken).ConfigureAwait(false);
+            if (originalBytes.Length == 0 || IsStockRefreshImage(originalBytes)) return;
 
             await using (var stockStream = new MemoryStream(StockRefreshImage, writable: false))
                 await providerManager.SaveImage(item, stockStream, "image/png", parsedImageType, null, cancellationToken).ConfigureAwait(false);
 
-            await using (var originalStream = new MemoryStream(originalBytes, writable: false))
-                await providerManager.SaveImage(item, originalStream, GetImageMimeType(imagePath), parsedImageType, null, cancellationToken).ConfigureAwait(false);
+            var restored = await RestoreOriginalImageAsync(item, parsedImageType, originalBytes, GetImageMimeType(originalPath), providerManager, cancellationToken).ConfigureAwait(false);
+            if (!restored)
+            {
+                await TryRestoreOriginalBytesToCurrentPathAsync(item, parsedImageType, originalBytes, cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException("Original image restore verification failed after force-refresh touch.");
+            }
 
             ForceRefreshStates[refreshKey] = badgeState;
             _logger.LogInformation("Force-refreshed {ImageType} image metadata for {ItemName}", parsedImageType, item.Name);
         }
         catch (Exception ex)
         {
+            if (originalBytes != null)
+            {
+                await TryRestoreOriginalBytesToCurrentPathAsync(item, parsedImageType, originalBytes, cancellationToken).ConfigureAwait(false);
+            }
+
             _logger.LogWarning(ex, "Failed to force-refresh {ImageType} image metadata for {ItemName}", imageType, item.Name);
         }
         finally
@@ -243,6 +259,63 @@ public partial class ImageOverlayMiddleware
             refreshLock.Release();
         }
     }
+
+    private static async Task<bool> RestoreOriginalImageAsync(BaseItem item, ImageType imageType, byte[] originalBytes, string mimeType, IProviderManager providerManager, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            await using (var originalStream = new MemoryStream(originalBytes, writable: false))
+            {
+                await providerManager.SaveImage(item, originalStream, mimeType, imageType, null, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (await IsRestoredImageValidAsync(item, imageType, cancellationToken).ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            if (attempt < 3)
+            {
+                await Task.Delay(200 * attempt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<bool> IsRestoredImageValidAsync(BaseItem item, ImageType imageType, CancellationToken cancellationToken)
+    {
+        var restoredPath = item.GetImagePath(imageType, 0);
+        if (string.IsNullOrWhiteSpace(restoredPath) || !System.IO.File.Exists(restoredPath))
+        {
+            return false;
+        }
+
+        var restoredBytes = await System.IO.File.ReadAllBytesAsync(restoredPath, cancellationToken).ConfigureAwait(false);
+        return restoredBytes.Length > StockRefreshImage.Length * 2 && !IsStockRefreshImage(restoredBytes);
+    }
+
+    private static async Task TryRestoreOriginalBytesToCurrentPathAsync(BaseItem item, ImageType imageType, byte[] originalBytes, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var currentPath = item.GetImagePath(imageType, 0);
+            if (!string.IsNullOrWhiteSpace(currentPath))
+            {
+                await System.IO.File.WriteAllBytesAsync(currentPath, originalBytes, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            // Best-effort emergency restore only.
+        }
+    }
+
+    private static bool IsStockRefreshImage(byte[] bytes)
+    {
+        return bytes.AsSpan().SequenceEqual(StockRefreshImage);
+    }
+
 
     private static bool TryParseImageType(string imageType, out ImageType parsedImageType)
     {

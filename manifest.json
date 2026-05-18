@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.28.0.0",
-        "changelog": "Reset Force Image Refresh state when clearing JellyTag-Plus image cache so requested images are re-armed for client cache refresh.",
+        "version": "1.29.0.0",
+        "changelog": "Harden Force Image Refresh by excluding plain video items and verifying the original image is restored before marking refresh complete.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.28.0.0.zip",
-        "checksum": "bf369a9dad6dba70baadedfc41939c13",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.29.0.0.zip",
+        "checksum": "8ef30d701c4b7d041f584ffa1e89baef",
         "timestamp": "2026-05-17T00:00:00Z"
       }
     ]
