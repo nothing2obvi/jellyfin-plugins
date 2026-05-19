@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using MediaBrowser.Controller;
@@ -15,8 +18,9 @@ public class CacheWarmTask : IScheduledTask
     private static readonly IReadOnlyList<ClientWarmupProfile> ClientWarmupProfiles =
     [
         CreateFindroidProfile(),
-        CreateJellyfinWebProfile(),
-        CreateWebShellClientsProfile(),
+        // Jellyfin Web and WebShellClients are intentionally not warmed here. WebShellClients means
+        // Android/iOS/Desktop Qt using Jellyfin Web inside the native app shell; those clients compute
+        // image sizes dynamically, so we avoid hardcoded guessed presets.
         CreateAndroidTvProfile(),
         CreateRokuProfile(),
         CreateStreamyfinProfile()
@@ -44,6 +48,7 @@ public class CacheWarmTask : IScheduledTask
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.Enabled) { progress.Report(100); return; }
 
+        var state = WarmupStateStore.Load(CreateWarmupScope(config), _logger);
         var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
             Recursive = true,
@@ -56,19 +61,22 @@ public class CacheWarmTask : IScheduledTask
             cancellationToken.ThrowIfCancellationRequested();
             if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
             {
-                requests.AddRange(CreateWarmupRequests(item.Id, "Primary"));
+                requests.AddRange(CreateWarmupRequests(item, "Primary"));
             }
 
             if (ShouldRequestThumb(item, config) && item.HasImage(ImageType.Thumb, 0))
             {
-                requests.AddRange(CreateWarmupRequests(item.Id, "Thumb"));
+                requests.AddRange(CreateWarmupRequests(item, "Thumb"));
             }
         }
 
+        var totalCandidateRequests = requests.Count;
         requests = requests
             .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
             .Select(group => group.First())
+            .Where(request => !state.Contains(request.CompletionKey))
             .ToList();
+        var skipped = totalCandidateRequests - requests.Count;
 
         if (requests.Count == 0) { progress.Report(100); return; }
 
@@ -88,7 +96,11 @@ public class CacheWarmTask : IScheduledTask
             {
                 var url = request.ToUrl(baseUrl);
                 using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-                if (response.IsSuccessStatusCode) Interlocked.Increment(ref warmed);
+                if (response.IsSuccessStatusCode)
+                {
+                    state.MarkCompleted(request.CompletionKey);
+                    Interlocked.Increment(ref warmed);
+                }
                 else
                 {
                     Interlocked.Increment(ref failed);
@@ -109,16 +121,18 @@ public class CacheWarmTask : IScheduledTask
         }).ToArray();
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
-        _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, warmed {Warmed}, failed {Failed}", requests.Count, warmed, failed);
+        _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly warmed {Warmed}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, failed, skipped);
     }
 
-    private static IEnumerable<WarmupRequest> CreateWarmupRequests(Guid itemId, string imageType)
+    private static IEnumerable<WarmupRequest> CreateWarmupRequests(BaseItem item, string imageType)
     {
+        var imageVersion = GetImageVersion(item, imageType);
+        var itemModifiedTicks = item.DateModified.Ticks;
         foreach (var profile in ClientWarmupProfiles)
         {
             foreach (var variant in profile.GetVariants(imageType))
             {
-                yield return new WarmupRequest(itemId, imageType, profile.Name, variant);
+                yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, profile.Name, variant);
             }
         }
     }
@@ -154,46 +168,9 @@ public class CacheWarmTask : IScheduledTask
     {
         return new ClientWarmupProfile(
             "Findroid",
-            "Findroid home and library views request unsized item images and let the client scale them.",
+            "Findroid home and library views request unsized Primary images and let the client scale them.",
             [ImageVariant.Unsized("home/library unsized")],
-            [ImageVariant.Unsized("home/library unsized")]);
-    }
-
-    private static ClientWarmupProfile CreateJellyfinWebProfile()
-    {
-        // Jellyfin Web computes fillWidth/fillHeight from viewport, card shape, and device pixel ratio.
-        // These are common desktop/mobile/TV-ish variants rather than every possible browser size.
-        var primaryVariants = new[]
-        {
-            ImageVariant.FillSize(213, 320, "library poster, desktop DPR1"),
-            ImageVariant.FillSize(426, 640, "library poster, desktop DPR2"),
-            ImageVariant.FillSize(223, 335, "home poster row, desktop DPR1"),
-            ImageVariant.FillSize(446, 670, "home poster row, desktop DPR2"),
-            ImageVariant.FillSize(298, 447, "home poster row, TV web mode"),
-            ImageVariant.FillSize(596, 894, "home poster row, TV/high DPR"),
-            ImageVariant.FillSize(320, 480, "library poster, TV web mode")
-        };
-
-        var thumbVariants = new[]
-        {
-            ImageVariant.FillSize(384, 216, "library thumb/backdrop, desktop DPR1"),
-            ImageVariant.FillSize(768, 432, "library thumb/backdrop, desktop DPR2"),
-            ImageVariant.FillSize(355, 200, "home thumb/backdrop row, desktop DPR1"),
-            ImageVariant.FillSize(710, 400, "home thumb/backdrop row, desktop DPR2"),
-            ImageVariant.FillSize(447, 251, "home thumb/backdrop row, TV web mode"),
-            ImageVariant.FillSize(894, 502, "home thumb/backdrop row, TV/high DPR"),
-            ImageVariant.FillSize(480, 270, "library thumb/backdrop, TV web mode")
-        };
-
-        return new ClientWarmupProfile("Jellyfin Web", "Viewport and DPR based fillWidth/fillHeight requests.", primaryVariants, thumbVariants);
-    }
-
-    private static ClientWarmupProfile CreateWebShellClientsProfile()
-    {
-        // WebShellClients means the native Android, iOS, and Desktop Qt apps when they display
-        // Jellyfin's web UI inside their native shell. Their home/library image requests match Jellyfin Web.
-        var webProfile = CreateJellyfinWebProfile();
-        return new ClientWarmupProfile("WebShellClients", "Android/iOS/Desktop Qt web-shell clients; same home/library sizing behavior as Jellyfin Web.", webProfile.PrimaryVariants, webProfile.ThumbVariants);
+            []);
     }
 
     private static ClientWarmupProfile CreateAndroidTvProfile()
@@ -234,22 +211,22 @@ public class CacheWarmTask : IScheduledTask
     {
         var primaryVariants = new[]
         {
-            ImageVariant.MaxSize(196, 384, "default poster helper"),
-            ImageVariant.MaxSize(180, 331, "home movie poster display"),
-            ImageVariant.MaxSize(295, 440, "library poster data"),
-            ImageVariant.MaxSize(300, 450, "person/search style poster"),
-            ImageVariant.MaxSize(464, 331, "home/library wide poster"),
-            ImageVariant.MaxSize(400, 384, "episode row actual fallback"),
-            ImageVariant.MaxSize(500, 500, "square audio/library art")
+            ImageVariant.MaxSize(196, 384, "default poster helper", 90),
+            ImageVariant.MaxSize(180, 331, "home movie poster display", 90),
+            ImageVariant.MaxSize(295, 440, "library poster data", 90),
+            ImageVariant.MaxSize(300, 450, "person/search style poster", 90),
+            ImageVariant.MaxSize(464, 331, "home/library wide poster", 90),
+            ImageVariant.MaxSize(400, 384, "episode row actual fallback", 90),
+            ImageVariant.MaxSize(500, 500, "square audio/library art", 90)
         };
 
         var thumbVariants = new[]
         {
-            ImageVariant.MaxSize(196, 384, "default thumb fallback"),
-            ImageVariant.MaxSize(295, 440, "portrait fallback thumb"),
-            ImageVariant.MaxSize(400, 384, "episode row actual fallback"),
-            ImageVariant.MaxSize(464, 331, "series/home landscape thumb"),
-            ImageVariant.MaxSize(500, 500, "square thumb art")
+            ImageVariant.MaxSize(196, 384, "default thumb fallback", 90),
+            ImageVariant.MaxSize(295, 440, "portrait fallback thumb", 90),
+            ImageVariant.MaxSize(400, 384, "episode row actual fallback", 90),
+            ImageVariant.MaxSize(464, 331, "series/home landscape thumb", 90),
+            ImageVariant.MaxSize(500, 500, "square thumb art", 90)
         };
 
         return new ClientWarmupProfile("Roku", "Mostly fixed maxWidth/maxHeight requests used by Roku data nodes and home rows.", primaryVariants, thumbVariants);
@@ -298,11 +275,6 @@ public class CacheWarmTask : IScheduledTask
             return Create(label, quality, ("maxWidth", width), ("maxHeight", height));
         }
 
-        public static ImageVariant FillSize(int width, int height, string label, int? quality = 96)
-        {
-            return Create(label, quality, ("fillWidth", width), ("fillHeight", height));
-        }
-
         public static ImageVariant FillWidth(int width, int quality, string label)
         {
             return Create(label, quality, ("fillWidth", width));
@@ -333,9 +305,37 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    private sealed record WarmupRequest(Guid ItemId, string ImageType, string ClientProfile, ImageVariant Variant)
+    private static string GetImageVersion(BaseItem item, string imageType)
+    {
+        var parsedImageType = string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase) ? ImageType.Thumb : ImageType.Primary;
+        try
+        {
+            var imageInfo = item.GetImageInfo(parsedImageType, 0);
+            var imagePath = item.GetImagePath(parsedImageType, 0);
+            return imageInfo?.DateModified.Ticks.ToString() ?? (imagePath == null ? "unknown" : ComputeShortHash(imagePath));
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    private static string CreateWarmupScope(PluginConfiguration config)
+    {
+        var json = JsonSerializer.Serialize(config);
+        var input = $"warmer-v2|{json}";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)))[..16];
+    }
+
+    private static string ComputeShortHash(string input)
+    {
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)))[..16];
+    }
+
+    private sealed record WarmupRequest(Guid ItemId, string ImageType, string ImageVersion, long ItemModifiedTicks, string ClientProfile, ImageVariant Variant)
     {
         public string CacheKey => $"{ItemId:N}:{ImageType}:{Variant.CacheKey}";
+        public string CompletionKey => $"{ItemId:N}:{ImageType}:{ImageVersion}:{ItemModifiedTicks}:{Variant.CacheKey}";
 
         public string ToUrl(string baseUrl)
         {
@@ -346,6 +346,136 @@ public class CacheWarmTask : IScheduledTask
 
             var queryString = string.Join("&", query.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
             return $"{baseUrl}/Items/{ItemId:N}/Images/{ImageType}?{queryString}";
+        }
+    }
+
+    private sealed class WarmupState
+    {
+        public int Version { get; set; } = 1;
+        public string Scope { get; set; } = string.Empty;
+        public HashSet<string> CompletedKeys { get; set; } = [];
+    }
+
+    private sealed class WarmupStateStore
+    {
+        private const string StateFileName = "cache-warmer-state.json";
+        private readonly string _statePath;
+        private readonly ILogger<CacheWarmTask> _logger;
+        private readonly object _lock = new();
+        private readonly WarmupState _state;
+
+        private WarmupStateStore(string scope, string statePath, WarmupState state, ILogger<CacheWarmTask> logger)
+        {
+            _statePath = statePath;
+            _logger = logger;
+            _state = state.Scope == scope ? state : new WarmupState { Scope = scope };
+            _state.CompletedKeys = new HashSet<string>(_state.CompletedKeys ?? [], StringComparer.Ordinal);
+        }
+
+        public static WarmupStateStore Load(string scope, ILogger<CacheWarmTask> logger)
+        {
+            var statePath = GetStatePath();
+            CleanTemporaryStateFiles(statePath, logger);
+
+            try
+            {
+                if (File.Exists(statePath))
+                {
+                    var json = File.ReadAllText(statePath);
+                    var state = JsonSerializer.Deserialize<WarmupState>(json) ?? new WarmupState { Scope = scope };
+                    return new WarmupStateStore(scope, statePath, state, logger);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to read JellyTag-Plus cache warmer state; starting a fresh warmup ledger");
+            }
+
+            return new WarmupStateStore(scope, statePath, new WarmupState { Scope = scope }, logger);
+        }
+
+        public bool Contains(string key)
+        {
+            lock (_lock)
+            {
+                return _state.CompletedKeys.Contains(key);
+            }
+        }
+
+        public void MarkCompleted(string key)
+        {
+            lock (_lock)
+            {
+                if (!_state.CompletedKeys.Add(key))
+                {
+                    return;
+                }
+
+                SaveLocked();
+            }
+        }
+
+        private void SaveLocked()
+        {
+            var directory = Path.GetDirectoryName(_statePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var tempPath = $"{_statePath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                var json = JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(tempPath, json);
+                File.Move(tempPath, _statePath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to write JellyTag-Plus cache warmer state");
+                TryDelete(tempPath);
+            }
+        }
+
+        private static string GetStatePath()
+        {
+            var cachePath = Plugin.Instance?.CacheFolderPath ?? Path.Combine(Path.GetTempPath(), "JellyTag", "cache");
+            return Path.Combine(cachePath, StateFileName);
+        }
+
+        private static void CleanTemporaryStateFiles(string statePath, ILogger<CacheWarmTask> logger)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(statePath);
+                if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+                {
+                    return;
+                }
+
+                foreach (var tempFile in Directory.GetFiles(directory, $"{Path.GetFileName(statePath)}.*.tmp"))
+                {
+                    TryDelete(tempFile);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Failed to clean temporary JellyTag-Plus cache warmer state files");
+            }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+            }
         }
     }
 

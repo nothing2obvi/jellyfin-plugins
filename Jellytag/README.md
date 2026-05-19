@@ -40,16 +40,16 @@ JellyTag-Plus keeps the original server-side badge overlay idea and adds a lot o
 
 The **JellyTag-Plus Cache Warmer** is a scheduled task that walks enabled libraries and requests poster/thumbnail image URLs ahead of time. Those requests pass through JellyTag-Plus exactly like real client requests, causing badged images to be rendered and stored in the plugin cache before users browse to them.
 
-The warmer now includes organized client profiles for:
+The warmer includes organized client profiles for:
 
 - Findroid
-- Jellyfin Web
-- WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell
 - Android TV
 - Roku
 - Streamyfin
 
-It warms bare images plus common client-specific variants such as `maxWidth`/`maxHeight`, `fillWidth`/`fillHeight`, `width`, and quality combinations.
+It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed because they calculate image sizes dynamically.
+
+Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
 
 > **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. This can make clients faster after warming, but plugin cache storage may become quite large. Use it deliberately and keep an eye on disk usage.
 
