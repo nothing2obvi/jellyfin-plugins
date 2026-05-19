@@ -20,6 +20,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IQualityDetectionService, QualityDetectionService>();
         serviceCollection.AddSingleton<IImageOverlayService, ImageOverlayService>();
         serviceCollection.AddSingleton<IImageCacheService, ImageCacheService>();
+        serviceCollection.AddSingleton<IImageTrafficCoordinator, ImageTrafficCoordinator>();
         serviceCollection.AddSingleton<IScheduledTask, CacheCleanupTask>();
         serviceCollection.AddSingleton<IScheduledTask, CacheWarmTask>();
 

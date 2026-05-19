@@ -35,7 +35,7 @@ public class ImageCacheService : IImageCacheService
         }
 
         var config = Plugin.Instance?.Configuration;
-        var cacheHours = config?.CacheDurationHours ?? 24;
+        var cacheHours = config?.CacheDurationHours ?? 168;
         var fileInfo = new FileInfo(cacheFilePath);
 
         if (fileInfo.LastWriteTimeUtc.AddHours(cacheHours) < DateTime.UtcNow)
@@ -110,7 +110,8 @@ public class ImageCacheService : IImageCacheService
                 {
                     var jpgFiles = Directory.GetFiles(_cachePath, "*.jpg");
                     var webpFiles = Directory.GetFiles(_cachePath, "*.webp");
-                    var files = jpgFiles.Concat(webpFiles).ToArray();
+                    var warmerStateFiles = Directory.GetFiles(_cachePath, "cache-warmer-state.json*");
+                    var files = jpgFiles.Concat(webpFiles).Concat(warmerStateFiles).ToArray();
                     foreach (var file in files)
                     {
                         try

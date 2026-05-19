@@ -60,6 +60,7 @@ public partial class ImageOverlayMiddleware
         IQualityDetectionService qualityService,
         IImageOverlayService overlayService,
         IImageCacheService cacheService,
+        IImageTrafficCoordinator trafficCoordinator,
         MediaBrowser.Controller.Library.ILibraryManager libraryManager,
         IProviderManager providerManager)
     {
@@ -86,6 +87,11 @@ public partial class ImageOverlayMiddleware
 
         var itemIdStr = match.Groups[1].Value;
         var imageType = match.Groups[2].Value;
+
+        if (!IsWarmupRequest(context.Request.Query))
+        {
+            trafficCoordinator.NotifyClientImageRequest();
+        }
 
         if (!Guid.TryParse(itemIdStr, out var itemId))
         {
@@ -362,6 +368,12 @@ public partial class ImageOverlayMiddleware
             .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
             .Select(kvp => $"{kvp.Key}={string.Join(",", kvp.Value.ToArray())}");
         return string.Join("&", parts);
+    }
+
+    private static bool IsWarmupRequest(IQueryCollection query)
+    {
+        return query.TryGetValue("jellytagwarm", out var value)
+            && value.Any(v => string.Equals(v, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string GetImageVersion(BaseItem item, string imageType)
