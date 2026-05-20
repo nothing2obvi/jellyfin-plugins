@@ -4,6 +4,8 @@ This repository is a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil
 
 The main active change in this fork is **JellyTag-Plus**, a renamed and expanded fork of JellyTag. **WatchSync has not been touched yet**, so if you only want WatchSync, it is best to use the original repository from Atilil.
 
+> **Disclaimer:** The original plugins in [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins) are described by their author as built from vibecoding; see [Atilil/jellyfin-plugins#17](https://github.com/Atilil/jellyfin-plugins/issues/17). The additional and modified features in JellyTag-Plus in this fork are also vibecoded.
+
 ## Installation
 
 1. Open Jellyfin and go to **Administration -> Dashboard -> Plugins -> Repositories**

@@ -8,6 +8,8 @@ Jellyfin plugin to automatically synchronize watch history between libraries of 
 
 > **Fork status:** This repository is a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins), but WatchSync has not been touched yet. If you only want WatchSync, it is best to use the original Atilil repository.
 
+> **Disclaimer:** The original plugins in [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins) are described by their author as built from vibecoding; see [Atilil/jellyfin-plugins#17](https://github.com/Atilil/jellyfin-plugins/issues/17). WatchSync is currently unchanged in this fork.
+
 ## Features
 
 - **Automatic synchronization**: When media is watched, all matching versions are updated
