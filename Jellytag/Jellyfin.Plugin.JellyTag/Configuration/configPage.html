@@ -46,6 +46,10 @@
             .warmer-profile-button { background: #555 !important; color: #fff !important; border: 0 !important; min-width: 72px; }
             .warmer-profile-button:hover:not(:disabled) { background: #666 !important; }
             .warmer-profile-button:disabled { background: #555 !important; color: rgba(255,255,255,.75) !important; opacity: 1 !important; cursor: default; }
+            .warmer-profile-progress { grid-column: 2 / 5; display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; color: rgba(255,255,255,.72); font-size: .85em; }
+            .warmer-profile-progress-bar { grid-column: 1 / 2; height: 6px; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; }
+            .warmer-profile-progress-fill { height: 100%; width: 0%; background: #00a4dc; transition: width .2s ease; }
+            .warmer-profile-progress-value { grid-column: 2 / 3; min-width: 46px; text-align: right; }
             .jellytag-config-layout { display: block; margin-right: 350px; }
             .jellytag-config-layout > form { min-width: 0; }
             .jellytag-preview-panel { position: fixed; top: 4.5em; width: 322px; max-height: calc(100vh - 5.5em); overflow-y: auto; border: 1px solid rgba(255,255,255,.12); border-radius: .4em; background: rgba(20,20,20,.95); padding: 1em; z-index: 50; }
@@ -197,6 +201,7 @@
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
+                                <div class="fieldDescription" style="opacity:.72; margin-bottom:.5em;">Estimated Warmer Progress: Based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them.</div>
                                 <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
                                 <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Jellyfin Web, Android, iOS, and Desktop Qt are not listed because their home and library views calculate image sizes dynamically through Jellyfin Web, so there is no stable set of poster or thumbnail variants to prewarm.</div>
                             </div>
@@ -994,6 +999,7 @@
             { key: 'roku', label: 'Roku' },
             { key: 'streamyfin', label: 'Streamyfin' }
         ];
+        var warmerProgressByKey = {};
 
         function renderWarmerClientProfiles(selectedKeys) {
             var wrap = q('WarmerClientProfiles');
@@ -1021,6 +1027,10 @@
                     '<label for="WarmerClient_' + key + '">' + profile.label + '</label>' +
                     '<button is="emby-button" type="button" class="warmer-profile-up warmer-profile-button" title="Move up"' + disabledUp + '>Up</button>' +
                     '<button is="emby-button" type="button" class="warmer-profile-down warmer-profile-button" title="Move down"' + disabledDown + '>Down</button>' +
+                    '<div class="warmer-profile-progress">' +
+                    '<div class="warmer-profile-progress-bar"><div class="warmer-profile-progress-fill" data-progress-fill="' + key + '"></div></div>' +
+                    '<div class="warmer-profile-progress-value" data-progress-value="' + key + '">--</div>' +
+                    '</div>' +
                     '</div>';
             }).join('');
 
@@ -1034,6 +1044,8 @@
                     renderWarmerClientProfiles(readWarmerProfileState());
                 });
             });
+
+            applyWarmerProgress();
         }
 
         function readWarmerProfileState() {
@@ -1047,6 +1059,41 @@
 
         function collectWarmerClientProfiles() {
             return readWarmerProfileState();
+        }
+
+        function applyWarmerProgress() {
+            Object.keys(warmerProgressByKey || {}).forEach(function(key) {
+                var item = warmerProgressByKey[key];
+                var fill = document.querySelector('[data-progress-fill="' + key + '"]');
+                var value = document.querySelector('[data-progress-value="' + key + '"]');
+                if (!fill || !value) return;
+
+                var percent = item && item.Total ? Math.max(0, Math.min(100, item.Percent || 0)) : 100;
+                fill.style.width = percent + '%';
+                value.textContent = item && item.Total ? percent.toFixed(percent % 1 === 0 ? 0 : 1) + '%' : '0/0';
+                value.title = item ? ((item.Completed || 0) + ' of ' + (item.Total || 0) + ' variants') : '';
+            });
+        }
+
+        function loadWarmerProgress() {
+            return ApiClient.ajax({
+                type: 'GET',
+                url: ApiClient.getUrl('JellyTagPlus/WarmerProgress'),
+                dataType: 'json'
+            }).then(function(result) {
+                warmerProgressByKey = {};
+                (result.Profiles || result.profiles || []).forEach(function(item) {
+                    var key = item.Key || item.key;
+                    if (key) warmerProgressByKey[key] = {
+                        Completed: item.Completed != null ? item.Completed : item.completed,
+                        Total: item.Total != null ? item.Total : item.total,
+                        Percent: item.Percent != null ? item.Percent : item.percent
+                    };
+                });
+                applyWarmerProgress();
+            }).catch(function(err) {
+                console.warn('[JellyTag] Failed to load warmer progress:', err);
+            });
         }
 
         // ===== Library filter =====
@@ -1218,6 +1265,7 @@
                 q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 250;
                 q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 15;
                 renderWarmerClientProfiles(config.WarmerClientProfiles || []);
+                loadWarmerProgress();
                 q('OutputFormat').value = config.OutputFormat;
                 q('JpegQuality').value = config.JpegQuality;
                 q('WebPQuality').value = config.WebPQuality;

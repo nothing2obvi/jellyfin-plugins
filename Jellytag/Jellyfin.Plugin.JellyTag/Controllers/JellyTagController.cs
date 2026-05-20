@@ -4,9 +4,12 @@ using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Middleware;
 using Jellyfin.Plugin.JellyTag.Services;
+using Jellyfin.Plugin.JellyTag.Tasks;
+using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.JellyTag.Controllers;
 
@@ -20,6 +23,8 @@ public partial class JellyTagController : ControllerBase
     private readonly IImageCacheService _cacheService;
     private readonly IImageOverlayService _overlayService;
     private readonly IQualityDetectionService _qualityService;
+    private readonly ILibraryManager _libraryManager;
+    private readonly ILogger<CacheWarmTask> _cacheWarmLogger;
 
     private static readonly string[] SupportedBadgeExtensions = { ".svg", ".png", ".jpg", ".jpeg" };
 
@@ -29,11 +34,18 @@ public partial class JellyTagController : ControllerBase
     /// <summary>
     /// Initializes a new instance of the <see cref="JellyTagController"/> class.
     /// </summary>
-    public JellyTagController(IImageCacheService cacheService, IImageOverlayService overlayService, IQualityDetectionService qualityService)
+    public JellyTagController(
+        IImageCacheService cacheService,
+        IImageOverlayService overlayService,
+        IQualityDetectionService qualityService,
+        ILibraryManager libraryManager,
+        ILogger<CacheWarmTask> cacheWarmLogger)
     {
         _cacheService = cacheService;
         _overlayService = overlayService;
         _qualityService = qualityService;
+        _libraryManager = libraryManager;
+        _cacheWarmLogger = cacheWarmLogger;
     }
 
     /// <summary>
@@ -85,6 +97,24 @@ public partial class JellyTagController : ControllerBase
             ThumbnailSameAsPoster = config?.ThumbnailSameAsPoster ?? false,
             OutputFormat = config?.OutputFormat.ToString() ?? "Jpeg"
         });
+    }
+
+    /// <summary>
+    /// Gets estimated warmer progress by client profile.
+    /// </summary>
+    [HttpGet("WarmerProgress")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetWarmerProgress()
+    {
+        var config = Plugin.Instance?.Configuration;
+        if (config == null || !config.Enabled)
+        {
+            return Ok(new { Profiles = Array.Empty<object>() });
+        }
+
+        var progress = CacheWarmTask.GetEstimatedClientProgress(config, _libraryManager, _cacheWarmLogger);
+        return Ok(new { Profiles = progress });
     }
 
     [HttpPost("Configuration")]

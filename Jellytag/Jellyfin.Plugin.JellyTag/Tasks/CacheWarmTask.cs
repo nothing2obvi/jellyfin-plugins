@@ -16,6 +16,7 @@ namespace Jellyfin.Plugin.JellyTag.Tasks;
 
 public class CacheWarmTask : IScheduledTask
 {
+    private static readonly string[] DefaultClientWarmupProfileKeys = ["findroid", "androidtv", "roku", "streamyfin"];
     private static readonly IReadOnlyList<ClientWarmupProfile> ClientWarmupProfiles =
     [
         CreateFindroidProfile(),
@@ -146,25 +147,90 @@ public class CacheWarmTask : IScheduledTask
         _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly warmed {Warmed}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, failed, skipped);
     }
 
+    public static IReadOnlyList<WarmerClientProgress> GetEstimatedClientProgress(PluginConfiguration config, ILibraryManager libraryManager, ILogger<CacheWarmTask> logger)
+    {
+        var state = WarmupStateStore.Load(CreateWarmupScope(config), logger);
+        var warmerStateMaxAge = TimeSpan.FromHours(Math.Clamp(config.CacheDurationHours <= 0 ? 168 : config.CacheDurationHours, 1, 720));
+        state.PruneExpired(warmerStateMaxAge);
+
+        var items = libraryManager.GetItemList(new InternalItemsQuery
+        {
+            Recursive = true,
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season, BaseItemKind.Episode, BaseItemKind.Video]
+        }).Where(item => IsInEnabledLibrary(item, config, libraryManager)).ToList();
+
+        var enabledKeys = GetConfiguredClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return GetOrderedClientWarmupProfiles(config, includeDisabled: true)
+            .Select(profile =>
+            {
+                var requests = new List<WarmupRequest>();
+                foreach (var item in items)
+                {
+                    if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
+                    {
+                        requests.AddRange(CreateWarmupRequests(profile, item, "Primary"));
+                    }
+
+                    if (ShouldRequestThumb(item, config) && item.HasImage(ImageType.Thumb, 0))
+                    {
+                        requests.AddRange(CreateWarmupRequests(profile, item, "Thumb"));
+                    }
+                }
+
+                requests = requests
+                    .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
+                    .Select(group => group.First())
+                    .ToList();
+
+                var completed = requests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAge));
+                var total = requests.Count;
+                var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
+                return new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent);
+            })
+            .ToList();
+    }
+
     private static IEnumerable<ClientWarmupProfile> GetEnabledClientWarmupProfiles(PluginConfiguration config)
     {
-        var configuredKeys = (config.WarmerClientProfiles?.Count > 0 ? config.WarmerClientProfiles : null)
-            ?? ["findroid", "androidtv", "roku", "streamyfin"];
+        return GetOrderedClientWarmupProfiles(config, includeDisabled: false);
+    }
+
+    private static IEnumerable<ClientWarmupProfile> GetOrderedClientWarmupProfiles(PluginConfiguration config, bool includeDisabled)
+    {
         var profileMap = ClientWarmupProfiles.ToDictionary(profile => profile.Key, StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var key in configuredKeys)
+        foreach (var key in GetConfiguredClientProfileKeys(config))
         {
-            if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
+            var normalizedKey = key.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedKey) || !seen.Add(normalizedKey))
             {
                 continue;
             }
 
-            if (profileMap.TryGetValue(key.Trim(), out var profile))
+            if (profileMap.TryGetValue(normalizedKey, out var profile))
             {
                 yield return profile;
             }
         }
+
+        if (!includeDisabled)
+        {
+            yield break;
+        }
+
+        foreach (var profile in ClientWarmupProfiles)
+        {
+            if (seen.Add(profile.Key))
+            {
+                yield return profile;
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetConfiguredClientProfileKeys(PluginConfiguration config)
+    {
+        return config.WarmerClientProfiles?.Count > 0 ? config.WarmerClientProfiles : DefaultClientWarmupProfileKeys;
     }
 
     private static IEnumerable<WarmupRequest> CreateWarmupRequests(ClientWarmupProfile profile, BaseItem item, string imageType)
@@ -187,7 +253,12 @@ public class CacheWarmTask : IScheduledTask
 
     private bool IsInEnabledLibrary(BaseItem item, PluginConfiguration config)
     {
-        var folders = _libraryManager.GetCollectionFolders(item).ToList();
+        return IsInEnabledLibrary(item, config, _libraryManager);
+    }
+
+    private static bool IsInEnabledLibrary(BaseItem item, PluginConfiguration config, ILibraryManager libraryManager)
+    {
+        var folders = libraryManager.GetCollectionFolders(item).ToList();
         if (folders.Count == 0) return true;
         if (config.ExcludedLibraryIds?.Count > 0 && folders.Any(f => config.ExcludedLibraryIds.Contains(f.Id.ToString("N")))) return false;
         return true;
@@ -567,5 +638,7 @@ public class CacheWarmTask : IScheduledTask
             }
         }
     }
+
+    public sealed record WarmerClientProgress(string Key, string Name, bool Enabled, int Completed, int Total, double Percent);
 
 }

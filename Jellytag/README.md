@@ -64,6 +64,8 @@ Warmer throttling is configurable:
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants.
 
+The configuration page shows **Estimated Warmer Progress** for each client profile. This is based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them.
+
 > **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. This can make clients faster after warming, but plugin cache storage may become quite large. Use it deliberately and keep an eye on disk usage.
 
 ## Force Image Refresh
