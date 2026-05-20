@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.JellyTag.Tasks;
 
 public class CacheWarmTask : IScheduledTask
 {
-    private static readonly string[] DefaultClientWarmupProfileKeys = ["findroid", "androidtv", "roku", "streamyfin"];
+    private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "findroid"];
     private static readonly IReadOnlyList<ClientWarmupProfile> ClientWarmupProfiles =
     [
         CreateFindroidProfile(),

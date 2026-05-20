@@ -62,7 +62,7 @@ Warmer throttling is configurable:
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 250 |
 | Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 15 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Findroid, Android TV, Roku, Streamyfin |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Findroid |
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants.
 
@@ -101,7 +101,7 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 250 |
 | Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 15 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Findroid, Android TV, Roku, Streamyfin |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Findroid |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 

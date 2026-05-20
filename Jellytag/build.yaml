@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.38.0.0"
+version: "1.39.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,5 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
-  ## v1.38.0.0
-  - Persist cache warmer client profile order separately from enabled profiles
-  - Preserve custom warmer profile priority more reliably across config saves and plugin updates
+  ## v1.39.0.0
+  - Change the default cache warmer client order to Android TV, Roku, Streamyfin, then Findroid
