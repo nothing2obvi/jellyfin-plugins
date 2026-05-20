@@ -49,6 +49,8 @@ The warmer includes organized client profiles for:
 
 It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed because they calculate image sizes dynamically.
 
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer works through the enabled profiles in that order before moving to the next profile, so putting a client first makes that client family warm sooner.
+
 Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
 
 Warmer throttling is configurable:
@@ -58,6 +60,7 @@ Warmer throttling is configurable:
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 250 |
 | Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 15 |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Findroid, Android TV, Roku, Streamyfin |
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants.
 
@@ -94,6 +97,7 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 250 |
 | Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 15 |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Findroid, Android TV, Roku, Streamyfin |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 

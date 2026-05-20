@@ -193,6 +193,10 @@
                                 <input id="WarmerClientQuietSeconds" type="number" min="0" max="120" step="1" is="emby-input" />
                             </div>
                             <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
+                                <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
+                            </div>
+                            <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="OutputFormat">Output Format</label>
                                 <select id="OutputFormat" is="emby-select">
                                     <option value="Jpeg">JPEG</option>
@@ -957,6 +961,7 @@
             config.WarmerMaxConcurrency = parseInt(q('WarmerMaxConcurrency').value, 10) || 1;
             config.WarmerDelayMs = parseInt(q('WarmerDelayMs').value, 10) || 0;
             config.WarmerClientQuietSeconds = parseInt(q('WarmerClientQuietSeconds').value, 10) || 0;
+            config.WarmerClientProfiles = collectWarmerClientProfiles();
             config.OutputFormat = q('OutputFormat').value;
             config.JpegQuality = parseInt(q('JpegQuality').value, 10);
             config.WebPQuality = parseInt(q('WebPQuality').value, 10);
@@ -977,6 +982,67 @@
             if (c) c.classList.toggle('hidden', same);
             var r = document.querySelector('#ThumbSizeReductionWrap');
             if (r) r.classList.toggle('hidden', !same);
+        }
+
+        var WARMER_CLIENT_PROFILES = [
+            { key: 'findroid', label: 'Findroid' },
+            { key: 'androidtv', label: 'Android TV' },
+            { key: 'roku', label: 'Roku' },
+            { key: 'streamyfin', label: 'Streamyfin' }
+        ];
+
+        function renderWarmerClientProfiles(selectedKeys) {
+            var wrap = q('WarmerClientProfiles');
+            if (!wrap) return;
+
+            var selected = selectedKeys && selectedKeys.length ? selectedKeys.slice() : WARMER_CLIENT_PROFILES.map(function(p) { return p.key; });
+            var known = {};
+            WARMER_CLIENT_PROFILES.forEach(function(p) { known[p.key] = p; });
+            var ordered = [];
+            selected.forEach(function(key) {
+                key = (key || '').toLowerCase();
+                if (known[key] && ordered.indexOf(key) === -1) ordered.push(key);
+            });
+            WARMER_CLIENT_PROFILES.forEach(function(p) {
+                if (ordered.indexOf(p.key) === -1) ordered.push(p.key);
+            });
+
+            wrap.innerHTML = ordered.map(function(key, index) {
+                var profile = known[key];
+                var checked = selected.indexOf(key) !== -1 ? 'checked' : '';
+                var disabledUp = index === 0 ? ' disabled' : '';
+                var disabledDown = index === ordered.length - 1 ? ' disabled' : '';
+                return '<div class="warmer-profile-row" data-key="' + key + '" style="display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px;">' +
+                    '<input id="WarmerClient_' + key + '" class="warmer-profile-enabled" type="checkbox" ' + checked + ' />' +
+                    '<label for="WarmerClient_' + key + '">' + profile.label + '</label>' +
+                    '<button is="emby-button" type="button" class="warmer-profile-up" title="Move up"' + disabledUp + '>Up</button>' +
+                    '<button is="emby-button" type="button" class="warmer-profile-down" title="Move down"' + disabledDown + '>Down</button>' +
+                    '</div>';
+            }).join('');
+
+            wrap.querySelectorAll('.warmer-profile-up,.warmer-profile-down').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    var row = button.closest('.warmer-profile-row');
+                    var sibling = button.classList.contains('warmer-profile-up') ? row.previousElementSibling : row.nextElementSibling;
+                    if (!sibling) return;
+                    if (button.classList.contains('warmer-profile-up')) wrap.insertBefore(row, sibling);
+                    else wrap.insertBefore(sibling, row);
+                    renderWarmerClientProfiles(readWarmerProfileState());
+                });
+            });
+        }
+
+        function readWarmerProfileState() {
+            return Array.prototype.map.call(q('WarmerClientProfiles').querySelectorAll('.warmer-profile-row'), function(row) {
+                return row.getAttribute('data-key');
+            }).filter(function(key) {
+                var cb = q('WarmerClient_' + key);
+                return cb && cb.checked;
+            });
+        }
+
+        function collectWarmerClientProfiles() {
+            return readWarmerProfileState();
         }
 
         // ===== Library filter =====
@@ -1147,6 +1213,7 @@
                 q('WarmerMaxConcurrency').value = config.WarmerMaxConcurrency != null ? config.WarmerMaxConcurrency : 1;
                 q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 250;
                 q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 15;
+                renderWarmerClientProfiles(config.WarmerClientProfiles || []);
                 q('OutputFormat').value = config.OutputFormat;
                 q('JpegQuality').value = config.JpegQuality;
                 q('WebPQuality').value = config.WebPQuality;

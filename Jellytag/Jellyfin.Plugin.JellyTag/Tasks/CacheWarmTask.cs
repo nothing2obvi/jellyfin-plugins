@@ -54,6 +54,9 @@ public class CacheWarmTask : IScheduledTask
         var state = WarmupStateStore.Load(CreateWarmupScope(config), _logger);
         var warmerStateMaxAge = TimeSpan.FromHours(Math.Clamp(config.CacheDurationHours <= 0 ? 168 : config.CacheDurationHours, 1, 720));
         state.PruneExpired(warmerStateMaxAge);
+        var profiles = GetEnabledClientWarmupProfiles(config).ToList();
+        if (profiles.Count == 0) { progress.Report(100); return; }
+
         var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
             Recursive = true,
@@ -61,17 +64,20 @@ public class CacheWarmTask : IScheduledTask
         }).Where(item => IsInEnabledLibrary(item, config)).ToList();
 
         var requests = new List<WarmupRequest>();
-        foreach (var item in items)
+        foreach (var profile in profiles)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
+            foreach (var item in items)
             {
-                requests.AddRange(CreateWarmupRequests(item, "Primary"));
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
+                {
+                    requests.AddRange(CreateWarmupRequests(profile, item, "Primary"));
+                }
 
-            if (ShouldRequestThumb(item, config) && item.HasImage(ImageType.Thumb, 0))
-            {
-                requests.AddRange(CreateWarmupRequests(item, "Thumb"));
+                if (ShouldRequestThumb(item, config) && item.HasImage(ImageType.Thumb, 0))
+                {
+                    requests.AddRange(CreateWarmupRequests(profile, item, "Thumb"));
+                }
             }
         }
 
@@ -140,16 +146,34 @@ public class CacheWarmTask : IScheduledTask
         _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly warmed {Warmed}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, failed, skipped);
     }
 
-    private static IEnumerable<WarmupRequest> CreateWarmupRequests(BaseItem item, string imageType)
+    private static IEnumerable<ClientWarmupProfile> GetEnabledClientWarmupProfiles(PluginConfiguration config)
+    {
+        var configuredKeys = (config.WarmerClientProfiles?.Count > 0 ? config.WarmerClientProfiles : null)
+            ?? ["findroid", "androidtv", "roku", "streamyfin"];
+        var profileMap = ClientWarmupProfiles.ToDictionary(profile => profile.Key, StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in configuredKeys)
+        {
+            if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
+            {
+                continue;
+            }
+
+            if (profileMap.TryGetValue(key.Trim(), out var profile))
+            {
+                yield return profile;
+            }
+        }
+    }
+
+    private static IEnumerable<WarmupRequest> CreateWarmupRequests(ClientWarmupProfile profile, BaseItem item, string imageType)
     {
         var imageVersion = GetImageVersion(item, imageType);
         var itemModifiedTicks = item.DateModified.Ticks;
-        foreach (var profile in ClientWarmupProfiles)
+        foreach (var variant in profile.GetVariants(imageType))
         {
-            foreach (var variant in profile.GetVariants(imageType))
-            {
-                yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, profile.Name, variant);
-            }
+            yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, profile.Name, variant);
         }
     }
 
@@ -183,6 +207,7 @@ public class CacheWarmTask : IScheduledTask
     private static ClientWarmupProfile CreateFindroidProfile()
     {
         return new ClientWarmupProfile(
+            "findroid",
             "Findroid",
             "Findroid home and library views request unsized Primary images and let the client scale them.",
             [ImageVariant.Unsized("home/library unsized")],
@@ -220,7 +245,7 @@ public class CacheWarmTask : IScheduledTask
             ImageVariant.MaxSize(759, 427, "library thumb x-large")
         };
 
-        return new ClientWarmupProfile("Android TV", "maxWidth/maxHeight requests for home rows and poster-size library settings.", primaryVariants, thumbVariants);
+        return new ClientWarmupProfile("androidtv", "Android TV", "maxWidth/maxHeight requests for home rows and poster-size library settings.", primaryVariants, thumbVariants);
     }
 
     private static ClientWarmupProfile CreateRokuProfile()
@@ -245,7 +270,7 @@ public class CacheWarmTask : IScheduledTask
             ImageVariant.MaxSize(500, 500, "square thumb art", 90)
         };
 
-        return new ClientWarmupProfile("Roku", "Mostly fixed maxWidth/maxHeight requests used by Roku data nodes and home rows.", primaryVariants, thumbVariants);
+        return new ClientWarmupProfile("roku", "Roku", "Mostly fixed maxWidth/maxHeight requests used by Roku data nodes and home rows.", primaryVariants, thumbVariants);
     }
 
     private static ClientWarmupProfile CreateStreamyfinProfile()
@@ -262,10 +287,11 @@ public class CacheWarmTask : IScheduledTask
             ImageVariant.FillHeight(389, 80, "continue watching / next up horizontal cards")
         };
 
-        return new ClientWarmupProfile("Streamyfin", "width/fillWidth/fillHeight requests used in library and home poster components.", primaryVariants, thumbVariants);
+        return new ClientWarmupProfile("streamyfin", "Streamyfin", "width/fillWidth/fillHeight requests used in library and home poster components.", primaryVariants, thumbVariants);
     }
 
     private sealed record ClientWarmupProfile(
+        string Key,
         string Name,
         string Notes,
         IReadOnlyList<ImageVariant> PrimaryVariants,

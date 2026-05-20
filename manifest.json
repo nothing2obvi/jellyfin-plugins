@@ -28,12 +28,12 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.33.0.0",
-        "changelog": "Restrict cache warming to documented Findroid, Android TV, Roku, and Streamyfin variants, resume interval runs from successfully warmed variants using an atomic persistent ledger, keep the default cache age at 168 hours, and add configurable warmer throttling so normal browsing image requests take priority.",
+        "version": "1.34.0.0",
+        "changelog": "Add configurable cache warmer client profiles for Findroid, Android TV, Roku, and Streamyfin, including profile ordering and enablement from the JellyTag-Plus configuration page.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.33.0.0.zip",
-        "checksum": "98602cb31b6831181e480f89f73e9c5a",
-        "timestamp": "2026-05-19T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.34.0.0.zip",
+        "checksum": "a9237767b40a569cf87e430fca7b91ea",
+        "timestamp": "2026-05-20T00:00:00Z"
       }
     ]
   }

@@ -160,6 +160,7 @@ public class PluginConfiguration : BasePluginConfiguration
         WarmerMaxConcurrency = 1;
         WarmerDelayMs = 250;
         WarmerClientQuietSeconds = 15;
+        WarmerClientProfiles = new List<string> { "findroid", "androidtv", "roku", "streamyfin" };
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;
@@ -189,6 +190,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public int WarmerMaxConcurrency { get; set; }
     public int WarmerDelayMs { get; set; }
     public int WarmerClientQuietSeconds { get; set; }
+    public List<string> WarmerClientProfiles { get; set; }
     public int JpegQuality { get; set; }
     public OutputImageFormat OutputFormat { get; set; }
     public int WebPQuality { get; set; }
