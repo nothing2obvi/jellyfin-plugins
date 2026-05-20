@@ -38,6 +38,16 @@ JellyTag-Plus keeps the original server-side badge overlay idea and adds a lot o
 - Scheduled cache cleanup task
 - Scheduled cache warmer task
 
+## Bypass Overlays
+
+Image requests can include `?jellytag=off` to return the original Jellyfin image without JellyTag-Plus overlays. This per-request bypass is intended for export and archive tools such as [Pixelfin](https://github.com/nothing2obvi/pixelfin).
+
+Example:
+
+```text
+/Items/{itemId}/Images/Primary?jellytag=off
+```
+
 ## Cache Warmer
 
 The **JellyTag-Plus Cache Warmer** is a scheduled task that walks enabled libraries and requests poster/thumbnail image URLs ahead of time. Those requests pass through JellyTag-Plus exactly like real client requests, causing badged images to be rendered and stored in the plugin cache before users browse to them.

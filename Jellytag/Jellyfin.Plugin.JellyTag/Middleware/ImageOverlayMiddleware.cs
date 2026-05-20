@@ -78,6 +78,12 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
+        if (IsBypassRequest(context.Request.Query))
+        {
+            await _next(context).ConfigureAwait(false);
+            return;
+        }
+
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.Enabled)
         {
@@ -374,6 +380,15 @@ public partial class ImageOverlayMiddleware
     {
         return query.TryGetValue("jellytagwarm", out var value)
             && value.Any(v => string.Equals(v, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsBypassRequest(IQueryCollection query)
+    {
+        return query.TryGetValue("jellytag", out var value)
+            && value.Any(v =>
+                string.Equals(v, "off", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(v, "false", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(v, "0", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string GetImageVersion(BaseItem item, string imageType)
