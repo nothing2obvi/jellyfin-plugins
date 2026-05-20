@@ -971,6 +971,7 @@
             config.WarmerDelayMs = parseInt(q('WarmerDelayMs').value, 10) || 0;
             config.WarmerClientQuietSeconds = parseInt(q('WarmerClientQuietSeconds').value, 10) || 0;
             config.WarmerClientProfiles = collectWarmerClientProfiles();
+            config.WarmerClientProfileOrder = collectWarmerClientProfileOrder();
             config.OutputFormat = q('OutputFormat').value;
             config.JpegQuality = parseInt(q('JpegQuality').value, 10);
             config.WebPQuality = parseInt(q('WebPQuality').value, 10);
@@ -1001,15 +1002,16 @@
         ];
         var warmerProgressByKey = {};
 
-        function renderWarmerClientProfiles(selectedKeys) {
+        function renderWarmerClientProfiles(selectedKeys, orderedKeys) {
             var wrap = q('WarmerClientProfiles');
             if (!wrap) return;
 
-            var selected = selectedKeys && selectedKeys.length ? selectedKeys.slice() : WARMER_CLIENT_PROFILES.map(function(p) { return p.key; });
+            var selected = Array.isArray(selectedKeys) ? selectedKeys.slice() : WARMER_CLIENT_PROFILES.map(function(p) { return p.key; });
+            orderedKeys = Array.isArray(orderedKeys) && orderedKeys.length ? orderedKeys : selected;
             var known = {};
             WARMER_CLIENT_PROFILES.forEach(function(p) { known[p.key] = p; });
             var ordered = [];
-            selected.forEach(function(key) {
+            orderedKeys.forEach(function(key) {
                 key = (key || '').toLowerCase();
                 if (known[key] && ordered.indexOf(key) === -1) ordered.push(key);
             });
@@ -1041,7 +1043,7 @@
                     if (!sibling) return;
                     if (button.classList.contains('warmer-profile-up')) wrap.insertBefore(row, sibling);
                     else wrap.insertBefore(sibling, row);
-                    renderWarmerClientProfiles(readWarmerProfileState());
+                    renderWarmerClientProfiles(readWarmerProfileState(), readWarmerProfileOrder());
                 });
             });
 
@@ -1059,6 +1061,16 @@
 
         function collectWarmerClientProfiles() {
             return readWarmerProfileState();
+        }
+
+        function readWarmerProfileOrder() {
+            return Array.prototype.map.call(q('WarmerClientProfiles').querySelectorAll('.warmer-profile-row'), function(row) {
+                return row.getAttribute('data-key');
+            });
+        }
+
+        function collectWarmerClientProfileOrder() {
+            return readWarmerProfileOrder();
         }
 
         function applyWarmerProgress() {
@@ -1264,7 +1276,7 @@
                 q('WarmerMaxConcurrency').value = config.WarmerMaxConcurrency != null ? config.WarmerMaxConcurrency : 1;
                 q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 250;
                 q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 15;
-                renderWarmerClientProfiles(config.WarmerClientProfiles || []);
+                renderWarmerClientProfiles(config.WarmerClientProfiles || [], config.WarmerClientProfileOrder || config.WarmerClientProfiles || []);
                 loadWarmerProgress();
                 q('OutputFormat').value = config.OutputFormat;
                 q('JpegQuality').value = config.JpegQuality;

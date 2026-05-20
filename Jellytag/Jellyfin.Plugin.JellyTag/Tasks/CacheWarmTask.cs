@@ -159,7 +159,7 @@ public class CacheWarmTask : IScheduledTask
             IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season, BaseItemKind.Episode, BaseItemKind.Video]
         }).Where(item => IsInEnabledLibrary(item, config, libraryManager)).ToList();
 
-        var enabledKeys = GetConfiguredClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return GetOrderedClientWarmupProfiles(config, includeDisabled: true)
             .Select(profile =>
             {
@@ -199,8 +199,9 @@ public class CacheWarmTask : IScheduledTask
     {
         var profileMap = ClientWarmupProfiles.ToDictionary(profile => profile.Key, StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var key in GetConfiguredClientProfileKeys(config))
+        foreach (var key in GetConfiguredClientProfileOrder(config))
         {
             var normalizedKey = key.Trim();
             if (string.IsNullOrWhiteSpace(normalizedKey) || !seen.Add(normalizedKey))
@@ -210,7 +211,10 @@ public class CacheWarmTask : IScheduledTask
 
             if (profileMap.TryGetValue(normalizedKey, out var profile))
             {
-                yield return profile;
+                if (includeDisabled || enabledKeys.Contains(profile.Key))
+                {
+                    yield return profile;
+                }
             }
         }
 
@@ -228,9 +232,16 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    private static IEnumerable<string> GetConfiguredClientProfileKeys(PluginConfiguration config)
+    private static IEnumerable<string> GetEnabledClientProfileKeys(PluginConfiguration config)
     {
-        return config.WarmerClientProfiles?.Count > 0 ? config.WarmerClientProfiles : DefaultClientWarmupProfileKeys;
+        return config.WarmerClientProfiles ?? DefaultClientWarmupProfileKeys.AsEnumerable();
+    }
+
+    private static IEnumerable<string> GetConfiguredClientProfileOrder(PluginConfiguration config)
+    {
+        return config.WarmerClientProfileOrder?.Count > 0
+            ? config.WarmerClientProfileOrder
+            : GetEnabledClientProfileKeys(config).Concat(DefaultClientWarmupProfileKeys);
     }
 
     private static IEnumerable<WarmupRequest> CreateWarmupRequests(ClientWarmupProfile profile, BaseItem item, string imageType)
