@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.36.0.0",
-        "changelog": "Add per-client Estimated Warmer Progress for cache warmer profiles based on the warmer ledger.",
+        "version": "1.37.0.0",
+        "changelog": "Clarify that Estimated Warmer Progress updates when the JellyTag-Plus configuration page is refreshed.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.36.0.0.zip",
-        "checksum": "71a57f298b4a3552aec4669f76e068c1",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.37.0.0.zip",
+        "checksum": "525355b7cd8f69051588f2c6ea78a92e",
         "timestamp": "2026-05-20T00:00:00Z"
       }
     ]

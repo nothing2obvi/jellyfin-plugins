@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.36.0.0"
+version: "1.37.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,5 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
-  ## v1.36.0.0
-  - Add per-client Estimated Warmer Progress to the cache warmer profile configuration
-  - Expose warmer ledger progress through a JellyTag-Plus admin endpoint
+  ## v1.37.0.0
+  - Clarify that Estimated Warmer Progress updates when the configuration page is refreshed
