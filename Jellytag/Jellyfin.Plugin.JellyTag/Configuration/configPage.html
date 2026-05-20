@@ -43,6 +43,9 @@
             .collection-rule-preview img { display: block; width: 64px; height: 40px; object-fit: contain; border: 1px solid rgba(255,255,255,.15); border-radius: .25em; background: rgba(0,0,0,.2); padding: .2em; }
             .collection-rule-preview img.missing { visibility: hidden; }
             .collection-rule-preview span { font-size: .85em; color: #aaa; }
+            .warmer-profile-button { background: #555 !important; color: #fff !important; border: 0 !important; min-width: 72px; }
+            .warmer-profile-button:hover:not(:disabled) { background: #666 !important; }
+            .warmer-profile-button:disabled { background: #555 !important; color: rgba(255,255,255,.75) !important; opacity: 1 !important; cursor: default; }
             .jellytag-config-layout { display: block; margin-right: 350px; }
             .jellytag-config-layout > form { min-width: 0; }
             .jellytag-preview-panel { position: fixed; top: 4.5em; width: 322px; max-height: calc(100vh - 5.5em); overflow-y: auto; border: 1px solid rgba(255,255,255,.12); border-radius: .4em; background: rgba(20,20,20,.95); padding: 1em; z-index: 50; }
@@ -195,6 +198,7 @@
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
                                 <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
+                                <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Jellyfin Web, Android, iOS, and Desktop Qt are not listed because their home and library views calculate image sizes dynamically through Jellyfin Web, so there is no stable set of poster or thumbnail variants to prewarm.</div>
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="OutputFormat">Output Format</label>
@@ -1015,8 +1019,8 @@
                 return '<div class="warmer-profile-row" data-key="' + key + '" style="display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px;">' +
                     '<input id="WarmerClient_' + key + '" class="warmer-profile-enabled" type="checkbox" ' + checked + ' />' +
                     '<label for="WarmerClient_' + key + '">' + profile.label + '</label>' +
-                    '<button is="emby-button" type="button" class="warmer-profile-up" title="Move up"' + disabledUp + '>Up</button>' +
-                    '<button is="emby-button" type="button" class="warmer-profile-down" title="Move down"' + disabledDown + '>Down</button>' +
+                    '<button is="emby-button" type="button" class="warmer-profile-up warmer-profile-button" title="Move up"' + disabledUp + '>Up</button>' +
+                    '<button is="emby-button" type="button" class="warmer-profile-down warmer-profile-button" title="Move down"' + disabledDown + '>Down</button>' +
                     '</div>';
             }).join('');
 
