@@ -128,7 +128,6 @@ public partial class JellyTagController : ControllerBase
         if (config == null) return BadRequest("Invalid configuration");
 
         plugin.UpdateConfiguration(config);
-        _cacheService.ClearCache();
         _qualityService.ClearBadgeCache();
         _overlayService.ReloadBadges();
 
