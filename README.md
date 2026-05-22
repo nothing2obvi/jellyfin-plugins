@@ -1,7 +1,7 @@
 # nothing2obvi Jellyfin Plugins
 
 <p>
-  <a href="https://ko-fi.com/yeahnoforsure_"><img src="assets/support_me_on_kofi_blue.png" alt="Support me on Ko-fi" width="240" /></a>
+  <a href="https://ko-fi.com/yeahnoforsure_" target="_blank" rel="noopener noreferrer"><img src="assets/support_me_on_kofi_blue.png" alt="Support me on Ko-fi" width="240" /></a>
 </p>
 
 This repository is a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins).
