@@ -16,6 +16,7 @@ namespace Jellyfin.Plugin.JellyTag.Tasks;
 
 public class CacheWarmTask : IScheduledTask
 {
+    private static int _isRunning;
     private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "findroid"];
     private static readonly IReadOnlyList<ClientWarmupProfile> ClientWarmupProfiles =
     [
@@ -49,6 +50,15 @@ public class CacheWarmTask : IScheduledTask
 
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
+        if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
+        {
+            _logger.LogInformation("JellyTag-Plus cache warmer is already running; skipping overlapping scheduled task run");
+            progress.Report(100);
+            return;
+        }
+
+        using var runLease = new WarmupRunLease();
+
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.Enabled) { progress.Report(100); return; }
 
@@ -145,6 +155,14 @@ public class CacheWarmTask : IScheduledTask
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
         _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly warmed {Warmed}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, failed, skipped);
+    }
+
+    private sealed class WarmupRunLease : IDisposable
+    {
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _isRunning, 0);
+        }
     }
 
     public static IReadOnlyList<WarmerClientProgress> GetEstimatedClientProgress(PluginConfiguration config, ILibraryManager libraryManager, ILogger<CacheWarmTask> logger)

@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.41.0.0",
-        "changelog": "Stop clearing the rendered image cache when saving JellyTag-Plus settings.",
+        "version": "1.42.0.0",
+        "changelog": "Prevent overlapping JellyTag-Plus cache warmer scheduled task runs.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.41.0.0.zip",
-        "checksum": "b51fca15b140360a15e709ba55a03cd4",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.42.0.0.zip",
+        "checksum": "2e7ac8a502b2e64f7d026735dbda5cf6",
         "timestamp": "2026-05-20T00:00:00Z"
       }
     ]
