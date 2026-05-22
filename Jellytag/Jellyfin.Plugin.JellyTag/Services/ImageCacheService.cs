@@ -38,7 +38,7 @@ public class ImageCacheService : IImageCacheService
         var cacheHours = config?.CacheDurationHours ?? 168;
         var fileInfo = new FileInfo(cacheFilePath);
 
-        if (fileInfo.LastWriteTimeUtc.AddHours(cacheHours) < DateTime.UtcNow)
+        if (cacheHours > 0 && (DateTime.UtcNow - fileInfo.LastWriteTimeUtc).TotalHours > cacheHours)
         {
             _logger.LogDebug("Cache expired for item {ItemId}", itemId);
             try

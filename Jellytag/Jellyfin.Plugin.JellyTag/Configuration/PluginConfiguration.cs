@@ -160,8 +160,8 @@ public class PluginConfiguration : BasePluginConfiguration
         WarmerMaxConcurrency = 1;
         WarmerDelayMs = 250;
         WarmerClientQuietSeconds = 15;
-        WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "findroid" };
-        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "findroid" };
+        WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
+        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;

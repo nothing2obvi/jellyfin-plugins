@@ -57,8 +57,14 @@ public class CacheCleanupTask : IScheduledTask
         }
 
         var config = Plugin.Instance?.Configuration;
-        var cacheHours = config?.CacheDurationHours ?? 24;
-        var cutoff = DateTime.UtcNow.AddHours(-cacheHours);
+        var cacheHours = config?.CacheDurationHours ?? 168;
+        if (cacheHours <= 0)
+        {
+            _logger.LogInformation("JellyTag cache cleanup skipped because cache duration is set to forever");
+            progress.Report(100);
+            return Task.CompletedTask;
+        }
+
         var deletedCount = 0;
 
         var files = Directory.GetFiles(cacheDir, "*.jpg")
@@ -72,7 +78,7 @@ public class CacheCleanupTask : IScheduledTask
             try
             {
                 var fileInfo = new FileInfo(files[i]);
-                if (fileInfo.LastWriteTimeUtc < cutoff)
+                if ((DateTime.UtcNow - fileInfo.LastWriteTimeUtc).TotalHours > cacheHours)
                 {
                     fileInfo.Delete();
                     deletedCount++;

@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.42.0.0",
-        "changelog": "Prevent overlapping JellyTag-Plus cache warmer scheduled task runs.",
+        "version": "1.43.0.0",
+        "changelog": "Add Wholphin cache warmer client profile after Streamyfin. Allow cache duration 0 for forever and remove the 720-hour maximum. Run cache warmer requests by Home, Libraries, Episodes, and Other phases across all enabled clients.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.42.0.0.zip",
-        "checksum": "2e7ac8a502b2e64f7d026735dbda5cf6",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.43.0.0.zip",
+        "checksum": "ca9eb22e71e1c3f30818401d39d89221",
         "timestamp": "2026-05-20T00:00:00Z"
       }
     ]
