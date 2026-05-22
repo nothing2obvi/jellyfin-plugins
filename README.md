@@ -1,5 +1,9 @@
 # nothing2obvi Jellyfin Plugins
 
+<p>
+  <a href="https://ko-fi.com/yeahnoforsure_"><img src="assets/support_me_on_kofi_blue.png" alt="Support me on Ko-fi" width="240" /></a>
+</p>
+
 This repository is a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins).
 
 The main active change in this fork is **JellyTag-Plus**, a renamed and expanded fork of JellyTag. **WatchSync has not been touched yet**, so if you only want WatchSync, it is best to use the original repository from Atilil.

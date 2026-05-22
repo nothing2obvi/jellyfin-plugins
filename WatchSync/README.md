@@ -1,5 +1,9 @@
 # WatchSync
 
+<p>
+  <a href="https://ko-fi.com/yeahnoforsure_"><img src="../assets/support_me_on_kofi_blue.png" alt="Support me on Ko-fi" width="240" /></a>
+</p>
+
 Jellyfin plugin to automatically synchronize watch history between libraries of different qualities, such as 4K and HD libraries.
 
 <p align="center">
