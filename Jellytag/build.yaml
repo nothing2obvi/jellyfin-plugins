@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.44.0.0"
+version: "1.45.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.45.0.0
+  - Report cache warmer progress from startup, including skipped already-warmed variants
+  - Keep warmer task progress alive while waiting for the client quiet window
+
   ## v1.44.0.0
   - Coalesce concurrent renders for the same uncached image variant
   - Store cache files in hash-prefixed folders with a persistent cache index

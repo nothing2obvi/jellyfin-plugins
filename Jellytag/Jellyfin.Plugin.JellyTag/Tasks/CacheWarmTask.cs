@@ -26,6 +26,7 @@ public class CacheWarmTask : IScheduledTask
     ];
 
     private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "findroid"];
+    private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
     private static readonly IReadOnlyList<ClientWarmupProfile> ClientWarmupProfiles =
     [
         CreateFindroidProfile(),
@@ -59,6 +60,8 @@ public class CacheWarmTask : IScheduledTask
 
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
+        progress.Report(0);
+
         if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
         {
             _logger.LogInformation("JellyTag-Plus cache warmer is already running; skipping overlapping scheduled task run");
@@ -118,6 +121,7 @@ public class CacheWarmTask : IScheduledTask
         var skipped = deduplicatedRequests - requests.Count;
 
         if (requests.Count == 0) { progress.Report(100); return; }
+        ReportWarmupProgress(progress, skipped, deduplicatedRequests);
 
         var baseUrl = GetBaseUrl();
         using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator };
@@ -145,7 +149,12 @@ public class CacheWarmTask : IScheduledTask
                 await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    await _trafficCoordinator.WaitForClientQuietPeriodAsync(quietPeriod, cancellationToken).ConfigureAwait(false);
+                    await WaitForClientQuietPeriodWithProgressAsync(
+                        quietPeriod,
+                        progress,
+                        () => skipped + Volatile.Read(ref completed),
+                        deduplicatedRequests,
+                        cancellationToken).ConfigureAwait(false);
                     var url = request.ToUrl(baseUrl);
                     using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
                     if (response.IsSuccessStatusCode)
@@ -172,7 +181,7 @@ public class CacheWarmTask : IScheduledTask
                 finally
                 {
                     var done = Interlocked.Increment(ref completed);
-                    progress.Report(done * 100.0 / requests.Count);
+                    ReportWarmupProgress(progress, skipped + done, deduplicatedRequests);
                     throttler.Release();
                 }
             }).ToArray();
@@ -181,6 +190,39 @@ public class CacheWarmTask : IScheduledTask
         }
 
         _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly warmed {Warmed}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, failed, skipped);
+        progress.Report(100);
+    }
+
+    private async Task WaitForClientQuietPeriodWithProgressAsync(
+        TimeSpan quietPeriod,
+        IProgress<double> progress,
+        Func<int> getCompletedCount,
+        int totalCount,
+        CancellationToken cancellationToken)
+    {
+        if (quietPeriod <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var waitTask = _trafficCoordinator.WaitForClientQuietPeriodAsync(quietPeriod, cancellationToken);
+        while (await Task.WhenAny(waitTask, Task.Delay(ProgressHeartbeatInterval, cancellationToken)).ConfigureAwait(false) != waitTask)
+        {
+            ReportWarmupProgress(progress, getCompletedCount(), totalCount);
+        }
+
+        await waitTask.ConfigureAwait(false);
+    }
+
+    private static void ReportWarmupProgress(IProgress<double> progress, int completedCount, int totalCount)
+    {
+        if (totalCount <= 0)
+        {
+            progress.Report(100);
+            return;
+        }
+
+        progress.Report(Math.Clamp(completedCount * 100.0 / totalCount, 0, 100));
     }
 
     private sealed class WarmupRunLease : IDisposable
