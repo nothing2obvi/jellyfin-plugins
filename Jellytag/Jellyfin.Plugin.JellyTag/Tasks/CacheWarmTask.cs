@@ -17,6 +17,10 @@ namespace Jellyfin.Plugin.JellyTag.Tasks;
 public class CacheWarmTask : IScheduledTask
 {
     private static int _isRunning;
+    private const string WarmupResultHeader = "X-JellyTag-Warmup-Result";
+    private const string WarmupResultCacheHit = "cache-hit";
+    private const string WarmupResultCacheWritten = "cache-written";
+    private const string WarmupResultNoVisibleBadges = "no-visible-badges";
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
         new WarmupPhase("home", "Home", 0),
@@ -130,6 +134,8 @@ public class CacheWarmTask : IScheduledTask
 
         var completed = 0;
         var warmed = 0;
+        var cacheHits = 0;
+        var noVisibleBadges = 0;
         var failed = 0;
         var maxConcurrency = Math.Clamp(config.WarmerMaxConcurrency <= 0 ? 1 : config.WarmerMaxConcurrency, 1, 8);
         var delayMs = Math.Clamp(config.WarmerDelayMs, 0, 10000);
@@ -158,15 +164,27 @@ public class CacheWarmTask : IScheduledTask
                         cancellationToken).ConfigureAwait(false);
                     var url = request.ToUrl(baseUrl);
                     using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-                    if (response.IsSuccessStatusCode)
+                    var warmupResult = GetWarmupResult(response);
+                    if (response.IsSuccessStatusCode && IsCompletedWarmupResult(warmupResult))
                     {
                         state.MarkCompleted(request.CompletionKey);
-                        Interlocked.Increment(ref warmed);
+                        if (string.Equals(warmupResult, WarmupResultCacheWritten, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Interlocked.Increment(ref warmed);
+                        }
+                        else if (string.Equals(warmupResult, WarmupResultCacheHit, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Interlocked.Increment(ref cacheHits);
+                        }
+                        else if (string.Equals(warmupResult, WarmupResultNoVisibleBadges, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Interlocked.Increment(ref noVisibleBadges);
+                        }
                     }
                     else
                     {
                         Interlocked.Increment(ref failed);
-                        _logger.LogDebug("JellyTag-Plus cache warmer got {StatusCode} for {Url}", response.StatusCode, url);
+                        _logger.LogDebug("JellyTag-Plus cache warmer got {StatusCode} with warmup result {WarmupResult} for {Url}", response.StatusCode, warmupResult ?? "none", url);
                     }
 
                     if (delayMs > 0)
@@ -190,8 +208,22 @@ public class CacheWarmTask : IScheduledTask
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }
 
-        _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly warmed {Warmed}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, failed, skipped);
+        _logger.LogInformation("JellyTag-Plus cache warmer complete. Requested {Total}, newly written {Warmed}, cache hits {CacheHits}, no visible badges {NoVisibleBadges}, failed {Failed}, skipped already warmed {Skipped}", requests.Count, warmed, cacheHits, noVisibleBadges, failed, skipped);
         progress.Report(100);
+    }
+
+    private static string? GetWarmupResult(HttpResponseMessage response)
+    {
+        return response.Headers.TryGetValues(WarmupResultHeader, out var values)
+            ? values.FirstOrDefault()
+            : null;
+    }
+
+    private static bool IsCompletedWarmupResult(string? warmupResult)
+    {
+        return string.Equals(warmupResult, WarmupResultCacheWritten, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(warmupResult, WarmupResultCacheHit, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(warmupResult, WarmupResultNoVisibleBadges, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task WaitForClientQuietPeriodWithProgressAsync(

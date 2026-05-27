@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.46.0.0",
-        "changelog": "Move MusicVideo and standalone Video warmup requests into a Videos phase after Episodes.",
+        "version": "1.47.0.0",
+        "changelog": "Add JellyTag warmup result headers so the warmer can distinguish cache hits, newly written cache files, no-badge pass-throughs, and failures. Only mark warmer ledger entries complete for confirmed JellyTag warmup outcomes.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.46.0.0.zip",
-        "checksum": "0965eb4d6296ad141ee8a9b54464c4ae",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.47.0.0.zip",
+        "checksum": "9acfd8d93c443c33bbb3552ddd1f18c0",
         "timestamp": "2026-05-26T00:00:00Z"
       }
     ]

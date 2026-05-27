@@ -24,6 +24,13 @@ public partial class ImageOverlayMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<ImageOverlayMiddleware> _logger;
     private const string ForceRefreshStateFileName = "force-refresh-state.json";
+    private const string WarmupResultHeader = "X-JellyTag-Warmup-Result";
+    private const string WarmupResultCacheHit = "cache-hit";
+    private const string WarmupResultCacheWritten = "cache-written";
+    private const string WarmupResultNoVisibleBadges = "no-visible-badges";
+    private const string WarmupResultCacheWriteFailed = "cache-write-failed";
+    private const string WarmupResultPassThrough = "pass-through";
+    private const string WarmupResultOverlayError = "overlay-error";
     private static readonly ConcurrentDictionary<string, string> ForceRefreshStates = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ForceRefreshLocks = new();
     private static readonly ConcurrentDictionary<string, RenderLockState> RenderLocks = new();
@@ -157,6 +164,7 @@ public partial class ImageOverlayMiddleware
 
         if (visibleBadges.Count == 0)
         {
+            SetWarmupResult(context, WarmupResultNoVisibleBadges);
             await _next(context).ConfigureAwait(false);
             return;
         }
@@ -171,6 +179,7 @@ public partial class ImageOverlayMiddleware
         var cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
         if (cachedImage != null)
         {
+            SetWarmupResult(context, WarmupResultCacheHit);
             await ServeCachedImageAsync(context, cachedImage, config).ConfigureAwait(false);
             return;
         }
@@ -190,6 +199,7 @@ public partial class ImageOverlayMiddleware
             cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
             if (cachedImage != null)
             {
+                SetWarmupResult(context, WarmupResultCacheHit);
                 await ServeCachedImageAsync(context, cachedImage, config).ConfigureAwait(false);
                 return;
             }
@@ -199,6 +209,7 @@ public partial class ImageOverlayMiddleware
 
             if (context.Response.StatusCode != 200 || capturedBody.Length == 0)
             {
+                SetWarmupResult(context, WarmupResultPassThrough);
                 capturedBody.Position = 0;
                 await capturedBody.CopyToAsync(originalBody).ConfigureAwait(false);
                 return;
@@ -214,6 +225,7 @@ public partial class ImageOverlayMiddleware
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to add badge overlay, serving original image");
+                SetWarmupResult(context, WarmupResultOverlayError);
                 capturedBody.Position = 0;
                 await capturedBody.CopyToAsync(originalBody).ConfigureAwait(false);
                 return;
@@ -222,7 +234,8 @@ public partial class ImageOverlayMiddleware
             await using (result.resultStream.ConfigureAwait(false))
             {
                 result.resultStream.Position = 0;
-                await cacheService.CacheImageAsync(itemId, badgeKey, imageTag, result.resultStream).ConfigureAwait(false);
+                var cached = await cacheService.CacheImageAsync(itemId, badgeKey, imageTag, result.resultStream).ConfigureAwait(false);
+                SetWarmupResult(context, cached ? WarmupResultCacheWritten : WarmupResultCacheWriteFailed);
 
                 result.resultStream.Position = 0;
                 context.Response.ContentType = result.contentType;
@@ -239,6 +252,14 @@ public partial class ImageOverlayMiddleware
             }
 
             ReleaseRenderLock(renderKey, renderLock);
+        }
+    }
+
+    private static void SetWarmupResult(HttpContext context, string result)
+    {
+        if (IsWarmupRequest(context.Request.Query) && !context.Response.HasStarted)
+        {
+            context.Response.Headers[WarmupResultHeader] = result;
         }
     }
 

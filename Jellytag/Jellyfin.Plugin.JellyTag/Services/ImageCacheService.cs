@@ -83,7 +83,7 @@ public class ImageCacheService : IImageCacheService
     }
 
     /// <inheritdoc />
-    public async Task CacheImageAsync(Guid itemId, string badgeKey, string imageTag, Stream imageStream)
+    public async Task<bool> CacheImageAsync(Guid itemId, string badgeKey, string imageTag, Stream imageStream)
     {
         var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
         var cachePath = GetCachePath(cacheKey);
@@ -103,6 +103,7 @@ public class ImageCacheService : IImageCacheService
             SetCacheIndexEntry(cacheKey, cachePath);
 
             _logger.LogDebug("Cached image for item {ItemId} at {Path}", itemId, cachePath);
+            return true;
         }
         catch (Exception ex)
         {
@@ -119,6 +120,8 @@ public class ImageCacheService : IImageCacheService
             {
                 // Ignore cleanup errors
             }
+
+            return false;
         }
     }
 
