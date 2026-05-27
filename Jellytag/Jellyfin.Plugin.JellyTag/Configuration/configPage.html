@@ -1297,8 +1297,8 @@
 
                 q('CacheDurationHours').value = config.CacheDurationHours;
                 q('WarmerMaxConcurrency').value = config.WarmerMaxConcurrency != null ? config.WarmerMaxConcurrency : 1;
-                q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 250;
-                q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 15;
+                q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 5000;
+                q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 120;
                 renderWarmerClientProfiles(config.WarmerClientProfiles || [], config.WarmerClientProfileOrder || config.WarmerClientProfiles || []);
                 loadWarmerProgress();
                 q('OutputFormat').value = config.OutputFormat;

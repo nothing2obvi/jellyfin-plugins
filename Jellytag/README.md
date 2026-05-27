@@ -66,7 +66,7 @@ The warmer includes organized client profiles for:
 
 It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed because they calculate image sizes dynamically.
 
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Episodes, then Other. Within each phase it follows the configured client profile order.
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order.
 
 Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
 
@@ -75,11 +75,11 @@ Warmer throttling is configurable:
 | Option | Description | Default |
 |--------|-------------|---------|
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
-| Warmer Delay | Delay after each warmer request, in milliseconds | 250 |
-| Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 15 |
+| Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
+| Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 120 |
 | Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid |
 
-Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants.
+Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
 The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. This is based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them.
 
@@ -114,8 +114,8 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | JPEG Quality | Output image quality | 90 |
 | Cache Duration | How long cached images are kept, in hours. `0` means forever. | 168 |
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
-| Warmer Delay | Delay after each warmer request, in milliseconds | 250 |
-| Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 15 |
+| Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
+| Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 120 |
 | Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |

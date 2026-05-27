@@ -158,8 +158,8 @@ public class PluginConfiguration : BasePluginConfiguration
         CustomBadgeTexts = new List<BadgeTextOverride>();
         CacheDurationHours = 168;
         WarmerMaxConcurrency = 1;
-        WarmerDelayMs = 250;
-        WarmerClientQuietSeconds = 15;
+        WarmerDelayMs = 5000;
+        WarmerClientQuietSeconds = 120;
         WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
         WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
         JpegQuality = 90;
