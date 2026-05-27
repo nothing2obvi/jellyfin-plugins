@@ -22,7 +22,8 @@ public class CacheWarmTask : IScheduledTask
         new WarmupPhase("home", "Home", 0),
         new WarmupPhase("libraries", "Libraries", 1),
         new WarmupPhase("episodes", "Episodes", 2),
-        new WarmupPhase("other", "Other", 3)
+        new WarmupPhase("videos", "Videos", 3),
+        new WarmupPhase("other", "Other", 4)
     ];
 
     private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "findroid"];
@@ -83,7 +84,7 @@ public class CacheWarmTask : IScheduledTask
         var items = _libraryManager.GetItemList(new InternalItemsQuery
         {
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season, BaseItemKind.Episode, BaseItemKind.Video]
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season, BaseItemKind.Episode, BaseItemKind.MusicVideo, BaseItemKind.Video]
         }).Where(item => IsInEnabledLibrary(item, config)).ToList();
 
         var requests = new List<WarmupRequest>();
@@ -242,7 +243,7 @@ public class CacheWarmTask : IScheduledTask
         var items = libraryManager.GetItemList(new InternalItemsQuery
         {
             Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season, BaseItemKind.Episode, BaseItemKind.Video]
+            IncludeItemTypes = [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.Season, BaseItemKind.Episode, BaseItemKind.MusicVideo, BaseItemKind.Video]
         }).Where(item => IsInEnabledLibrary(item, config, libraryManager)).ToList();
 
         var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -359,7 +360,17 @@ public class CacheWarmTask : IScheduledTask
 
     private static WarmupPhase GetRequestPhase(BaseItem item, ImageVariant variant)
     {
-        return item is Episode ? WarmupPhases[2] : variant.Phase;
+        if (item is Episode)
+        {
+            return WarmupPhases[2];
+        }
+
+        if (item is MusicVideo || item.GetType() == typeof(Video))
+        {
+            return WarmupPhases[3];
+        }
+
+        return variant.Phase;
     }
 
     private string GetBaseUrl()

@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.45.0.0",
-        "changelog": "Report cache warmer progress from startup, including skipped already-warmed variants. Keep warmer task progress alive while waiting for the client quiet window.",
+        "version": "1.46.0.0",
+        "changelog": "Move MusicVideo and standalone Video warmup requests into a Videos phase after Episodes.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.45.0.0.zip",
-        "checksum": "75768b3998f96f0ac5490fb6e69799c5",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.46.0.0.zip",
+        "checksum": "0965eb4d6296ad141ee8a9b54464c4ae",
         "timestamp": "2026-05-26T00:00:00Z"
       }
     ]
