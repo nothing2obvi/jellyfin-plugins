@@ -35,6 +35,11 @@ public interface IImageCacheService
     void InvalidateCache(Guid itemId);
 
     /// <summary>
+    /// Removes stale cache index entries for files that no longer exist or have expired.
+    /// </summary>
+    void PruneCacheIndex();
+
+    /// <summary>
     /// Gets the cache directory path.
     /// </summary>
     /// <returns>The absolute path to the cache directory.</returns>

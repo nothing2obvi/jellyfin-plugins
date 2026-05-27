@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Concurrent;
 using System.Xml.Linq;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Microsoft.Extensions.Logging;
@@ -13,12 +14,17 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 public class ImageOverlayService : IImageOverlayService, IDisposable
 {
     private readonly ILogger<ImageOverlayService> _logger;
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> _svgCache = new();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SKBitmap?> _rasterCache = new();
+    private readonly ConcurrentDictionary<string, byte[]> _svgCache = new();
+    private readonly ConcurrentDictionary<string, SKBitmap?> _rasterCache = new();
+    private readonly ConcurrentDictionary<string, SKBitmap> _svgRasterCache = new();
+    private readonly ConcurrentDictionary<string, float> _svgAspectRatioCache = new();
+    private readonly ConcurrentDictionary<string, List<SKPointI>> _positionCache = new();
+    private readonly object _svgRasterCacheLock = new();
     private readonly SemaphoreSlim _badgeLock = new(1, 1);
     private bool _badgesLoaded;
     private bool _disposed;
 
+    private const int MaxPositionCacheEntries = 2048;
     private const int MinBadgeSizePercent = 5;
     private const int MaxBadgeSizePercent = 50;
     private const float MinBadgeMarginPercent = 0f;
@@ -223,7 +229,7 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                 }
 
                 var priorExtent = priorExtents[panel.Position];
-                group.Positions = CalculateStackedPositions(image.Width, image.Height, group.Sizes, panel.Position, badgeMargin, gap, panel.Layout, priorExtent);
+                group.Positions = GetCachedStackedPositions(image.Width, image.Height, group.Sizes, panel.Position, badgeMargin, gap, panel.Layout, priorExtent);
 
                 // Update prior extent for this corner
                 var groupExtent = GroupExtent(group.Sizes, gap, panel.Layout, panel.Position);
@@ -313,8 +319,11 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                 badge?.Dispose();
             }
 
+            ClearRasterizedSvgCache();
             _rasterCache.Clear();
             _svgCache.Clear();
+            _svgAspectRatioCache.Clear();
+            _positionCache.Clear();
             _badgesLoaded = false;
         }
         finally
@@ -363,13 +372,12 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
 
                 if (_svgCache.TryGetValue(resourceFileName, out var svgBytes))
                 {
-                    var ratio = GetSvgAspectRatio(svgBytes);
+                    var ratio = _svgAspectRatioCache.GetOrAdd(resourceFileName, _ => GetSvgAspectRatio(svgBytes));
                     var badgeHeight = Math.Max(1, (int)(badgeWidth / ratio));
-                    var rasterized = RasterizeSvg(svgBytes, badgeWidth, badgeHeight);
+                    var rasterized = GetRasterizedSvg(resourceFileName, svgBytes, badgeWidth, badgeHeight);
                     if (rasterized != null)
                     {
                         sourceBitmaps.Add(rasterized);
-                        ownedBitmaps.Add(rasterized);
                         filtered.Add(badgeInfo);
                         sizes.Add(new SKSizeI(badgeWidth, badgeHeight));
                         continue;
@@ -789,6 +797,83 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
         return positions;
     }
 
+    private List<SKPointI> GetCachedStackedPositions(
+        int imageWidth, int imageHeight,
+        List<SKSizeI> badges,
+        BadgePosition position, int margin, int gap,
+        BadgeLayout layout, int priorExtent = 0)
+    {
+        var cacheKey = BuildPositionCacheKey(imageWidth, imageHeight, badges, position, margin, gap, layout, priorExtent);
+        if (_positionCache.TryGetValue(cacheKey, out var cached))
+        {
+            return new List<SKPointI>(cached);
+        }
+
+        var positions = CalculateStackedPositions(imageWidth, imageHeight, badges, position, margin, gap, layout, priorExtent);
+        if (_positionCache.Count >= MaxPositionCacheEntries)
+        {
+            _positionCache.Clear();
+        }
+
+        _positionCache[cacheKey] = new List<SKPointI>(positions);
+        return positions;
+    }
+
+    private static string BuildPositionCacheKey(
+        int imageWidth, int imageHeight,
+        List<SKSizeI> badges,
+        BadgePosition position, int margin, int gap,
+        BadgeLayout layout, int priorExtent)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append(imageWidth).Append('x').Append(imageHeight).Append('|')
+            .Append((int)position).Append('|')
+            .Append(margin).Append('|')
+            .Append(gap).Append('|')
+            .Append((int)layout).Append('|')
+            .Append(priorExtent).Append('|');
+        foreach (var badge in badges)
+        {
+            sb.Append(badge.Width).Append('x').Append(badge.Height).Append(',');
+        }
+
+        return sb.ToString();
+    }
+
+    private SKBitmap? GetRasterizedSvg(string resourceFileName, byte[] svgBytes, int badgeWidth, int badgeHeight)
+    {
+        var cacheKey = $"{resourceFileName}:{badgeWidth}x{badgeHeight}";
+        lock (_svgRasterCacheLock)
+        {
+            if (_svgRasterCache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+
+            var rasterized = RasterizeSvg(svgBytes, badgeWidth, badgeHeight);
+            if (rasterized == null)
+            {
+                return null;
+            }
+
+            _svgRasterCache[cacheKey] = rasterized;
+            return rasterized;
+        }
+    }
+
+    private void ClearRasterizedSvgCache()
+    {
+        lock (_svgRasterCacheLock)
+        {
+            foreach (var bitmap in _svgRasterCache.Values)
+            {
+                bitmap.Dispose();
+            }
+
+            _svgRasterCache.Clear();
+        }
+    }
+
     private static string GetBadgeDisplayText(string badgeKey)
     {
         var config = Plugin.Instance?.Configuration;
@@ -986,8 +1071,11 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                 badge?.Dispose();
             }
 
+            ClearRasterizedSvgCache();
             _rasterCache.Clear();
             _svgCache.Clear();
+            _svgAspectRatioCache.Clear();
+            _positionCache.Clear();
             _badgeLock.Dispose();
         }
 

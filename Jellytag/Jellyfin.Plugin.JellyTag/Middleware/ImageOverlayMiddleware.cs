@@ -26,6 +26,8 @@ public partial class ImageOverlayMiddleware
     private const string ForceRefreshStateFileName = "force-refresh-state.json";
     private static readonly ConcurrentDictionary<string, string> ForceRefreshStates = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ForceRefreshLocks = new();
+    private static readonly ConcurrentDictionary<string, RenderLockState> RenderLocks = new();
+    private static readonly object RenderLocksLock = new();
     private static readonly object ForceRefreshStateFileLock = new();
     private static bool ForceRefreshStateLoaded;
     private static readonly string EmptyBadgeState = GetBadgeStateFingerprint(Array.Empty<BadgeInfo>());
@@ -169,23 +171,30 @@ public partial class ImageOverlayMiddleware
         var cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
         if (cachedImage != null)
         {
-            await using (cachedImage.ConfigureAwait(false))
-            {
-                var cachedContentType = config.OutputFormat == OutputImageFormat.WebP ? "image/webp" : "image/jpeg";
-                context.Response.ContentType = cachedContentType;
-                context.Response.ContentLength = cachedImage.Length;
-                await cachedImage.CopyToAsync(context.Response.Body).ConfigureAwait(false);
-            }
-
+            await ServeCachedImageAsync(context, cachedImage, config).ConfigureAwait(false);
             return;
         }
 
+        var renderKey = $"{itemId:N}:{badgeKey}:{imageTag}";
+        var renderLock = RentRenderLock(renderKey);
+        var renderLockAcquired = false;
+
         var originalBody = context.Response.Body;
         using var capturedBody = new MemoryStream();
-        context.Response.Body = capturedBody;
 
         try
         {
+            await renderLock.Semaphore.WaitAsync(context.RequestAborted).ConfigureAwait(false);
+            renderLockAcquired = true;
+
+            cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
+            if (cachedImage != null)
+            {
+                await ServeCachedImageAsync(context, cachedImage, config).ConfigureAwait(false);
+                return;
+            }
+
+            context.Response.Body = capturedBody;
             await _next(context).ConfigureAwait(false);
 
             if (context.Response.StatusCode != 200 || capturedBody.Length == 0)
@@ -224,10 +233,61 @@ public partial class ImageOverlayMiddleware
         finally
         {
             context.Response.Body = originalBody;
+            if (renderLockAcquired)
+            {
+                renderLock.Semaphore.Release();
+            }
+
+            ReleaseRenderLock(renderKey, renderLock);
         }
     }
 
+    private static RenderLockState RentRenderLock(string key)
+    {
+        lock (RenderLocksLock)
+        {
+            if (!RenderLocks.TryGetValue(key, out var state))
+            {
+                state = new RenderLockState();
+                RenderLocks[key] = state;
+                return state;
+            }
 
+            state.RefCount++;
+            return state;
+        }
+    }
+
+    private static void ReleaseRenderLock(string key, RenderLockState state)
+    {
+        lock (RenderLocksLock)
+        {
+            state.RefCount--;
+            if (state.RefCount == 0)
+            {
+                RenderLocks.TryRemove(new KeyValuePair<string, RenderLockState>(key, state));
+                state.Semaphore.Dispose();
+            }
+        }
+    }
+
+    private static async Task ServeCachedImageAsync(HttpContext context, Stream cachedImage, PluginConfiguration config)
+    {
+        await using (cachedImage.ConfigureAwait(false))
+        {
+            var cachedContentType = config.OutputFormat == OutputImageFormat.WebP ? "image/webp" : "image/jpeg";
+            context.Response.ContentType = cachedContentType;
+            context.Response.ContentLength = cachedImage.Length;
+            await cachedImage.CopyToAsync(context.Response.Body).ConfigureAwait(false);
+        }
+    }
+
+    private sealed class RenderLockState
+    {
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
+
+        public int RefCount { get; set; } = 1;
+    }
 
 
     private async Task TryForceImageRefreshAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, CancellationToken cancellationToken)

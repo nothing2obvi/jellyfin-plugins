@@ -67,9 +67,16 @@ public class CacheCleanupTask : IScheduledTask
 
         var deletedCount = 0;
 
-        var files = Directory.GetFiles(cacheDir, "*.jpg")
-            .Concat(Directory.GetFiles(cacheDir, "*.webp"))
+        var files = Directory.GetFiles(cacheDir, "*.jpg", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(cacheDir, "*.webp", SearchOption.AllDirectories))
             .ToArray();
+
+        if (files.Length == 0)
+        {
+            _cacheService.PruneCacheIndex();
+            progress.Report(100);
+            return Task.CompletedTask;
+        }
 
         for (int i = 0; i < files.Length; i++)
         {
@@ -92,6 +99,7 @@ public class CacheCleanupTask : IScheduledTask
             progress.Report((double)(i + 1) / files.Length * 100);
         }
 
+        _cacheService.PruneCacheIndex();
         _logger.LogInformation("JellyTag cache cleanup complete. Deleted {Count} expired files", deletedCount);
         return Task.CompletedTask;
     }

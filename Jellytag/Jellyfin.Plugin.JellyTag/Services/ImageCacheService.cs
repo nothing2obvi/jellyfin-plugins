@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.JellyTag.Services;
@@ -12,6 +13,10 @@ public class ImageCacheService : IImageCacheService
     private readonly ILogger<ImageCacheService> _logger;
     private readonly string _cachePath;
     private readonly object _lock = new();
+    private CacheIndex? _cacheIndex;
+    private bool _cacheIndexLoaded;
+
+    private const string CacheIndexFileName = "cache-index.json";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ImageCacheService"/> class.
@@ -27,35 +32,54 @@ public class ImageCacheService : IImageCacheService
     public Task<Stream?> GetCachedImageAsync(Guid itemId, string badgeKey, string imageTag)
     {
         var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
-        var cacheFilePath = GetCachePath(cacheKey);
-
-        if (!File.Exists(cacheFilePath))
+        var indexedPath = GetIndexedCachePath(cacheKey);
+        if (!string.IsNullOrWhiteSpace(indexedPath))
         {
-            return Task.FromResult<Stream?>(null);
+            var indexedStream = TryOpenCachedFile(itemId, cacheKey, indexedPath, updateIndex: false);
+            if (indexedStream != null)
+            {
+                return Task.FromResult<Stream?>(indexedStream);
+            }
         }
 
-        var config = Plugin.Instance?.Configuration;
-        var cacheHours = config?.CacheDurationHours ?? 168;
+        var cacheFilePath = GetCachePath(cacheKey);
+        var stream = TryOpenCachedFile(itemId, cacheKey, cacheFilePath, updateIndex: true);
+        return Task.FromResult(stream);
+    }
+
+    private Stream? TryOpenCachedFile(Guid itemId, string cacheKey, string cacheFilePath, bool updateIndex)
+    {
+        if (!File.Exists(cacheFilePath))
+        {
+            RemoveCacheIndexEntry(cacheKey);
+            return null;
+        }
+
         var fileInfo = new FileInfo(cacheFilePath);
 
-        if (cacheHours > 0 && (DateTime.UtcNow - fileInfo.LastWriteTimeUtc).TotalHours > cacheHours)
+        if (IsExpired(fileInfo))
         {
             _logger.LogDebug("Cache expired for item {ItemId}", itemId);
             try
             {
                 File.Delete(cacheFilePath);
+                RemoveCacheIndexEntry(cacheKey);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to delete expired cache file: {Path}", cacheFilePath);
             }
 
-            return Task.FromResult<Stream?>(null);
+            return null;
+        }
+
+        if (updateIndex)
+        {
+            SetCacheIndexEntry(cacheKey, cacheFilePath);
         }
 
         _logger.LogDebug("Cache hit for item {ItemId}", itemId);
-        Stream stream = new FileStream(cacheFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-        return Task.FromResult<Stream?>(stream);
+        return new FileStream(cacheFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
     }
 
     /// <inheritdoc />
@@ -68,6 +92,7 @@ public class ImageCacheService : IImageCacheService
         try
         {
             EnsureCacheDirectoryExists();
+            Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
 
             using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
             {
@@ -75,6 +100,7 @@ public class ImageCacheService : IImageCacheService
             }
 
             File.Move(tempPath, cachePath, overwrite: true);
+            SetCacheIndexEntry(cacheKey, cachePath);
 
             _logger.LogDebug("Cached image for item {ItemId} at {Path}", itemId, cachePath);
         }
@@ -108,10 +134,11 @@ public class ImageCacheService : IImageCacheService
             {
                 if (Directory.Exists(_cachePath))
                 {
-                    var jpgFiles = Directory.GetFiles(_cachePath, "*.jpg");
-                    var webpFiles = Directory.GetFiles(_cachePath, "*.webp");
+                    var jpgFiles = Directory.GetFiles(_cachePath, "*.jpg", SearchOption.AllDirectories);
+                    var webpFiles = Directory.GetFiles(_cachePath, "*.webp", SearchOption.AllDirectories);
                     var warmerStateFiles = Directory.GetFiles(_cachePath, "cache-warmer-state.json*");
-                    var files = jpgFiles.Concat(webpFiles).Concat(warmerStateFiles).ToArray();
+                    var indexFiles = Directory.GetFiles(_cachePath, CacheIndexFileName + "*");
+                    var files = jpgFiles.Concat(webpFiles).Concat(warmerStateFiles).Concat(indexFiles).ToArray();
                     foreach (var file in files)
                     {
                         try
@@ -124,6 +151,23 @@ public class ImageCacheService : IImageCacheService
                         }
                     }
 
+                    foreach (var directory in Directory.GetDirectories(_cachePath, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
+                    {
+                        try
+                        {
+                            if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                            {
+                                Directory.Delete(directory);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to delete empty cache directory: {Path}", directory);
+                        }
+                    }
+
+                    _cacheIndex = new CacheIndex();
+                    _cacheIndexLoaded = true;
                     _logger.LogInformation("Cleared {Count} cached images", files.Length);
                 }
             }
@@ -141,7 +185,9 @@ public class ImageCacheService : IImageCacheService
         {
             var jpgPattern = $"{itemId}_*.jpg";
             var webpPattern = $"{itemId}_*.webp";
-            var files = Directory.GetFiles(_cachePath, jpgPattern).Concat(Directory.GetFiles(_cachePath, webpPattern)).ToArray();
+            var files = Directory.GetFiles(_cachePath, jpgPattern, SearchOption.AllDirectories)
+                .Concat(Directory.GetFiles(_cachePath, webpPattern, SearchOption.AllDirectories))
+                .ToArray();
             foreach (var file in files)
             {
                 try
@@ -154,10 +200,37 @@ public class ImageCacheService : IImageCacheService
                     _logger.LogWarning(ex, "Failed to delete cache file: {Path}", file);
                 }
             }
+
+            RemoveCacheIndexEntriesForItem(itemId);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to invalidate cache for item {ItemId}", itemId);
+        }
+    }
+
+    /// <inheritdoc />
+    public void PruneCacheIndex()
+    {
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            var removed = 0;
+            foreach (var entry in index.Entries.ToArray())
+            {
+                var absolutePath = ToAbsolutePath(entry.Value.RelativePath);
+                if (!File.Exists(absolutePath) || IsExpired(new FileInfo(absolutePath)))
+                {
+                    index.Entries.Remove(entry.Key);
+                    removed++;
+                }
+            }
+
+            if (removed > 0)
+            {
+                SaveCacheIndexLocked();
+                _logger.LogDebug("Pruned {Count} stale JellyTag cache index entries", removed);
+            }
         }
     }
 
@@ -171,8 +244,8 @@ public class ImageCacheService : IImageCacheService
                 return (0, 0, null, null);
             }
 
-            var jpgFiles = Directory.GetFiles(_cachePath, "*.jpg");
-            var webpFiles = Directory.GetFiles(_cachePath, "*.webp");
+            var jpgFiles = Directory.GetFiles(_cachePath, "*.jpg", SearchOption.AllDirectories);
+            var webpFiles = Directory.GetFiles(_cachePath, "*.webp", SearchOption.AllDirectories);
             var allFiles = jpgFiles.Concat(webpFiles).Select(f => new FileInfo(f)).ToArray();
 
             if (allFiles.Length == 0)
@@ -280,8 +353,119 @@ public class ImageCacheService : IImageCacheService
     {
         var config = Plugin.Instance?.Configuration;
         var ext = config?.OutputFormat == Configuration.OutputImageFormat.WebP ? ".webp" : ".jpg";
-        return Path.Combine(_cachePath, $"{cacheKey}{ext}");
+        return Path.Combine(_cachePath, GetCachePrefix(cacheKey), $"{cacheKey}{ext}");
     }
+
+    private static string GetCachePrefix(string cacheKey)
+    {
+        var hashStart = cacheKey.LastIndexOf('_') + 1;
+        var hash = hashStart > 0 && hashStart < cacheKey.Length ? cacheKey[hashStart..] : cacheKey;
+        return hash.Length >= 2 ? hash[..2].ToLowerInvariant() : "00";
+    }
+
+    private bool IsExpired(FileInfo fileInfo)
+    {
+        var config = Plugin.Instance?.Configuration;
+        var cacheHours = config?.CacheDurationHours ?? 168;
+        return cacheHours > 0 && (DateTime.UtcNow - fileInfo.LastWriteTimeUtc).TotalHours > cacheHours;
+    }
+
+    private string? GetIndexedCachePath(string cacheKey)
+    {
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            return index.Entries.TryGetValue(cacheKey, out var entry) ? ToAbsolutePath(entry.RelativePath) : null;
+        }
+    }
+
+    private void SetCacheIndexEntry(string cacheKey, string cachePath)
+    {
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            index.Entries[cacheKey] = new CacheIndexEntry
+            {
+                RelativePath = ToRelativePath(cachePath),
+                UpdatedUtcTicks = DateTime.UtcNow.Ticks
+            };
+            SaveCacheIndexLocked();
+        }
+    }
+
+    private void RemoveCacheIndexEntry(string cacheKey)
+    {
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            if (index.Entries.Remove(cacheKey))
+            {
+                SaveCacheIndexLocked();
+            }
+        }
+    }
+
+    private void RemoveCacheIndexEntriesForItem(Guid itemId)
+    {
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            var prefix = itemId + "_";
+            var removed = false;
+            foreach (var key in index.Entries.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToArray())
+            {
+                removed |= index.Entries.Remove(key);
+            }
+
+            if (removed)
+            {
+                SaveCacheIndexLocked();
+            }
+        }
+    }
+
+    private CacheIndex GetCacheIndexLocked()
+    {
+        if (_cacheIndexLoaded)
+        {
+            return _cacheIndex ??= new CacheIndex();
+        }
+
+        _cacheIndexLoaded = true;
+        var path = GetCacheIndexPath();
+        if (!File.Exists(path))
+        {
+            _cacheIndex = new CacheIndex();
+            return _cacheIndex;
+        }
+
+        try
+        {
+            _cacheIndex = JsonSerializer.Deserialize<CacheIndex>(File.ReadAllText(path)) ?? new CacheIndex();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load JellyTag cache index; rebuilding as cache entries are used");
+            _cacheIndex = new CacheIndex();
+        }
+
+        return _cacheIndex;
+    }
+
+    private void SaveCacheIndexLocked()
+    {
+        EnsureCacheDirectoryExists();
+        var path = GetCacheIndexPath();
+        var tempPath = path + ".tmp";
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(GetCacheIndexLocked()));
+        File.Move(tempPath, path, overwrite: true);
+    }
+
+    private string GetCacheIndexPath() => Path.Combine(_cachePath, CacheIndexFileName);
+
+    private string ToRelativePath(string path) => Path.GetRelativePath(_cachePath, path);
+
+    private string ToAbsolutePath(string relativePath) => Path.GetFullPath(Path.Combine(_cachePath, relativePath));
 
     private void EnsureCacheDirectoryExists()
     {
@@ -289,5 +473,27 @@ public class ImageCacheService : IImageCacheService
         {
             Directory.CreateDirectory(_cachePath);
         }
+    }
+
+    private sealed class CacheIndex
+    {
+        public CacheIndex()
+        {
+        }
+
+        public int Version { get; set; } = 1;
+
+        public Dictionary<string, CacheIndexEntry> Entries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class CacheIndexEntry
+    {
+        public CacheIndexEntry()
+        {
+        }
+
+        public string RelativePath { get; set; } = string.Empty;
+
+        public long UpdatedUtcTicks { get; set; }
     }
 }

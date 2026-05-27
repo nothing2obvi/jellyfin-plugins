@@ -28,12 +28,12 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.43.0.0",
-        "changelog": "Add Wholphin cache warmer client profile after Streamyfin. Allow cache duration 0 for forever and remove the 720-hour maximum. Run cache warmer requests by Home, Libraries, Episodes, and Other phases across all enabled clients.",
+        "version": "1.44.0.0",
+        "changelog": "Coalesce concurrent renders for the same uncached image variant. Store cache files in hash-prefixed folders with a persistent cache index. Reuse rasterized SVG badges and repeated badge position layouts during rendering. Prune cache index entries during cache cleanup and clear them when clearing the cache.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.43.0.0.zip",
-        "checksum": "ca9eb22e71e1c3f30818401d39d89221",
-        "timestamp": "2026-05-20T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.44.0.0.zip",
+        "checksum": "336926ff7320a6ed496566ca21b1f99b",
+        "timestamp": "2026-05-26T00:00:00Z"
       }
     ]
   }
