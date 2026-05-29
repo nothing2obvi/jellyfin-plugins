@@ -29,6 +29,64 @@ public class ImageCacheService : IImageCacheService
     }
 
     /// <inheritdoc />
+    public string CreateRequestCacheKey(Guid itemId, string imageType, string imageVersion, string query, long itemModifiedTicks)
+    {
+        var config = Plugin.Instance?.Configuration;
+        var configFingerprint = config != null ? ComputeConfigFingerprint(config) : string.Empty;
+        var input = $"{itemId:N}_{imageType}_{imageVersion}_{itemModifiedTicks}_{query}_{configFingerprint}";
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return $"{itemId:N}_{Convert.ToHexString(hashBytes)[..16]}";
+    }
+
+    /// <inheritdoc />
+    public Task<CachedImageFile?> GetCachedImageFileForRequestAsync(Guid itemId, string requestCacheKey)
+    {
+        RequestCacheIndexEntry? requestEntry;
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            if (!index.RequestEntries.TryGetValue(requestCacheKey, out requestEntry))
+            {
+                return Task.FromResult<CachedImageFile?>(null);
+            }
+        }
+
+        var cachedFile = TryGetCachedFile(itemId, requestEntry.BadgeKey, requestEntry.ImageTag, requestEntry.BadgeState);
+        if (cachedFile == null)
+        {
+            RemoveRequestCacheEntry(requestCacheKey);
+        }
+
+        return Task.FromResult(cachedFile);
+    }
+
+    /// <inheritdoc />
+    public void SetRequestCacheEntry(string requestCacheKey, Guid itemId, string badgeKey, string imageTag, string badgeState)
+    {
+        var finalCacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            index.RequestEntries[requestCacheKey] = new RequestCacheIndexEntry
+            {
+                ItemId = itemId.ToString("N"),
+                BadgeKey = badgeKey,
+                ImageTag = imageTag,
+                BadgeState = badgeState,
+                FinalCacheKey = finalCacheKey,
+                UpdatedUtcTicks = DateTime.UtcNow.Ticks
+            };
+            SaveCacheIndexLocked();
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<CachedImageFile?> GetCachedImageFileAsync(Guid itemId, string badgeKey, string imageTag, string badgeState)
+    {
+        return Task.FromResult(TryGetCachedFile(itemId, badgeKey, imageTag, badgeState));
+    }
+
+    /// <inheritdoc />
     public Task<Stream?> GetCachedImageAsync(Guid itemId, string badgeKey, string imageTag)
     {
         var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
@@ -47,6 +105,47 @@ public class ImageCacheService : IImageCacheService
         return Task.FromResult(stream);
     }
 
+    private CachedImageFile? TryGetCachedFile(Guid itemId, string badgeKey, string imageTag, string badgeState)
+    {
+        var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
+        var indexedPath = GetIndexedCachePath(cacheKey);
+        if (!string.IsNullOrWhiteSpace(indexedPath))
+        {
+            var indexedFile = TryGetCachedFile(itemId, cacheKey, indexedPath, badgeState, updateIndex: false);
+            if (indexedFile != null)
+            {
+                return indexedFile;
+            }
+        }
+
+        return TryGetCachedFile(itemId, cacheKey, GetCachePath(cacheKey), badgeState, updateIndex: true);
+    }
+
+    private CachedImageFile? TryGetCachedFile(Guid itemId, string cacheKey, string cacheFilePath, string badgeState, bool updateIndex)
+    {
+        if (!File.Exists(cacheFilePath))
+        {
+            RemoveCacheIndexEntry(cacheKey);
+            return null;
+        }
+
+        var fileInfo = new FileInfo(cacheFilePath);
+        if (IsExpired(fileInfo))
+        {
+            _logger.LogDebug("Cache expired for item {ItemId}", itemId);
+            TryDeleteExpiredCacheFile(cacheKey, cacheFilePath);
+            return null;
+        }
+
+        if (updateIndex)
+        {
+            SetCacheIndexEntry(cacheKey, cacheFilePath);
+        }
+
+        _logger.LogDebug("Cache file hit for item {ItemId}", itemId);
+        return new CachedImageFile(cacheFilePath, GetContentType(), fileInfo.Length, badgeState);
+    }
+
     private Stream? TryOpenCachedFile(Guid itemId, string cacheKey, string cacheFilePath, bool updateIndex)
     {
         if (!File.Exists(cacheFilePath))
@@ -60,16 +159,7 @@ public class ImageCacheService : IImageCacheService
         if (IsExpired(fileInfo))
         {
             _logger.LogDebug("Cache expired for item {ItemId}", itemId);
-            try
-            {
-                File.Delete(cacheFilePath);
-                RemoveCacheIndexEntry(cacheKey);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete expired cache file: {Path}", cacheFilePath);
-            }
-
+            TryDeleteExpiredCacheFile(cacheKey, cacheFilePath);
             return null;
         }
 
@@ -231,6 +321,7 @@ public class ImageCacheService : IImageCacheService
 
             if (removed > 0)
             {
+                PruneRequestEntriesLocked(index);
                 SaveCacheIndexLocked();
                 _logger.LogDebug("Pruned {Count} stale JellyTag cache index entries", removed);
             }
@@ -359,6 +450,12 @@ public class ImageCacheService : IImageCacheService
         return Path.Combine(_cachePath, GetCachePrefix(cacheKey), $"{cacheKey}{ext}");
     }
 
+    private static string GetContentType()
+    {
+        var config = Plugin.Instance?.Configuration;
+        return config?.OutputFormat == Configuration.OutputImageFormat.WebP ? "image/webp" : "image/jpeg";
+    }
+
     private static string GetCachePrefix(string cacheKey)
     {
         var hashStart = cacheKey.LastIndexOf('_') + 1;
@@ -371,6 +468,19 @@ public class ImageCacheService : IImageCacheService
         var config = Plugin.Instance?.Configuration;
         var cacheHours = config?.CacheDurationHours ?? 168;
         return cacheHours > 0 && (DateTime.UtcNow - fileInfo.LastWriteTimeUtc).TotalHours > cacheHours;
+    }
+
+    private void TryDeleteExpiredCacheFile(string cacheKey, string cacheFilePath)
+    {
+        try
+        {
+            File.Delete(cacheFilePath);
+            RemoveCacheIndexEntry(cacheKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete expired cache file: {Path}", cacheFilePath);
+        }
     }
 
     private string? GetIndexedCachePath(string cacheKey)
@@ -401,7 +511,21 @@ public class ImageCacheService : IImageCacheService
         lock (_lock)
         {
             var index = GetCacheIndexLocked();
-            if (index.Entries.Remove(cacheKey))
+            var removed = index.Entries.Remove(cacheKey);
+            removed |= RemoveRequestEntriesForFinalCacheKeyLocked(index, cacheKey);
+            if (removed)
+            {
+                SaveCacheIndexLocked();
+            }
+        }
+    }
+
+    private void RemoveRequestCacheEntry(string requestCacheKey)
+    {
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            if (index.RequestEntries.Remove(requestCacheKey))
             {
                 SaveCacheIndexLocked();
             }
@@ -413,11 +537,20 @@ public class ImageCacheService : IImageCacheService
         lock (_lock)
         {
             var index = GetCacheIndexLocked();
-            var prefix = itemId + "_";
+            var normalizedPrefix = itemId.ToString("N") + "_";
+            var defaultPrefix = itemId + "_";
+            var itemIdString = itemId.ToString("N");
             var removed = false;
-            foreach (var key in index.Entries.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToArray())
+            foreach (var key in index.Entries.Keys.Where(k =>
+                    k.StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase) ||
+                    k.StartsWith(defaultPrefix, StringComparison.OrdinalIgnoreCase)).ToArray())
             {
                 removed |= index.Entries.Remove(key);
+            }
+
+            foreach (var key in index.RequestEntries.Where(kvp => string.Equals(kvp.Value.ItemId, itemIdString, StringComparison.OrdinalIgnoreCase)).Select(kvp => kvp.Key).ToArray())
+            {
+                removed |= index.RequestEntries.Remove(key);
             }
 
             if (removed)
@@ -445,6 +578,8 @@ public class ImageCacheService : IImageCacheService
         try
         {
             _cacheIndex = JsonSerializer.Deserialize<CacheIndex>(File.ReadAllText(path)) ?? new CacheIndex();
+            _cacheIndex.Entries ??= new Dictionary<string, CacheIndexEntry>(StringComparer.OrdinalIgnoreCase);
+            _cacheIndex.RequestEntries ??= new Dictionary<string, RequestCacheIndexEntry>(StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -453,6 +588,31 @@ public class ImageCacheService : IImageCacheService
         }
 
         return _cacheIndex;
+    }
+
+    private static bool RemoveRequestEntriesForFinalCacheKeyLocked(CacheIndex index, string finalCacheKey)
+    {
+        var removed = false;
+        foreach (var key in index.RequestEntries
+            .Where(kvp => string.Equals(kvp.Value.FinalCacheKey, finalCacheKey, StringComparison.OrdinalIgnoreCase))
+            .Select(kvp => kvp.Key)
+            .ToArray())
+        {
+            removed |= index.RequestEntries.Remove(key);
+        }
+
+        return removed;
+    }
+
+    private void PruneRequestEntriesLocked(CacheIndex index)
+    {
+        foreach (var key in index.RequestEntries
+            .Where(kvp => !index.Entries.ContainsKey(kvp.Value.FinalCacheKey))
+            .Select(kvp => kvp.Key)
+            .ToArray())
+        {
+            index.RequestEntries.Remove(key);
+        }
     }
 
     private void SaveCacheIndexLocked()
@@ -487,6 +647,8 @@ public class ImageCacheService : IImageCacheService
         public int Version { get; set; } = 1;
 
         public Dictionary<string, CacheIndexEntry> Entries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public Dictionary<string, RequestCacheIndexEntry> RequestEntries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class CacheIndexEntry
@@ -496,6 +658,25 @@ public class ImageCacheService : IImageCacheService
         }
 
         public string RelativePath { get; set; } = string.Empty;
+
+        public long UpdatedUtcTicks { get; set; }
+    }
+
+    private sealed class RequestCacheIndexEntry
+    {
+        public RequestCacheIndexEntry()
+        {
+        }
+
+        public string ItemId { get; set; } = string.Empty;
+
+        public string BadgeKey { get; set; } = string.Empty;
+
+        public string ImageTag { get; set; } = string.Empty;
+
+        public string BadgeState { get; set; } = string.Empty;
+
+        public string FinalCacheKey { get; set; } = string.Empty;
 
         public long UpdatedUtcTicks { get; set; }
     }

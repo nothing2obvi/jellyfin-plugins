@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Services;
-using static Jellyfin.Plugin.JellyTag.Configuration.OutputImageFormat;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
@@ -146,6 +145,18 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
+        var query = GetCacheRelevantQuery(context.Request.Query);
+        var imageVersion = GetImageVersion(item, imageType);
+        var requestCacheKey = cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, query, item.DateModified.Ticks);
+        var requestCachedFile = await cacheService.GetCachedImageFileForRequestAsync(itemId, requestCacheKey).ConfigureAwait(false);
+        if (requestCachedFile != null)
+        {
+            await TryForceImageRefreshAsync(item, imageType, requestCachedFile.BadgeState, true, providerManager, context.RequestAborted).ConfigureAwait(false);
+            SetWarmupResult(context, WarmupResultCacheHit);
+            await ServeCachedImageFileAsync(context, requestCachedFile).ConfigureAwait(false);
+            return;
+        }
+
         // Detect all badges and filter by config
         var allBadges = qualityService.DetectAllBadges(item, imageConfig);
         _logger.LogDebug("DetectAllBadges for {Item}: {Count} badges found: {Badges}",
@@ -172,15 +183,14 @@ public partial class ImageOverlayMiddleware
         var badgeKey = string.Join("_", visibleBadges.Select(b => b.BadgeKey));
         _logger.LogInformation("Applying {Count} badges to {Item}: {BadgeKey}", visibleBadges.Count, item.Name, badgeKey);
 
-        var query = GetCacheRelevantQuery(context.Request.Query);
-        var imageVersion = GetImageVersion(item, imageType);
         var imageTag = $"{imageVersion}_{imageType}_{query}_{badgeState}";
 
-        var cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
-        if (cachedImage != null)
+        var cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, imageTag, badgeState).ConfigureAwait(false);
+        if (cachedFile != null)
         {
+            cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);
             SetWarmupResult(context, WarmupResultCacheHit);
-            await ServeCachedImageAsync(context, cachedImage, config).ConfigureAwait(false);
+            await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
             return;
         }
 
@@ -196,11 +206,12 @@ public partial class ImageOverlayMiddleware
             await renderLock.Semaphore.WaitAsync(context.RequestAborted).ConfigureAwait(false);
             renderLockAcquired = true;
 
-            cachedImage = await cacheService.GetCachedImageAsync(itemId, badgeKey, imageTag).ConfigureAwait(false);
-            if (cachedImage != null)
+            cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, imageTag, badgeState).ConfigureAwait(false);
+            if (cachedFile != null)
             {
+                cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);
                 SetWarmupResult(context, WarmupResultCacheHit);
-                await ServeCachedImageAsync(context, cachedImage, config).ConfigureAwait(false);
+                await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
                 return;
             }
 
@@ -235,6 +246,11 @@ public partial class ImageOverlayMiddleware
             {
                 result.resultStream.Position = 0;
                 var cached = await cacheService.CacheImageAsync(itemId, badgeKey, imageTag, result.resultStream).ConfigureAwait(false);
+                if (cached)
+                {
+                    cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);
+                }
+
                 SetWarmupResult(context, cached ? WarmupResultCacheWritten : WarmupResultCacheWriteFailed);
 
                 result.resultStream.Position = 0;
@@ -292,15 +308,11 @@ public partial class ImageOverlayMiddleware
         }
     }
 
-    private static async Task ServeCachedImageAsync(HttpContext context, Stream cachedImage, PluginConfiguration config)
+    private static async Task ServeCachedImageFileAsync(HttpContext context, CachedImageFile cachedImage)
     {
-        await using (cachedImage.ConfigureAwait(false))
-        {
-            var cachedContentType = config.OutputFormat == OutputImageFormat.WebP ? "image/webp" : "image/jpeg";
-            context.Response.ContentType = cachedContentType;
-            context.Response.ContentLength = cachedImage.Length;
-            await cachedImage.CopyToAsync(context.Response.Body).ConfigureAwait(false);
-        }
+        context.Response.ContentType = cachedImage.ContentType;
+        context.Response.ContentLength = cachedImage.Length;
+        await context.Response.SendFileAsync(cachedImage.Path, context.RequestAborted).ConfigureAwait(false);
     }
 
     private sealed class RenderLockState

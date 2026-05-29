@@ -6,6 +6,45 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 public interface IImageCacheService
 {
     /// <summary>
+    /// Creates a stable request-level cache key for a specific image variant.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="imageType">The Jellyfin image type.</param>
+    /// <param name="imageVersion">The source image version.</param>
+    /// <param name="query">The cache-relevant request query string.</param>
+    /// <param name="itemModifiedTicks">The item modified ticks.</param>
+    /// <returns>A request-level cache key.</returns>
+    string CreateRequestCacheKey(Guid itemId, string imageType, string imageVersion, string query, long itemModifiedTicks);
+
+    /// <summary>
+    /// Gets a cached image file for a previously learned request-level cache key.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="requestCacheKey">The request-level cache key.</param>
+    /// <returns>The cached image file, or null if not learned, missing, or expired.</returns>
+    Task<CachedImageFile?> GetCachedImageFileForRequestAsync(Guid itemId, string requestCacheKey);
+
+    /// <summary>
+    /// Learns the final cache state for a request-level cache key.
+    /// </summary>
+    /// <param name="requestCacheKey">The request-level cache key.</param>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="badgeKey">The composite badge key.</param>
+    /// <param name="imageTag">The image tag/etag.</param>
+    /// <param name="badgeState">The badge state fingerprint.</param>
+    void SetRequestCacheEntry(string requestCacheKey, Guid itemId, string badgeKey, string imageTag, string badgeState);
+
+    /// <summary>
+    /// Gets a cached image file if available and not expired.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="badgeKey">The composite badge key (e.g. "4k_hdr10_atmos").</param>
+    /// <param name="imageTag">The image tag/etag for cache invalidation.</param>
+    /// <param name="badgeState">The badge state fingerprint.</param>
+    /// <returns>The cached image file, or null if not cached.</returns>
+    Task<CachedImageFile?> GetCachedImageFileAsync(Guid itemId, string badgeKey, string imageTag, string badgeState);
+
+    /// <summary>
     /// Gets a cached image if available and not expired.
     /// </summary>
     /// <param name="itemId">The item ID.</param>
@@ -52,3 +91,8 @@ public interface IImageCacheService
     /// <returns>A tuple of (FileCount, TotalSizeBytes, OldestEntry, NewestEntry).</returns>
     (int FileCount, long TotalSizeBytes, DateTime? OldestEntry, DateTime? NewestEntry) GetCacheStats();
 }
+
+/// <summary>
+/// Metadata for a cached JellyTag image file.
+/// </summary>
+public sealed record CachedImageFile(string Path, string ContentType, long Length, string BadgeState);
