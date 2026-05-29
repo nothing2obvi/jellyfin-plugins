@@ -9,7 +9,7 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.JellyTag;
 
 /// <summary>
-/// JellyTag plugin - Adds quality badges to media posters.
+/// JellyTag-Plus plugin - Adds quality badges to media posters.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {

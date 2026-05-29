@@ -437,7 +437,12 @@ public class CacheWarmTask : IScheduledTask
 
     private static WarmupPhase GetPhase(string key)
     {
-        return WarmupPhases.First(phase => string.Equals(phase.Key, key, StringComparison.OrdinalIgnoreCase));
+        var normalizedKey = string.Equals(key, "learned-home-libraries", StringComparison.OrdinalIgnoreCase)
+            ? HomeLibrariesPhaseKey
+            : key;
+
+        return WarmupPhases.FirstOrDefault(phase => string.Equals(phase.Key, normalizedKey, StringComparison.OrdinalIgnoreCase))
+            ?? GetPhase(OtherPhaseKey);
     }
 
     /// <summary>

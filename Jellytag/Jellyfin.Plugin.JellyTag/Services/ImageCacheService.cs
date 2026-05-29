@@ -146,7 +146,7 @@ public class ImageCacheService : IImageCacheService
                     SetCacheIndexEntry(cacheKey, cacheFilePath);
                 }
 
-                _logger.LogDebug("Validated expired JellyTag cache file for item {ItemId}", itemId);
+                _logger.LogDebug("Validated expired JellyTag-Plus cache file for item {ItemId}", itemId);
                 return new CachedImageFile(cacheFilePath, GetContentType(), fileInfo.Length, badgeState);
             }
 
@@ -348,7 +348,7 @@ public class ImageCacheService : IImageCacheService
             {
                 PruneRequestEntriesLocked(index);
                 SaveCacheIndexLocked();
-                _logger.LogDebug("Pruned {Count} stale JellyTag cache index entries", removed);
+                _logger.LogDebug("Pruned {Count} stale JellyTag-Plus cache index entries", removed);
             }
         }
     }
@@ -520,7 +520,7 @@ public class ImageCacheService : IImageCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to validate expired JellyTag cache file: {Path}", cacheFilePath);
+            _logger.LogDebug(ex, "Failed to validate expired JellyTag-Plus cache file: {Path}", cacheFilePath);
             return false;
         }
     }
@@ -539,7 +539,7 @@ public class ImageCacheService : IImageCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to read JellyTag cache metadata: {Path}", path);
+            _logger.LogDebug(ex, "Failed to read JellyTag-Plus cache metadata: {Path}", path);
             return null;
         }
     }
@@ -571,7 +571,7 @@ public class ImageCacheService : IImageCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to write JellyTag cache metadata for {CacheKey}", cacheKey);
+            _logger.LogDebug(ex, "Failed to write JellyTag-Plus cache metadata for {CacheKey}", cacheKey);
         }
     }
 
@@ -587,7 +587,7 @@ public class ImageCacheService : IImageCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to delete JellyTag cache metadata for {CacheKey}", cacheKey);
+            _logger.LogDebug(ex, "Failed to delete JellyTag-Plus cache metadata for {CacheKey}", cacheKey);
         }
     }
 
@@ -707,7 +707,7 @@ public class ImageCacheService : IImageCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load JellyTag cache index; rebuilding as cache entries are used");
+            _logger.LogWarning(ex, "Failed to load JellyTag-Plus cache index; rebuilding as cache entries are used");
             _cacheIndex = new CacheIndex();
         }
 

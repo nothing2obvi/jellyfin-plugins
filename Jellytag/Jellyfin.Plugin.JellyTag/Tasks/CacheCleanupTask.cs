@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.JellyTag.Tasks;
 
 /// <summary>
-/// Scheduled task that removes expired JellyTag image cache files.
+/// Scheduled task that removes expired JellyTag-Plus image cache files.
 /// </summary>
 public class CacheCleanupTask : IScheduledTask
 {
@@ -60,7 +60,7 @@ public class CacheCleanupTask : IScheduledTask
         var cacheHours = config?.CacheDurationHours ?? 168;
         if (cacheHours <= 0)
         {
-            _logger.LogInformation("JellyTag cache cleanup skipped because cache duration is set to forever");
+            _logger.LogInformation("JellyTag-Plus cache cleanup skipped because cache duration is set to forever");
             progress.Report(100);
             return Task.CompletedTask;
         }
@@ -68,7 +68,7 @@ public class CacheCleanupTask : IScheduledTask
         if (config?.ValidateExpiredCacheBeforeRerender == true)
         {
             _cacheService.PruneCacheIndex();
-            _logger.LogInformation("JellyTag cache cleanup skipped image deletion because expired cache validation is enabled");
+            _logger.LogInformation("JellyTag-Plus cache cleanup skipped image deletion because expired cache validation is enabled");
             progress.Report(100);
             return Task.CompletedTask;
         }
@@ -108,7 +108,7 @@ public class CacheCleanupTask : IScheduledTask
         }
 
         _cacheService.PruneCacheIndex();
-        _logger.LogInformation("JellyTag cache cleanup complete. Deleted {Count} expired files", deletedCount);
+        _logger.LogInformation("JellyTag-Plus cache cleanup complete. Deleted {Count} expired files", deletedCount);
         return Task.CompletedTask;
     }
 }

@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.JellyTag.Controllers;
 
 /// <summary>
-/// Controller for JellyTag plugin admin and debug endpoints.
+/// Controller for JellyTag-Plus plugin admin and debug endpoints.
 /// </summary>
 [ApiController]
 [Route("JellyTagPlus")]

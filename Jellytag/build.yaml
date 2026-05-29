@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.0.0"
+version: "1.50.1.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,11 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.1.0
+  - Fix cache warmer startup when old learned-client phase state is present
+  - Sanitize the JellyTag-Plus README image and scale README previews
+  - Use JellyTag-Plus consistently in user-facing text
+
   ## v1.50.0.0
   - Add optional expired-cache validation metadata to avoid unnecessary re-renders
   - Move Findroid unsized warmup into the Home & Libraries phase
@@ -39,8 +44,8 @@ changelog: |
   - Use conservative cache warmer defaults for all-day operation
 
   ## v1.47.0.0
-  - Add JellyTag warmup result headers so the warmer can distinguish cache hits, newly written cache files, no-badge pass-throughs, and failures
-  - Only mark warmer ledger entries complete for confirmed JellyTag warmup outcomes
+  - Add JellyTag-Plus warmup result headers so the warmer can distinguish cache hits, newly written cache files, no-badge pass-throughs, and failures
+  - Only mark warmer ledger entries complete for confirmed JellyTag-Plus warmup outcomes
 
   ## v1.46.0.0
   - Move MusicVideo and standalone Video warmup requests into a Videos phase after Episodes

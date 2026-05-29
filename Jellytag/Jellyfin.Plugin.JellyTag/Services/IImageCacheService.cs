@@ -93,6 +93,6 @@ public interface IImageCacheService
 }
 
 /// <summary>
-/// Metadata for a cached JellyTag image file.
+/// Metadata for a cached JellyTag-Plus image file.
 /// </summary>
 public sealed record CachedImageFile(string Path, string ContentType, long Length, string BadgeState);

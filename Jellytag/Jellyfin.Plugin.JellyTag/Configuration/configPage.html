@@ -194,7 +194,7 @@
                                     <input id="ValidateExpiredCacheBeforeRerender" type="checkbox" is="emby-checkbox" />
                                     <span>Validate expired cache before re-rendering</span>
                                 </label>
-                                <div class="fieldDescription checkboxFieldDescription">When cache duration has expired, JellyTag can check whether the same image and badges would still be used. If nothing changed, it keeps the cached image and resets its age instead of rendering it again. Shortcut cache hits stay fast and skip this metadata work.</div>
+                                <div class="fieldDescription checkboxFieldDescription">When cache duration has expired, JellyTag-Plus can check whether the same image and badges would still be used. If nothing changed, it keeps the cached image and resets its age instead of rendering it again. Shortcut cache hits stay fast and skip this metadata work.</div>
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="WarmerMaxConcurrency">Warmer Max Concurrency</label>
@@ -1148,7 +1148,7 @@
                 });
                 applyWarmerProgress();
             }).catch(function(err) {
-                console.warn('[JellyTag] Failed to load warmer progress:', err);
+                console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
             });
         }
 
@@ -1203,7 +1203,7 @@
                 });
                 if (folders.length === 0) container.innerHTML = '<em>No libraries found.</em>';
             }).catch(function(err) {
-                console.error('[JellyTag] Failed to load libraries:', err);
+                console.error('[JellyTag-Plus] Failed to load libraries:', err);
                 container.innerHTML = '<em>Failed to load libraries.</em>';
             });
         }
@@ -1278,7 +1278,7 @@
                     });
                     gallery.appendChild(card);
                 });
-            }).catch(function(err) { console.error('[JellyTag] Badge gallery error:', err); });
+            }).catch(function(err) { console.error('[JellyTag-Plus] Badge gallery error:', err); });
         }
 
         function loadCacheStats() {
@@ -1338,9 +1338,9 @@
                 loadLibraryCheckboxes(config.ExcludedLibraryIds || [], config.LibraryBadgeOptions || []);
                 Dashboard.hideLoadingMsg();
             }).catch(function(err) {
-                console.error('[JellyTag] Failed to load config:', err);
+                console.error('[JellyTag-Plus] Failed to load config:', err);
                 Dashboard.hideLoadingMsg();
-                Dashboard.alert('Failed to load JellyTag configuration.');
+                Dashboard.alert('Failed to load JellyTag-Plus configuration.');
             });
 
             loadBadgeGallery();

@@ -6,7 +6,7 @@
 
 This repository is a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins).
 
-The main active change in this fork is **JellyTag-Plus**, a renamed and expanded fork of JellyTag. **WatchSync has not been touched yet**, so if you only want WatchSync, it is best to use the original repository from Atilil.
+The main active change in this fork is **JellyTag-Plus**, a renamed and expanded fork of the original plugin. **WatchSync has not been touched yet**, so if you only want WatchSync, it is best to use the original repository from Atilil.
 
 > **Disclaimer:** The original plugins in [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins) are described by their author as built from vibecoding; see [Atilil/jellyfin-plugins#17](https://github.com/Atilil/jellyfin-plugins/issues/17). The additional and modified features in JellyTag-Plus in this fork are also vibecoded.
 
@@ -39,10 +39,10 @@ WatchSync automatically synchronizes watch history between libraries of differen
 ### JellyTag-Plus
 
 <p align="center">
-    <img src="Jellytag/JellyTag-Plus.png" alt="JellyTag-Plus" />
+    <img src="Jellytag/JellyTag-Plus.png" alt="JellyTag-Plus" width="60%" />
 </p>
 
-JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It builds on JellyTag with collection badge rules, expanded language flag behavior, force image refresh, per-library badge controls, and an aggressive cache warmer for common client image sizes.
+JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It builds on the original plugin with collection badge rules, expanded language flag behavior, force image refresh, per-library badge controls, and an aggressive cache warmer for common client image sizes.
 
 **Highlights:**
 

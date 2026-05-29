@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.0.0",
-        "changelog": "Add optional expired-cache validation metadata to avoid unnecessary re-renders. Move Findroid unsized warmup into the Home & Libraries phase. Split Moonfin warmer profiles by client and add DUNE, Swiftfin, and Jellyfin Desktop fixed client profiles. Document variable-size clients and Learned Clients coverage. Preserve warmer client profile ordering when configuration is saved.",
+        "version": "1.50.1.0",
+        "changelog": "Fix cache warmer startup when old learned-client phase state is present. Sanitize the JellyTag-Plus README image and scale README previews. Use JellyTag-Plus consistently in user-facing text.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.0.0.zip",
-        "checksum": "e9784c18133be406931aeb18985f1c91",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.1.0.zip",
+        "checksum": "df62f14699c70a4d06aef41a2038d77b",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

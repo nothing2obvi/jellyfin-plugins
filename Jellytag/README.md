@@ -4,15 +4,15 @@
   <a href="https://ko-fi.com/yeahnoforsure_" target="_blank" rel="noopener noreferrer"><img src="../assets/support_me_on_kofi_blue.png" alt="Support me on Ko-fi" width="240" /></a>
 </p>
 
-JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It is a fork/continuation of JellyTag from [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins), renamed so it can live separately from the original plugin.
+JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It is a fork/continuation of the original plugin from [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins), renamed so it can live separately from the original plugin.
 
 > **Disclaimer:** The original plugins in [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins) are described by their author as built from vibecoding; see [Atilil/jellyfin-plugins#17](https://github.com/Atilil/jellyfin-plugins/issues/17). The additional and modified features in JellyTag-Plus are also vibecoded.
 
 <p align="center">
-    <img src="JellyTag-Plus.png" alt="JellyTag-Plus" />
+    <img src="JellyTag-Plus.png" alt="JellyTag-Plus" width="60%" />
 </p>
 
-## What Is Different From JellyTag
+## What Is Different
 
 JellyTag-Plus keeps the original server-side badge overlay idea and adds a lot of practical library-management behavior:
 
