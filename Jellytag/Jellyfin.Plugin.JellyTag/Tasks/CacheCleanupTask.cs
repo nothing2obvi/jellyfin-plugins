@@ -65,6 +65,14 @@ public class CacheCleanupTask : IScheduledTask
             return Task.CompletedTask;
         }
 
+        if (config?.ValidateExpiredCacheBeforeRerender == true)
+        {
+            _cacheService.PruneCacheIndex();
+            _logger.LogInformation("JellyTag cache cleanup skipped image deletion because expired cache validation is enabled");
+            progress.Report(100);
+            return Task.CompletedTask;
+        }
+
         var deletedCount = 0;
 
         var files = Directory.GetFiles(cacheDir, "*.jpg", SearchOption.AllDirectories)

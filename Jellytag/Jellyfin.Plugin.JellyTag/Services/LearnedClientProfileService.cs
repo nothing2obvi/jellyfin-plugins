@@ -187,7 +187,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
             return CacheWarmTask.VideosPhaseKey;
         }
 
-        return CacheWarmTask.LearnedHomeLibrariesPhaseKey;
+        return CacheWarmTask.HomeLibrariesPhaseKey;
     }
 
     private static List<KeyValuePair<string, string>> NormalizeQuery(IQueryCollection query)
@@ -256,7 +256,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
     {
         public string ImageType { get; set; } = "Primary";
 
-        public string PhaseKey { get; set; } = CacheWarmTask.LearnedHomeLibrariesPhaseKey;
+        public string PhaseKey { get; set; } = CacheWarmTask.HomeLibrariesPhaseKey;
 
         public string Label { get; set; } = string.Empty;
 

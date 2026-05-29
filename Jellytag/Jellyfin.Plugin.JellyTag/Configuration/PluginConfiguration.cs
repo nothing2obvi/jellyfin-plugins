@@ -157,11 +157,12 @@ public class PluginConfiguration : BasePluginConfiguration
 
         CustomBadgeTexts = new List<BadgeTextOverride>();
         CacheDurationHours = 168;
+        ValidateExpiredCacheBeforeRerender = false;
         WarmerMaxConcurrency = 1;
         WarmerDelayMs = 5000;
         WarmerClientQuietSeconds = 120;
-        WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
-        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid", "learned" };
+        WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid" };
+        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned" };
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;
@@ -188,6 +189,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public List<BadgeTextOverride> CustomBadgeTexts { get; set; }
     public int CacheDurationHours { get; set; }
+    public bool ValidateExpiredCacheBeforeRerender { get; set; }
     public int WarmerMaxConcurrency { get; set; }
     public int WarmerDelayMs { get; set; }
     public int WarmerClientQuietSeconds { get; set; }

@@ -189,6 +189,13 @@
                                 <input id="CacheDurationHours" type="number" min="0" step="1" is="emby-input" />
                                 <div class="fieldDescription">Use 0 to keep cached images forever.</div>
                             </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label>
+                                    <input id="ValidateExpiredCacheBeforeRerender" type="checkbox" is="emby-checkbox" />
+                                    <span>Validate expired cache before re-rendering</span>
+                                </label>
+                                <div class="fieldDescription checkboxFieldDescription">When cache duration has expired, JellyTag can check whether the same image and badges would still be used. If nothing changed, it keeps the cached image and resets its age instead of rendering it again. Shortcut cache hits stay fast and skip this metadata work.</div>
+                            </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="WarmerMaxConcurrency">Warmer Max Concurrency</label>
                                 <input id="WarmerMaxConcurrency" type="number" min="1" max="8" step="1" is="emby-input" />
@@ -205,7 +212,7 @@
                                 <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
                                 <div class="fieldDescription" style="opacity:.72; margin-bottom:.5em;">Estimated Warmer Progress: Based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them. Refresh this page to update progress.</div>
                                 <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
-                                <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Jellyfin Web, Android, iOS, and Desktop Qt are not listed because their home and library views calculate image sizes dynamically through Jellyfin Web, so there is no stable set of poster or thumbnail variants to prewarm.</div>
+                                <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Variable-size clients are covered by Learned Clients after real browsing records their Primary and Thumb requests. Jellyfin Web, Android, iOS, Desktop Qt, Tizen, WebOS, and Xbox calculate home and library sizes through Jellyfin Web. Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, DUNE, Swiftfin, and Jellyfin Desktop each have some fixed variants listed here, but their dynamic, grid, layout, or screen-derived variants are also handled by Learned Clients. Learned non-episode and non-video variants are grouped as Home &amp; Libraries when the request does not reliably separate home from library browsing.</div>
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="OutputFormat">Output Format</label>
@@ -970,6 +977,7 @@
 
             var cacheDurationHours = parseInt(q('CacheDurationHours').value, 10);
             config.CacheDurationHours = isNaN(cacheDurationHours) ? 168 : Math.max(0, cacheDurationHours);
+            config.ValidateExpiredCacheBeforeRerender = q('ValidateExpiredCacheBeforeRerender').checked;
             config.WarmerMaxConcurrency = parseInt(q('WarmerMaxConcurrency').value, 10) || 1;
             config.WarmerDelayMs = parseInt(q('WarmerDelayMs').value, 10) || 0;
             config.WarmerClientQuietSeconds = parseInt(q('WarmerClientQuietSeconds').value, 10) || 0;
@@ -998,26 +1006,38 @@
         }
 
         var WARMER_CLIENT_PROFILES = [
-            { key: 'androidtv', label: 'Android TV' },
-            { key: 'roku', label: 'Roku' },
+            { key: 'androidtv', label: 'Jellyfin Android TV' },
+            { key: 'roku', label: 'Jellyfin Roku' },
             { key: 'streamyfin', label: 'Streamyfin' },
             { key: 'wholphin', label: 'Wholphin' },
+            { key: 'moonfin-mobile-desktop', label: 'Moonfin Mobile-Desktop' },
+            { key: 'moonfin-tvos', label: 'Moonfin tvOS' },
+            { key: 'moonfin-smart-tv', label: 'Moonfin Smart-TV' },
+            { key: 'moonfin-roku', label: 'Moonfin Roku' },
+            { key: 'dune', label: 'DUNE' },
+            { key: 'swiftfin', label: 'Swiftfin' },
+            { key: 'desktop', label: 'Jellyfin Desktop' },
             { key: 'findroid', label: 'Findroid' },
             { key: 'learned', label: 'Learned Clients' }
         ];
         var warmerProgressByKey = {};
 
+        function normalizeWarmerClientProfileKey(key) {
+            key = (key || '').toLowerCase();
+            return key === 'moonfin' ? 'moonfin-mobile-desktop' : key;
+        }
+
         function renderWarmerClientProfiles(selectedKeys, orderedKeys) {
             var wrap = q('WarmerClientProfiles');
             if (!wrap) return;
 
-            var selected = Array.isArray(selectedKeys) ? selectedKeys.slice() : WARMER_CLIENT_PROFILES.map(function(p) { return p.key; });
-            orderedKeys = Array.isArray(orderedKeys) && orderedKeys.length ? orderedKeys : selected;
+            var selected = Array.isArray(selectedKeys) ? selectedKeys.map(normalizeWarmerClientProfileKey) : WARMER_CLIENT_PROFILES.map(function(p) { return p.key; });
+            orderedKeys = Array.isArray(orderedKeys) && orderedKeys.length ? orderedKeys.map(normalizeWarmerClientProfileKey) : selected;
             var known = {};
             WARMER_CLIENT_PROFILES.forEach(function(p) { known[p.key] = p; });
             var ordered = [];
             orderedKeys.forEach(function(key) {
-                key = (key || '').toLowerCase();
+                key = normalizeWarmerClientProfileKey(key);
                 if (known[key] && ordered.indexOf(key) === -1) ordered.push(key);
             });
             WARMER_CLIENT_PROFILES.forEach(function(p) {
@@ -1297,6 +1317,7 @@
                 cbtInputs.forEach(function(el) { el.value = cbtMap[el.getAttribute('data-badge-key')] || ''; });
 
                 q('CacheDurationHours').value = config.CacheDurationHours;
+                q('ValidateExpiredCacheBeforeRerender').checked = config.ValidateExpiredCacheBeforeRerender === true;
                 q('WarmerMaxConcurrency').value = config.WarmerMaxConcurrency != null ? config.WarmerMaxConcurrency : 1;
                 q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 5000;
                 q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 120;

@@ -20,6 +20,7 @@ namespace Jellyfin.Plugin.JellyTag.Controllers;
 [Route("JellyTagPlus")]
 public partial class JellyTagController : ControllerBase
 {
+    private static readonly string[] WarmerClientProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned"];
     private readonly IImageCacheService _cacheService;
     private readonly IImageOverlayService _overlayService;
     private readonly IQualityDetectionService _qualityService;
@@ -130,11 +131,50 @@ public partial class JellyTagController : ControllerBase
         if (plugin == null) return BadRequest("Plugin not loaded");
         if (config == null) return BadRequest("Invalid configuration");
 
+        NormalizeWarmerClientProfiles(config);
         plugin.UpdateConfiguration(config);
         _qualityService.ClearBadgeCache();
         _overlayService.ReloadBadges();
 
         return NoContent();
+    }
+
+    private static void NormalizeWarmerClientProfiles(PluginConfiguration config)
+    {
+        var known = new HashSet<string>(WarmerClientProfileKeys, StringComparer.OrdinalIgnoreCase);
+        config.WarmerClientProfiles = (config.WarmerClientProfiles ?? new List<string>())
+            .Select(NormalizeWarmerClientProfileKey)
+            .Where(known.Contains)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var ordered = (config.WarmerClientProfileOrder ?? new List<string>())
+            .Select(NormalizeWarmerClientProfileKey)
+            .Where(known.Contains)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (ordered.Count == 0)
+        {
+            ordered.AddRange(WarmerClientProfileKeys);
+        }
+
+        foreach (var key in WarmerClientProfileKeys)
+        {
+            if (!ordered.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                ordered.Add(key);
+            }
+        }
+
+        config.WarmerClientProfileOrder = ordered;
+    }
+
+    private static string NormalizeWarmerClientProfileKey(string key)
+    {
+        return string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase)
+            ? "moonfin-mobile-desktop"
+            : key.ToLowerInvariant();
     }
 
     /// <summary>

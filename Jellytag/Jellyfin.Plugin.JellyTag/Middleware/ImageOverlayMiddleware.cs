@@ -251,7 +251,7 @@ public partial class ImageOverlayMiddleware
             await using (result.resultStream.ConfigureAwait(false))
             {
                 result.resultStream.Position = 0;
-                var cached = await cacheService.CacheImageAsync(itemId, badgeKey, imageTag, result.resultStream).ConfigureAwait(false);
+                var cached = await cacheService.CacheImageAsync(itemId, badgeKey, imageTag, badgeState, result.resultStream).ConfigureAwait(false);
                 if (cached)
                 {
                     cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);

@@ -59,17 +59,36 @@ The **JellyTag-Plus Cache Warmer** is a scheduled task that walks enabled librar
 The warmer includes organized client profiles for:
 
 - Findroid
-- Android TV
-- Roku
+- Jellyfin Android TV
+- Jellyfin Roku
 - Streamyfin
 - Wholphin
+- Moonfin Mobile-Desktop
+- Moonfin tvOS
+- Moonfin Smart-TV
+- Moonfin Roku
+- DUNE
+- Swiftfin
+- Jellyfin Desktop
 - Learned Clients
 
-It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed as fixed profiles because they calculate image sizes dynamically.
+It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed as fixed profiles because they calculate image sizes dynamically. Tizen, WebOS, and Xbox are also Jellyfin Web-style shells in the client code reviewed here, so their real poster and thumbnail sizes should be covered by **Learned Clients** after browsing.
 
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Home & Libraries for Learned Clients, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order.
+Some listed clients also have a mix of fixed and variable variants:
 
-The **Learned Clients** profile is optional and starts disabled. It records real non-warmer `Primary` and `Thumb` image requests that are not already covered by fixed client profiles, normalizes requested dimensions to the nearest 10 pixels, and makes those variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view.
+- **Wholphin**: fixed `quality=96` and row-height variants are in its profile; dynamic grid `fillWidth` requests are covered by **Learned Clients**.
+- **Moonfin Mobile-Desktop**: fixed library browse buckets are in its profile; dynamic home, genre, and detail sizes are covered by **Learned Clients**.
+- **Moonfin tvOS**: fixed detail/search/playback/episode sizes are in its profile; dynamic card and shelf sizes are covered by **Learned Clients**.
+- **Moonfin Smart-TV**: fixed card/detail/playback sizes are in its profile; any layout-dependent sizes are covered by **Learned Clients**.
+- **DUNE**: fixed search and carousel variants are in its profile; screen-derived main browse `maxHeight` variants are covered by **Learned Clients**.
+- **Swiftfin**: fixed library/detail/episode/download sizes are in its profile; proxy, screen, and layout-derived sizes are covered by **Learned Clients**.
+- **Jellyfin Desktop**: fixed native media artwork is in its profile; normal Desktop Qt browsing uses Jellyfin Web dynamic sizes and is covered by **Learned Clients**.
+
+When JellyTag-Plus cannot reliably tell whether a learned non-episode, non-video image request came from a home row or a library view, it groups that learned variant under **Home & Libraries**.
+
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Home & Libraries, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order.
+
+The **Learned Clients** profile is optional and starts disabled. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
 
 A scheduled task named **JellyTag-Plus Clear Learned Client Profile** clears learned variants. Learned variants do not expire automatically.
 
@@ -82,7 +101,7 @@ Warmer throttling is configurable:
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid; Learned Clients available but disabled by default |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid; Learned Clients available but disabled by default |
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
@@ -118,10 +137,11 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | Output Format | JPEG or WebP | JPEG |
 | JPEG Quality | Output image quality | 90 |
 | Cache Duration | How long cached images are kept, in hours. `0` means forever. | 168 |
+| Validate Expired Cache Before Re-rendering | When cache duration has expired, check whether the same image and badges would still be used. If nothing changed, keep the cached image and reset its age instead of rendering again. Shortcut cache hits skip this metadata work to stay fast. | Disabled |
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid; Learned Clients available but disabled by default |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid; Learned Clients available but disabled by default |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 

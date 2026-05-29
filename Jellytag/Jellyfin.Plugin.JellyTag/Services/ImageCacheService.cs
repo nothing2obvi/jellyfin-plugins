@@ -17,6 +17,7 @@ public class ImageCacheService : IImageCacheService
     private bool _cacheIndexLoaded;
 
     private const string CacheIndexFileName = "cache-index.json";
+    private const string CacheMetadataFolderName = "metadata";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ImageCacheService"/> class.
@@ -51,7 +52,7 @@ public class ImageCacheService : IImageCacheService
             }
         }
 
-        var cachedFile = TryGetCachedFile(itemId, requestEntry.BadgeKey, requestEntry.ImageTag, requestEntry.BadgeState);
+        var cachedFile = TryGetCachedFile(itemId, requestEntry.BadgeKey, requestEntry.ImageTag, requestEntry.BadgeState, allowExpiredValidation: false);
         if (cachedFile == null)
         {
             RemoveRequestCacheEntry(requestCacheKey);
@@ -83,7 +84,7 @@ public class ImageCacheService : IImageCacheService
     /// <inheritdoc />
     public Task<CachedImageFile?> GetCachedImageFileAsync(Guid itemId, string badgeKey, string imageTag, string badgeState)
     {
-        return Task.FromResult(TryGetCachedFile(itemId, badgeKey, imageTag, badgeState));
+        return Task.FromResult(TryGetCachedFile(itemId, badgeKey, imageTag, badgeState, allowExpiredValidation: true));
     }
 
     /// <inheritdoc />
@@ -105,23 +106,23 @@ public class ImageCacheService : IImageCacheService
         return Task.FromResult(stream);
     }
 
-    private CachedImageFile? TryGetCachedFile(Guid itemId, string badgeKey, string imageTag, string badgeState)
+    private CachedImageFile? TryGetCachedFile(Guid itemId, string badgeKey, string imageTag, string badgeState, bool allowExpiredValidation)
     {
         var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
         var indexedPath = GetIndexedCachePath(cacheKey);
         if (!string.IsNullOrWhiteSpace(indexedPath))
         {
-            var indexedFile = TryGetCachedFile(itemId, cacheKey, indexedPath, badgeState, updateIndex: false);
+            var indexedFile = TryGetCachedFile(itemId, cacheKey, indexedPath, badgeState, false, allowExpiredValidation);
             if (indexedFile != null)
             {
                 return indexedFile;
             }
         }
 
-        return TryGetCachedFile(itemId, cacheKey, GetCachePath(cacheKey), badgeState, updateIndex: true);
+        return TryGetCachedFile(itemId, cacheKey, GetCachePath(cacheKey), badgeState, true, allowExpiredValidation);
     }
 
-    private CachedImageFile? TryGetCachedFile(Guid itemId, string cacheKey, string cacheFilePath, string badgeState, bool updateIndex)
+    private CachedImageFile? TryGetCachedFile(Guid itemId, string cacheKey, string cacheFilePath, string badgeState, bool updateIndex, bool allowExpiredValidation)
     {
         if (!File.Exists(cacheFilePath))
         {
@@ -132,6 +133,23 @@ public class ImageCacheService : IImageCacheService
         var fileInfo = new FileInfo(cacheFilePath);
         if (IsExpired(fileInfo))
         {
+            if (!allowExpiredValidation && ShouldValidateExpiredCache())
+            {
+                return null;
+            }
+
+            if (allowExpiredValidation && ShouldValidateExpiredCache() && TryValidateExpiredCacheFile(cacheKey, cacheFilePath, badgeState, fileInfo))
+            {
+                fileInfo.Refresh();
+                if (updateIndex)
+                {
+                    SetCacheIndexEntry(cacheKey, cacheFilePath);
+                }
+
+                _logger.LogDebug("Validated expired JellyTag cache file for item {ItemId}", itemId);
+                return new CachedImageFile(cacheFilePath, GetContentType(), fileInfo.Length, badgeState);
+            }
+
             _logger.LogDebug("Cache expired for item {ItemId}", itemId);
             TryDeleteExpiredCacheFile(cacheKey, cacheFilePath);
             return null;
@@ -142,6 +160,7 @@ public class ImageCacheService : IImageCacheService
             SetCacheIndexEntry(cacheKey, cacheFilePath);
         }
 
+        TryWriteCacheMetadata(cacheKey, cacheFilePath, badgeState, fileInfo);
         _logger.LogDebug("Cache file hit for item {ItemId}", itemId);
         return new CachedImageFile(cacheFilePath, GetContentType(), fileInfo.Length, badgeState);
     }
@@ -173,7 +192,7 @@ public class ImageCacheService : IImageCacheService
     }
 
     /// <inheritdoc />
-    public async Task<bool> CacheImageAsync(Guid itemId, string badgeKey, string imageTag, Stream imageStream)
+    public async Task<bool> CacheImageAsync(Guid itemId, string badgeKey, string imageTag, string badgeState, Stream imageStream)
     {
         var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
         var cachePath = GetCachePath(cacheKey);
@@ -191,6 +210,7 @@ public class ImageCacheService : IImageCacheService
 
             File.Move(tempPath, cachePath, overwrite: true);
             SetCacheIndexEntry(cacheKey, cachePath);
+            TryWriteCacheMetadata(cacheKey, cachePath, badgeState, new FileInfo(cachePath));
 
             _logger.LogDebug("Cached image for item {ItemId} at {Path}", itemId, cachePath);
             return true;
@@ -231,7 +251,11 @@ public class ImageCacheService : IImageCacheService
                     var webpFiles = Directory.GetFiles(_cachePath, "*.webp", SearchOption.AllDirectories);
                     var warmerStateFiles = Directory.GetFiles(_cachePath, "cache-warmer-state.json*");
                     var indexFiles = Directory.GetFiles(_cachePath, CacheIndexFileName + "*");
-                    var files = jpgFiles.Concat(webpFiles).Concat(warmerStateFiles).Concat(indexFiles).ToArray();
+                    var metadataRoot = GetCacheMetadataRoot();
+                    var metadataFiles = Directory.Exists(metadataRoot)
+                        ? Directory.GetFiles(metadataRoot, "*.json", SearchOption.AllDirectories)
+                        : Array.Empty<string>();
+                    var files = jpgFiles.Concat(webpFiles).Concat(warmerStateFiles).Concat(indexFiles).Concat(metadataFiles).ToArray();
                     foreach (var file in files)
                     {
                         try
@@ -312,9 +336,10 @@ public class ImageCacheService : IImageCacheService
             foreach (var entry in index.Entries.ToArray())
             {
                 var absolutePath = ToAbsolutePath(entry.Value.RelativePath);
-                if (!File.Exists(absolutePath) || IsExpired(new FileInfo(absolutePath)))
+                if (!File.Exists(absolutePath) || (!ShouldValidateExpiredCache() && IsExpired(new FileInfo(absolutePath))))
                 {
                     index.Entries.Remove(entry.Key);
+                    TryDeleteCacheMetadata(entry.Key);
                     removed++;
                 }
             }
@@ -470,12 +495,109 @@ public class ImageCacheService : IImageCacheService
         return cacheHours > 0 && (DateTime.UtcNow - fileInfo.LastWriteTimeUtc).TotalHours > cacheHours;
     }
 
+    private static bool ShouldValidateExpiredCache()
+    {
+        var config = Plugin.Instance?.Configuration;
+        return config?.ValidateExpiredCacheBeforeRerender == true && (config.CacheDurationHours > 0);
+    }
+
+    private bool TryValidateExpiredCacheFile(string cacheKey, string cacheFilePath, string badgeState, FileInfo fileInfo)
+    {
+        var metadata = TryReadCacheMetadata(cacheKey);
+        if (metadata != null &&
+            (!string.Equals(metadata.CacheKey, cacheKey, StringComparison.OrdinalIgnoreCase) ||
+             !string.Equals(metadata.BadgeState, badgeState, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            File.SetLastWriteTimeUtc(cacheFilePath, now);
+            TryWriteCacheMetadata(cacheKey, cacheFilePath, badgeState, fileInfo, now);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to validate expired JellyTag cache file: {Path}", cacheFilePath);
+            return false;
+        }
+    }
+
+    private CacheMetadataEntry? TryReadCacheMetadata(string cacheKey)
+    {
+        var path = GetCacheMetadataPath(cacheKey);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<CacheMetadataEntry>(File.ReadAllText(path));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to read JellyTag cache metadata: {Path}", path);
+            return null;
+        }
+    }
+
+    private void TryWriteCacheMetadata(string cacheKey, string cacheFilePath, string badgeState, FileInfo fileInfo, DateTime? validatedUtc = null)
+    {
+        if (!ShouldValidateExpiredCache())
+        {
+            return;
+        }
+
+        try
+        {
+            var path = GetCacheMetadataPath(cacheKey);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var now = DateTime.UtcNow;
+            var metadata = new CacheMetadataEntry
+            {
+                CacheKey = cacheKey,
+                BadgeState = badgeState,
+                RelativePath = ToRelativePath(cacheFilePath),
+                Length = fileInfo.Exists ? fileInfo.Length : 0,
+                CreatedUtcTicks = fileInfo.Exists ? fileInfo.CreationTimeUtc.Ticks : now.Ticks,
+                LastValidatedUtcTicks = (validatedUtc ?? now).Ticks
+            };
+            var tempPath = path + ".tmp";
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(metadata));
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to write JellyTag cache metadata for {CacheKey}", cacheKey);
+        }
+    }
+
+    private void TryDeleteCacheMetadata(string cacheKey)
+    {
+        try
+        {
+            var path = GetCacheMetadataPath(cacheKey);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to delete JellyTag cache metadata for {CacheKey}", cacheKey);
+        }
+    }
+
     private void TryDeleteExpiredCacheFile(string cacheKey, string cacheFilePath)
     {
         try
         {
             File.Delete(cacheFilePath);
             RemoveCacheIndexEntry(cacheKey);
+            TryDeleteCacheMetadata(cacheKey);
         }
         catch (Exception ex)
         {
@@ -515,6 +637,7 @@ public class ImageCacheService : IImageCacheService
             removed |= RemoveRequestEntriesForFinalCacheKeyLocked(index, cacheKey);
             if (removed)
             {
+                TryDeleteCacheMetadata(cacheKey);
                 SaveCacheIndexLocked();
             }
         }
@@ -546,6 +669,7 @@ public class ImageCacheService : IImageCacheService
                     k.StartsWith(defaultPrefix, StringComparison.OrdinalIgnoreCase)).ToArray())
             {
                 removed |= index.Entries.Remove(key);
+                TryDeleteCacheMetadata(key);
             }
 
             foreach (var key in index.RequestEntries.Where(kvp => string.Equals(kvp.Value.ItemId, itemIdString, StringComparison.OrdinalIgnoreCase)).Select(kvp => kvp.Key).ToArray())
@@ -626,6 +750,10 @@ public class ImageCacheService : IImageCacheService
 
     private string GetCacheIndexPath() => Path.Combine(_cachePath, CacheIndexFileName);
 
+    private string GetCacheMetadataRoot() => Path.Combine(_cachePath, CacheMetadataFolderName);
+
+    private string GetCacheMetadataPath(string cacheKey) => Path.Combine(GetCacheMetadataRoot(), GetCachePrefix(cacheKey), $"{cacheKey}.json");
+
     private string ToRelativePath(string path) => Path.GetRelativePath(_cachePath, path);
 
     private string ToAbsolutePath(string relativePath) => Path.GetFullPath(Path.Combine(_cachePath, relativePath));
@@ -679,5 +807,26 @@ public class ImageCacheService : IImageCacheService
         public string FinalCacheKey { get; set; } = string.Empty;
 
         public long UpdatedUtcTicks { get; set; }
+    }
+
+    private sealed class CacheMetadataEntry
+    {
+        public CacheMetadataEntry()
+        {
+        }
+
+        public int Version { get; set; } = 1;
+
+        public string CacheKey { get; set; } = string.Empty;
+
+        public string BadgeState { get; set; } = string.Empty;
+
+        public string RelativePath { get; set; } = string.Empty;
+
+        public long Length { get; set; }
+
+        public long CreatedUtcTicks { get; set; }
+
+        public long LastValidatedUtcTicks { get; set; }
     }
 }

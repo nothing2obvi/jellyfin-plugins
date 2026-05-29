@@ -18,7 +18,7 @@ public class CacheWarmTask : IScheduledTask
 {
     private static int _isRunning;
     public const string HomePhaseKey = "home";
-    public const string LearnedHomeLibrariesPhaseKey = "learned-home-libraries";
+    public const string HomeLibrariesPhaseKey = "home-libraries";
     public const string LibrariesPhaseKey = "libraries";
     public const string EpisodesPhaseKey = "episodes";
     public const string VideosPhaseKey = "videos";
@@ -32,25 +32,32 @@ public class CacheWarmTask : IScheduledTask
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
         new WarmupPhase(HomePhaseKey, "Home", 0),
-        new WarmupPhase(LearnedHomeLibrariesPhaseKey, "Home & Libraries", 1),
+        new WarmupPhase(HomeLibrariesPhaseKey, "Home & Libraries", 1),
         new WarmupPhase(LibrariesPhaseKey, "Libraries", 2),
         new WarmupPhase(EpisodesPhaseKey, "Episodes", 3),
         new WarmupPhase(VideosPhaseKey, "Videos", 4),
         new WarmupPhase(OtherPhaseKey, "Other", 5)
     ];
 
-    private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "findroid"];
+    private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
     private static readonly IReadOnlyList<ClientWarmupProfile> FixedClientWarmupProfiles =
     [
         CreateFindroidProfile(),
-        // Jellyfin Web and WebShellClients are intentionally not warmed here. WebShellClients means
+        // Jellyfin Web and WebShellClients are intentionally not fixed profiles here. WebShellClients means
         // Android/iOS/Desktop Qt using Jellyfin Web inside the native app shell; those clients compute
-        // image sizes dynamically, so we avoid hardcoded guessed presets.
+        // image sizes dynamically. The optional Learned Clients profile can warm real sizes after browsing.
         CreateAndroidTvProfile(),
         CreateRokuProfile(),
         CreateStreamyfinProfile(),
-        CreateWholphinProfile()
+        CreateWholphinProfile(),
+        CreateMoonfinMobileDesktopProfile(),
+        CreateMoonfinTvOsProfile(),
+        CreateMoonfinSmartTvProfile(),
+        CreateMoonfinRokuProfile(),
+        CreateDuneProfile(),
+        CreateSwiftfinProfile(),
+        CreateDesktopProfile()
     ];
 
     private readonly ILibraryManager _libraryManager;
@@ -378,14 +385,23 @@ public class CacheWarmTask : IScheduledTask
 
     private static IEnumerable<string> GetEnabledClientProfileKeys(PluginConfiguration config)
     {
-        return config.WarmerClientProfiles ?? DefaultClientWarmupProfileKeys.AsEnumerable();
+        return (config.WarmerClientProfiles ?? DefaultClientWarmupProfileKeys.AsEnumerable())
+            .Select(NormalizeClientProfileKey);
     }
 
     private static IEnumerable<string> GetConfiguredClientProfileOrder(PluginConfiguration config)
     {
-        return config.WarmerClientProfileOrder?.Count > 0
+        var order = config.WarmerClientProfileOrder?.Count > 0
             ? config.WarmerClientProfileOrder
             : GetEnabledClientProfileKeys(config).Concat(DefaultClientWarmupProfileKeys).Concat([LearnedClientProfileKey]);
+        return order.Select(NormalizeClientProfileKey);
+    }
+
+    private static string NormalizeClientProfileKey(string key)
+    {
+        return string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase)
+            ? "moonfin-mobile-desktop"
+            : key;
     }
 
     private static int? GetWarmerStateMaxAgeHours(PluginConfiguration config)
@@ -492,7 +508,7 @@ public class CacheWarmTask : IScheduledTask
             "findroid",
             "Findroid",
             "Findroid home and library views request unsized Primary images and let the client scale them.",
-            [ImageVariant.Unsized(GetPhase(HomePhaseKey), "home/library unsized")],
+            [ImageVariant.Unsized(GetPhase(HomeLibrariesPhaseKey), "home/library unsized")],
             []);
     }
 
@@ -527,7 +543,7 @@ public class CacheWarmTask : IScheduledTask
             ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 759, 427, "library thumb x-large")
         };
 
-        return new ClientWarmupProfile("androidtv", "Android TV", "maxWidth/maxHeight requests for home rows and poster-size library settings.", primaryVariants, thumbVariants);
+        return new ClientWarmupProfile("androidtv", "Jellyfin Android TV", "maxWidth/maxHeight requests for home rows and poster-size library settings.", primaryVariants, thumbVariants);
     }
 
     private static ClientWarmupProfile CreateRokuProfile()
@@ -552,7 +568,7 @@ public class CacheWarmTask : IScheduledTask
             ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 500, 500, "square thumb art", 90)
         };
 
-        return new ClientWarmupProfile("roku", "Roku", "Mostly fixed maxWidth/maxHeight requests used by Roku data nodes and home rows.", primaryVariants, thumbVariants);
+        return new ClientWarmupProfile("roku", "Jellyfin Roku", "Mostly fixed maxWidth/maxHeight requests used by Roku data nodes and home rows.", primaryVariants, thumbVariants);
     }
 
     private static ClientWarmupProfile CreateStreamyfinProfile()
@@ -585,6 +601,164 @@ public class CacheWarmTask : IScheduledTask
         };
 
         return new ClientWarmupProfile("wholphin", "Wholphin", "quality=96 and fixed fillHeight requests used by Wholphin rows and cards; dynamic grid fillWidth values are intentionally not guessed.", variants, variants);
+    }
+
+    private static ClientWarmupProfile CreateMoonfinMobileDesktopProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 420, "library poster small"),
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 560, "library poster medium"),
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 700, "library poster large")
+        };
+
+        var thumbVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 720, "library thumb small"),
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 960, "library thumb medium"),
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 1200, "library thumb large")
+        };
+
+        return new ClientWarmupProfile("moonfin-mobile-desktop", "Moonfin Mobile-Desktop", "Fixed library browse maxWidth buckets from Moonfin Mobile-Desktop. Dynamic home, genre, and detail sizes are intentionally left to Learned Clients.", primaryVariants, thumbVariants);
+    }
+
+    private static ClientWarmupProfile CreateMoonfinTvOsProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 200, "compact primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 300, "search primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 320, "season row primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 400, "detail row primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 450, "item detail primary"),
+            ImageVariant.MaxSize(GetPhase(OtherPhaseKey), 960, 540, "playback primary")
+        };
+
+        var thumbVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 400, "detail row thumb"),
+            ImageVariant.MaxWidth(GetPhase(EpisodesPhaseKey), 560, "episode list thumb")
+        };
+
+        return new ClientWarmupProfile("moonfin-tvos", "Moonfin tvOS", "Fixed Primary and Thumb maxWidth requests used by Moonfin tvOS detail, search, playback, and episode views.", primaryVariants, thumbVariants);
+    }
+
+    private static ClientWarmupProfile CreateMoonfinSmartTvProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 300, "home/library primary card", 80),
+            ImageVariant.MaxHeight(GetPhase(LibrariesPhaseKey), 300, "library primary card", 70),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 400, "wide primary card", 80),
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 400, "favorites primary card", 80),
+            ImageVariant.MaxWidth(GetPhase(OtherPhaseKey), 500, "detail episode primary", 90),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 600, "detail poster primary", 90),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 350, "season primary", 80),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 80, "playlist primary", 80),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 500, "player primary", 90),
+            ImageVariant.MaxWidth(GetPhase(OtherPhaseKey), 300, "recording primary", 90)
+        };
+
+        var thumbVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 400, "wide thumb card", 80),
+            ImageVariant.MaxHeight(GetPhase(LibrariesPhaseKey), 300, "library thumb card", 70),
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 400, "favorites thumb card", 80),
+            ImageVariant.MaxWidth(GetPhase(OtherPhaseKey), 500, "detail episode thumb", 90)
+        };
+
+        return new ClientWarmupProfile("moonfin-smart-tv", "Moonfin Smart-TV", "Fixed Primary and Thumb maxWidth/maxHeight requests used by Moonfin Smart-TV cards, details, favorites, and playback surfaces.", primaryVariants, thumbVariants);
+    }
+
+    private static ClientWarmupProfile CreateMoonfinRokuProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 196, 384, "default poster helper", 90),
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 180, 331, "home movie poster display", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 180, 320, "scene primary", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 180, 270, "extras primary", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 200, 400, "extras poster", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 234, 351, "extras portrait", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 250, 331, "person/extras primary", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 295, 440, "library poster data", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 300, 450, "person/search style poster", 90),
+            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 400, "server poster helper", 90),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 400, 384, "episode row actual fallback", 90),
+            ImageVariant.MaxSize(GetPhase(OtherPhaseKey), 400, 600, "detail poster", 90),
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 464, 331, "home/library wide poster", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 480, 270, "extras wide primary", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 500, 500, "square audio/library art", 90),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 502, 283, "extras episode primary", 90),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 520, 293, "detail episode primary", 90)
+        };
+
+        var thumbVariants = new[]
+        {
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 196, 384, "default thumb fallback", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 295, 440, "portrait fallback thumb", 90),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 400, 384, "episode row actual fallback", 90),
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 464, 331, "series/home landscape thumb", 90),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 480, 270, "extras wide thumb", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 500, 500, "square thumb art", 90)
+        };
+
+        return new ClientWarmupProfile("moonfin-roku", "Moonfin Roku", "Fixed Roku-style Primary and Thumb requests used by Moonfin Roku data nodes, home rows, details, and extras.", primaryVariants, thumbVariants);
+    }
+
+    private static ClientWarmupProfile CreateDuneProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 240, 360, "search poster card"),
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 300, 450, "search preload poster"),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 440, 220, "search episode/music video card")
+        };
+
+        var thumbVariants = new[]
+        {
+            ImageVariant.MaxSize(GetPhase(HomeLibrariesPhaseKey), 440, 220, "search box set thumb"),
+            ImageVariant.FillSize(GetPhase(HomePhaseKey), 1920, 1080, "home carousel thumb fallback")
+        };
+
+        return new ClientWarmupProfile("dune", "DUNE", "Fixed search and carousel Primary/Thumb requests from DUNE. Its main browse cards also use screen-derived maxHeight values, which are better handled by Learned Clients.", primaryVariants, thumbVariants);
+    }
+
+    private static ClientWarmupProfile CreateSwiftfinProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 60, "tvOS portrait library row", 90),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 110, "tvOS landscape library row", 90),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 200, "thumb/iPad primary"),
+            ImageVariant.MaxWidth(GetPhase(EpisodesPhaseKey), 250, "episode card"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 300, "download artwork"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 450, "tvOS item primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 500, "media item"),
+            ImageVariant.MaxWidth(GetPhase(EpisodesPhaseKey), 500, "tvOS episode selector"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 600, "simple/download item view"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 1320, "compact portrait primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 1920, "cinematic primary")
+        };
+
+        var thumbVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 110, "tvOS landscape library row", 90),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 200, "thumb image source", 90),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 600, "download landscape item")
+        };
+
+        return new ClientWarmupProfile("swiftfin", "Swiftfin", "Fixed Primary/Thumb maxWidth requests used by Swiftfin library rows, detail views, episode cards, and downloaded item views.", primaryVariants, thumbVariants);
+    }
+
+    private static ClientWarmupProfile CreateDesktopProfile()
+    {
+        var primaryVariants = new[]
+        {
+            ImageVariant.MaxWidth(GetPhase(OtherPhaseKey), 512, "native media artwork")
+        };
+
+        return new ClientWarmupProfile("desktop", "Jellyfin Desktop", "Fixed native media artwork request from Jellyfin Desktop. Normal Desktop Qt browsing uses dynamic Jellyfin Web sizes.", primaryVariants, []);
     }
 
     private static ClientWarmupProfile CreateLearnedClientProfile(IReadOnlyList<LearnedClientVariant> learnedVariants)
@@ -664,6 +838,11 @@ public class CacheWarmTask : IScheduledTask
             return Create(phase, label, quality, ("fillHeight", height));
         }
 
+        public static ImageVariant FillSize(WarmupPhase phase, int width, int height, string label, int? quality = null)
+        {
+            return Create(phase, label, quality, ("fillWidth", width), ("fillHeight", height));
+        }
+
         public static ImageVariant QualityOnly(WarmupPhase phase, int quality, string label)
         {
             return Create(phase, label, quality);
@@ -672,6 +851,16 @@ public class CacheWarmTask : IScheduledTask
         public static ImageVariant Width(WarmupPhase phase, int width, int quality, string label)
         {
             return Create(phase, label, quality, ("width", width));
+        }
+
+        public static ImageVariant MaxWidth(WarmupPhase phase, int width, string label, int? quality = null)
+        {
+            return Create(phase, label, quality, ("maxWidth", width));
+        }
+
+        public static ImageVariant MaxHeight(WarmupPhase phase, int height, string label, int? quality = null)
+        {
+            return Create(phase, label, quality, ("maxHeight", height));
         }
 
         private static ImageVariant Create(WarmupPhase phase, string label, int? quality, params (string Key, int Value)[] dimensions)

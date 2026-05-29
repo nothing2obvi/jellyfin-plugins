@@ -61,7 +61,7 @@ public interface IImageCacheService
     /// <param name="imageTag">The image tag/etag.</param>
     /// <param name="imageStream">The image stream to cache.</param>
     /// <returns>True when the cache file was written successfully; otherwise false.</returns>
-    Task<bool> CacheImageAsync(Guid itemId, string badgeKey, string imageTag, Stream imageStream);
+    Task<bool> CacheImageAsync(Guid itemId, string badgeKey, string imageTag, string badgeState, Stream imageStream);
 
     /// <summary>
     /// Clears all cached images.
