@@ -161,7 +161,7 @@ public class PluginConfiguration : BasePluginConfiguration
         WarmerDelayMs = 5000;
         WarmerClientQuietSeconds = 120;
         WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
-        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid" };
+        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "findroid", "learned" };
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;

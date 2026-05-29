@@ -17,22 +17,31 @@ namespace Jellyfin.Plugin.JellyTag.Tasks;
 public class CacheWarmTask : IScheduledTask
 {
     private static int _isRunning;
+    public const string HomePhaseKey = "home";
+    public const string LearnedHomeLibrariesPhaseKey = "learned-home-libraries";
+    public const string LibrariesPhaseKey = "libraries";
+    public const string EpisodesPhaseKey = "episodes";
+    public const string VideosPhaseKey = "videos";
+    public const string OtherPhaseKey = "other";
+    public const string LearnedClientProfileKey = "learned";
     private const string WarmupResultHeader = "X-JellyTag-Warmup-Result";
     private const string WarmupResultCacheHit = "cache-hit";
     private const string WarmupResultCacheWritten = "cache-written";
     private const string WarmupResultNoVisibleBadges = "no-visible-badges";
+    private static readonly HashSet<string> DimensionQueryKeys = new(StringComparer.OrdinalIgnoreCase) { "width", "height", "maxWidth", "maxHeight", "fillWidth", "fillHeight" };
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
-        new WarmupPhase("home", "Home", 0),
-        new WarmupPhase("libraries", "Libraries", 1),
-        new WarmupPhase("episodes", "Episodes", 2),
-        new WarmupPhase("videos", "Videos", 3),
-        new WarmupPhase("other", "Other", 4)
+        new WarmupPhase(HomePhaseKey, "Home", 0),
+        new WarmupPhase(LearnedHomeLibrariesPhaseKey, "Home & Libraries", 1),
+        new WarmupPhase(LibrariesPhaseKey, "Libraries", 2),
+        new WarmupPhase(EpisodesPhaseKey, "Episodes", 3),
+        new WarmupPhase(VideosPhaseKey, "Videos", 4),
+        new WarmupPhase(OtherPhaseKey, "Other", 5)
     ];
 
     private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "findroid"];
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
-    private static readonly IReadOnlyList<ClientWarmupProfile> ClientWarmupProfiles =
+    private static readonly IReadOnlyList<ClientWarmupProfile> FixedClientWarmupProfiles =
     [
         CreateFindroidProfile(),
         // Jellyfin Web and WebShellClients are intentionally not warmed here. WebShellClients means
@@ -47,13 +56,15 @@ public class CacheWarmTask : IScheduledTask
     private readonly ILibraryManager _libraryManager;
     private readonly IServerApplicationHost _applicationHost;
     private readonly IImageTrafficCoordinator _trafficCoordinator;
+    private readonly ILearnedClientProfileService _learnedClientProfileService;
     private readonly ILogger<CacheWarmTask> _logger;
 
-    public CacheWarmTask(ILibraryManager libraryManager, IServerApplicationHost applicationHost, IImageTrafficCoordinator trafficCoordinator, ILogger<CacheWarmTask> logger)
+    public CacheWarmTask(ILibraryManager libraryManager, IServerApplicationHost applicationHost, IImageTrafficCoordinator trafficCoordinator, ILearnedClientProfileService learnedClientProfileService, ILogger<CacheWarmTask> logger)
     {
         _libraryManager = libraryManager;
         _applicationHost = applicationHost;
         _trafficCoordinator = trafficCoordinator;
+        _learnedClientProfileService = learnedClientProfileService;
         _logger = logger;
     }
 
@@ -82,7 +93,7 @@ public class CacheWarmTask : IScheduledTask
         var state = WarmupStateStore.Load(CreateWarmupScope(config), _logger);
         var warmerStateMaxAgeHours = GetWarmerStateMaxAgeHours(config);
         state.PruneExpired(warmerStateMaxAgeHours);
-        var profiles = GetEnabledClientWarmupProfiles(config).ToList();
+        var profiles = GetEnabledClientWarmupProfiles(config, _learnedClientProfileService).ToList();
         if (profiles.Count == 0) { progress.Report(100); return; }
 
         var items = _libraryManager.GetItemList(new InternalItemsQuery
@@ -266,7 +277,7 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    public static IReadOnlyList<WarmerClientProgress> GetEstimatedClientProgress(PluginConfiguration config, ILibraryManager libraryManager, ILogger<CacheWarmTask> logger)
+    public static IReadOnlyList<WarmerClientProgress> GetEstimatedClientProgress(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, ILogger<CacheWarmTask> logger)
     {
         var state = WarmupStateStore.Load(CreateWarmupScope(config), logger);
         var warmerStateMaxAgeHours = GetWarmerStateMaxAgeHours(config);
@@ -279,7 +290,7 @@ public class CacheWarmTask : IScheduledTask
         }).Where(item => IsInEnabledLibrary(item, config, libraryManager)).ToList();
 
         var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return GetOrderedClientWarmupProfiles(config, includeDisabled: true)
+        return GetOrderedClientWarmupProfiles(config, includeDisabled: true, learnedClientProfileService)
             .Select(profile =>
             {
                 var requests = new List<WarmupRequest>();
@@ -320,14 +331,17 @@ public class CacheWarmTask : IScheduledTask
             .ToList();
     }
 
-    private static IEnumerable<ClientWarmupProfile> GetEnabledClientWarmupProfiles(PluginConfiguration config)
+    private static IEnumerable<ClientWarmupProfile> GetEnabledClientWarmupProfiles(PluginConfiguration config, ILearnedClientProfileService learnedClientProfileService)
     {
-        return GetOrderedClientWarmupProfiles(config, includeDisabled: false);
+        return GetOrderedClientWarmupProfiles(config, includeDisabled: false, learnedClientProfileService);
     }
 
-    private static IEnumerable<ClientWarmupProfile> GetOrderedClientWarmupProfiles(PluginConfiguration config, bool includeDisabled)
+    private static IEnumerable<ClientWarmupProfile> GetOrderedClientWarmupProfiles(PluginConfiguration config, bool includeDisabled, ILearnedClientProfileService learnedClientProfileService)
     {
-        var profileMap = ClientWarmupProfiles.ToDictionary(profile => profile.Key, StringComparer.OrdinalIgnoreCase);
+        var allProfiles = FixedClientWarmupProfiles
+            .Concat([CreateLearnedClientProfile(learnedClientProfileService.GetVariants())])
+            .ToList();
+        var profileMap = allProfiles.ToDictionary(profile => profile.Key, StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -353,7 +367,7 @@ public class CacheWarmTask : IScheduledTask
             yield break;
         }
 
-        foreach (var profile in ClientWarmupProfiles)
+        foreach (var profile in allProfiles)
         {
             if (seen.Add(profile.Key))
             {
@@ -371,7 +385,7 @@ public class CacheWarmTask : IScheduledTask
     {
         return config.WarmerClientProfileOrder?.Count > 0
             ? config.WarmerClientProfileOrder
-            : GetEnabledClientProfileKeys(config).Concat(DefaultClientWarmupProfileKeys);
+            : GetEnabledClientProfileKeys(config).Concat(DefaultClientWarmupProfileKeys).Concat([LearnedClientProfileKey]);
     }
 
     private static int? GetWarmerStateMaxAgeHours(PluginConfiguration config)
@@ -394,15 +408,50 @@ public class CacheWarmTask : IScheduledTask
     {
         if (item is Episode)
         {
-            return WarmupPhases[2];
+            return GetPhase(EpisodesPhaseKey);
         }
 
         if (item is MusicVideo || item.GetType() == typeof(Video))
         {
-            return WarmupPhases[3];
+            return GetPhase(VideosPhaseKey);
         }
 
         return variant.Phase;
+    }
+
+    private static WarmupPhase GetPhase(string key)
+    {
+        return WarmupPhases.First(phase => string.Equals(phase.Key, key, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Checks whether an image variant is already covered by a fixed warmer client profile.
+    /// </summary>
+    /// <param name="imageType">The image type.</param>
+    /// <param name="query">The normalized query.</param>
+    /// <returns>True when the variant is already covered by a fixed client profile.</returns>
+    public static bool IsFixedClientVariant(string imageType, IReadOnlyList<KeyValuePair<string, string>> query)
+    {
+        var cacheKey = CreateNormalizedVariantCacheKey(query);
+        return FixedClientWarmupProfiles
+            .SelectMany(profile => profile.GetVariants(imageType))
+            .Any(variant => string.Equals(CreateNormalizedVariantCacheKey(variant.Query), cacheKey, StringComparison.Ordinal));
+    }
+
+    private static string CreateNormalizedVariantCacheKey(IReadOnlyList<KeyValuePair<string, string>> query)
+    {
+        return ImageVariant.CreateCacheKey(query
+            .Select(kvp =>
+            {
+                if (DimensionQueryKeys.Contains(kvp.Key) && int.TryParse(kvp.Value, out var value))
+                {
+                    var rounded = Math.Max(1, (int)(Math.Round(value / 10.0, MidpointRounding.AwayFromZero) * 10));
+                    return new KeyValuePair<string, string>(kvp.Key, rounded.ToString());
+                }
+
+                return kvp;
+            })
+            .ToList());
     }
 
     private string GetBaseUrl()
@@ -443,7 +492,7 @@ public class CacheWarmTask : IScheduledTask
             "findroid",
             "Findroid",
             "Findroid home and library views request unsized Primary images and let the client scale them.",
-            [ImageVariant.Unsized(WarmupPhases[0], "home/library unsized")],
+            [ImageVariant.Unsized(GetPhase(HomePhaseKey), "home/library unsized")],
             []);
     }
 
@@ -451,31 +500,31 @@ public class CacheWarmTask : IScheduledTask
     {
         var primaryVariants = new[]
         {
-            ImageVariant.MaxSize(WarmupPhases[0], 100, 150, "home poster"),
-            ImageVariant.MaxSize(WarmupPhases[1], 116, 174, "library poster smallest"),
-            ImageVariant.MaxSize(WarmupPhases[1], 118, 178, "library poster vertical smallest"),
-            ImageVariant.MaxSize(WarmupPhases[1], 136, 205, "library poster vertical small"),
-            ImageVariant.MaxSize(WarmupPhases[1], 144, 217, "library poster small"),
-            ImageVariant.MaxSize(WarmupPhases[1], 161, 242, "library poster vertical medium"),
-            ImageVariant.MaxSize(WarmupPhases[1], 192, 288, "library poster medium"),
-            ImageVariant.MaxSize(WarmupPhases[1], 252, 379, "library poster vertical large"),
-            ImageVariant.MaxSize(WarmupPhases[1], 284, 427, "library poster large"),
-            ImageVariant.MaxSize(WarmupPhases[1], 352, 528, "library poster x-large")
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 100, 150, "home poster"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 116, 174, "library poster smallest"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 118, 178, "library poster vertical smallest"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 136, 205, "library poster vertical small"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 144, 217, "library poster small"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 161, 242, "library poster vertical medium"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 192, 288, "library poster medium"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 252, 379, "library poster vertical large"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 284, 427, "library poster large"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 352, 528, "library poster x-large")
         };
 
         var thumbVariants = new[]
         {
-            ImageVariant.MaxSize(WarmupPhases[0], 267, 150, "home thumb/backdrop"),
-            ImageVariant.MaxSize(WarmupPhases[1], 161, 91, "library thumb vertical smallest"),
-            ImageVariant.MaxSize(WarmupPhases[1], 197, 111, "library thumb vertical small"),
-            ImageVariant.MaxSize(WarmupPhases[1], 222, 125, "library thumb smallest"),
-            ImageVariant.MaxSize(WarmupPhases[1], 252, 142, "library thumb vertical medium"),
-            ImageVariant.MaxSize(WarmupPhases[1], 259, 146, "library thumb small"),
-            ImageVariant.MaxSize(WarmupPhases[1], 309, 174, "library thumb medium"),
-            ImageVariant.MaxSize(WarmupPhases[1], 352, 198, "library thumb vertical large"),
-            ImageVariant.MaxSize(WarmupPhases[1], 385, 217, "library thumb large"),
-            ImageVariant.MaxSize(WarmupPhases[1], 581, 327, "library thumb vertical x-large"),
-            ImageVariant.MaxSize(WarmupPhases[1], 759, 427, "library thumb x-large")
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 267, 150, "home thumb/backdrop"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 161, 91, "library thumb vertical smallest"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 197, 111, "library thumb vertical small"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 222, 125, "library thumb smallest"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 252, 142, "library thumb vertical medium"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 259, 146, "library thumb small"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 309, 174, "library thumb medium"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 352, 198, "library thumb vertical large"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 385, 217, "library thumb large"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 581, 327, "library thumb vertical x-large"),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 759, 427, "library thumb x-large")
         };
 
         return new ClientWarmupProfile("androidtv", "Android TV", "maxWidth/maxHeight requests for home rows and poster-size library settings.", primaryVariants, thumbVariants);
@@ -485,22 +534,22 @@ public class CacheWarmTask : IScheduledTask
     {
         var primaryVariants = new[]
         {
-            ImageVariant.MaxSize(WarmupPhases[1], 196, 384, "default poster helper", 90),
-            ImageVariant.MaxSize(WarmupPhases[0], 180, 331, "home movie poster display", 90),
-            ImageVariant.MaxSize(WarmupPhases[1], 295, 440, "library poster data", 90),
-            ImageVariant.MaxSize(WarmupPhases[1], 300, 450, "person/search style poster", 90),
-            ImageVariant.MaxSize(WarmupPhases[0], 464, 331, "home/library wide poster", 90),
-            ImageVariant.MaxSize(WarmupPhases[2], 400, 384, "episode row actual fallback", 90),
-            ImageVariant.MaxSize(WarmupPhases[1], 500, 500, "square audio/library art", 90)
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 196, 384, "default poster helper", 90),
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 180, 331, "home movie poster display", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 295, 440, "library poster data", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 300, 450, "person/search style poster", 90),
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 464, 331, "home/library wide poster", 90),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 400, 384, "episode row actual fallback", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 500, 500, "square audio/library art", 90)
         };
 
         var thumbVariants = new[]
         {
-            ImageVariant.MaxSize(WarmupPhases[1], 196, 384, "default thumb fallback", 90),
-            ImageVariant.MaxSize(WarmupPhases[1], 295, 440, "portrait fallback thumb", 90),
-            ImageVariant.MaxSize(WarmupPhases[2], 400, 384, "episode row actual fallback", 90),
-            ImageVariant.MaxSize(WarmupPhases[0], 464, 331, "series/home landscape thumb", 90),
-            ImageVariant.MaxSize(WarmupPhases[1], 500, 500, "square thumb art", 90)
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 196, 384, "default thumb fallback", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 295, 440, "portrait fallback thumb", 90),
+            ImageVariant.MaxSize(GetPhase(EpisodesPhaseKey), 400, 384, "episode row actual fallback", 90),
+            ImageVariant.MaxSize(GetPhase(HomePhaseKey), 464, 331, "series/home landscape thumb", 90),
+            ImageVariant.MaxSize(GetPhase(LibrariesPhaseKey), 500, 500, "square thumb art", 90)
         };
 
         return new ClientWarmupProfile("roku", "Roku", "Mostly fixed maxWidth/maxHeight requests used by Roku data nodes and home rows.", primaryVariants, thumbVariants);
@@ -510,14 +559,14 @@ public class CacheWarmTask : IScheduledTask
     {
         var primaryVariants = new[]
         {
-            ImageVariant.Width(WarmupPhases[1], 1000, 90, "main library ItemImage"),
-            ImageVariant.FillWidth(WarmupPhases[0], 300, 80, "poster rows"),
-            ImageVariant.FillHeight(WarmupPhases[2], 389, 80, "episode poster / horizontal fallback")
+            ImageVariant.Width(GetPhase(LibrariesPhaseKey), 1000, 90, "main library ItemImage"),
+            ImageVariant.FillWidth(GetPhase(HomePhaseKey), 300, 80, "poster rows"),
+            ImageVariant.FillHeight(GetPhase(EpisodesPhaseKey), 389, 80, "episode poster / horizontal fallback")
         };
 
         var thumbVariants = new[]
         {
-            ImageVariant.FillHeight(WarmupPhases[0], 389, 80, "continue watching / next up horizontal cards")
+            ImageVariant.FillHeight(GetPhase(HomePhaseKey), 389, 80, "continue watching / next up horizontal cards")
         };
 
         return new ClientWarmupProfile("streamyfin", "Streamyfin", "width/fillWidth/fillHeight requests used in library and home poster components.", primaryVariants, thumbVariants);
@@ -527,15 +576,43 @@ public class CacheWarmTask : IScheduledTask
     {
         var variants = new[]
         {
-            ImageVariant.QualityOnly(WarmupPhases[1], 96, "detail and provider image default"),
-            ImageVariant.FillHeight(WarmupPhases[0], 172, 96, "default home row height"),
-            ImageVariant.FillHeight(WarmupPhases[0], 148, 96, "compact home row height"),
-            ImageVariant.FillHeight(WarmupPhases[0], 128, 96, "episode, genre, and square row height"),
-            ImageVariant.FillHeight(WarmupPhases[0], 100, 96, "compact episode and wide row height"),
-            ImageVariant.FillHeight(WarmupPhases[0], 96, 96, "Live TV row height")
+            ImageVariant.QualityOnly(GetPhase(LibrariesPhaseKey), 96, "detail and provider image default"),
+            ImageVariant.FillHeight(GetPhase(HomePhaseKey), 172, 96, "default home row height"),
+            ImageVariant.FillHeight(GetPhase(HomePhaseKey), 148, 96, "compact home row height"),
+            ImageVariant.FillHeight(GetPhase(HomePhaseKey), 128, 96, "episode, genre, and square row height"),
+            ImageVariant.FillHeight(GetPhase(HomePhaseKey), 100, 96, "compact episode and wide row height"),
+            ImageVariant.FillHeight(GetPhase(HomePhaseKey), 96, 96, "Live TV row height")
         };
 
         return new ClientWarmupProfile("wholphin", "Wholphin", "quality=96 and fixed fillHeight requests used by Wholphin rows and cards; dynamic grid fillWidth values are intentionally not guessed.", variants, variants);
+    }
+
+    private static ClientWarmupProfile CreateLearnedClientProfile(IReadOnlyList<LearnedClientVariant> learnedVariants)
+    {
+        learnedVariants = learnedVariants
+            .Where(variant => !IsFixedClientVariant(variant.ImageType, variant.Query))
+            .ToList();
+
+        var primaryVariants = learnedVariants
+            .Where(variant => string.Equals(variant.ImageType, "Primary", StringComparison.OrdinalIgnoreCase))
+            .Select(ToImageVariant)
+            .ToList();
+        var thumbVariants = learnedVariants
+            .Where(variant => string.Equals(variant.ImageType, "Thumb", StringComparison.OrdinalIgnoreCase))
+            .Select(ToImageVariant)
+            .ToList();
+
+        return new ClientWarmupProfile(
+            LearnedClientProfileKey,
+            "Learned Clients",
+            "Variants learned from real client Primary/Thumb requests and normalized to the nearest 10 pixels.",
+            primaryVariants,
+            thumbVariants);
+    }
+
+    private static ImageVariant ToImageVariant(LearnedClientVariant variant)
+    {
+        return ImageVariant.FromQuery(GetPhase(variant.PhaseKey), variant.Label, variant.Query);
     }
 
     private sealed record ClientWarmupProfile(
@@ -555,7 +632,17 @@ public class CacheWarmTask : IScheduledTask
 
     private sealed record ImageVariant(WarmupPhase Phase, string Label, IReadOnlyList<KeyValuePair<string, string>> Query)
     {
-        public string CacheKey => string.Join("&", Query.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase).Select(kvp => $"{kvp.Key}={kvp.Value}"));
+        public string CacheKey => CreateCacheKey(Query);
+
+        public static string CreateCacheKey(IReadOnlyList<KeyValuePair<string, string>> query)
+        {
+            return string.Join("&", query.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase).Select(kvp => $"{kvp.Key}={kvp.Value}"));
+        }
+
+        public static ImageVariant FromQuery(WarmupPhase phase, string label, IReadOnlyList<KeyValuePair<string, string>> query)
+        {
+            return new ImageVariant(phase, label, query);
+        }
 
         public static ImageVariant Unsized(WarmupPhase phase, string label)
         {

@@ -69,6 +69,7 @@ public partial class ImageOverlayMiddleware
         IImageOverlayService overlayService,
         IImageCacheService cacheService,
         IImageTrafficCoordinator trafficCoordinator,
+        ILearnedClientProfileService learnedClientProfileService,
         MediaBrowser.Controller.Library.ILibraryManager libraryManager,
         IProviderManager providerManager)
     {
@@ -143,6 +144,11 @@ public partial class ImageOverlayMiddleware
         {
             await _next(context).ConfigureAwait(false);
             return;
+        }
+
+        if (!IsWarmupRequest(context.Request.Query))
+        {
+            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query);
         }
 
         var query = GetCacheRelevantQuery(context.Request.Query);

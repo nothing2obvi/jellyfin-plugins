@@ -24,6 +24,7 @@ public partial class JellyTagController : ControllerBase
     private readonly IImageOverlayService _overlayService;
     private readonly IQualityDetectionService _qualityService;
     private readonly ILibraryManager _libraryManager;
+    private readonly ILearnedClientProfileService _learnedClientProfileService;
     private readonly ILogger<CacheWarmTask> _cacheWarmLogger;
 
     private static readonly string[] SupportedBadgeExtensions = { ".svg", ".png", ".jpg", ".jpeg" };
@@ -39,12 +40,14 @@ public partial class JellyTagController : ControllerBase
         IImageOverlayService overlayService,
         IQualityDetectionService qualityService,
         ILibraryManager libraryManager,
+        ILearnedClientProfileService learnedClientProfileService,
         ILogger<CacheWarmTask> cacheWarmLogger)
     {
         _cacheService = cacheService;
         _overlayService = overlayService;
         _qualityService = qualityService;
         _libraryManager = libraryManager;
+        _learnedClientProfileService = learnedClientProfileService;
         _cacheWarmLogger = cacheWarmLogger;
     }
 
@@ -113,7 +116,7 @@ public partial class JellyTagController : ControllerBase
             return Ok(new { Profiles = Array.Empty<object>() });
         }
 
-        var progress = CacheWarmTask.GetEstimatedClientProgress(config, _libraryManager, _cacheWarmLogger);
+        var progress = CacheWarmTask.GetEstimatedClientProgress(config, _libraryManager, _learnedClientProfileService, _cacheWarmLogger);
         return Ok(new { Profiles = progress });
     }
 

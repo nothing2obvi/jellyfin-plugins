@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.48.0.0",
-        "changelog": "Add request-level cached-image shortcuts so repeated cache hits can skip badge detection after the shortcut is learned. Serve cached badge images through file responses instead of manually copying streams.",
+        "version": "1.49.0.0",
+        "changelog": "Add optional Learned Clients warmer profile based on real Primary/Thumb client image requests. Normalize learned image dimensions to the nearest 10 pixels and skip variants already covered by fixed client profiles. Add a scheduled task to clear the learned client profile.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.48.0.0.zip",
-        "checksum": "6623caa0ed00a5c5de8cf85ca4865b20",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.49.0.0.zip",
+        "checksum": "26152cbfc079a6c6b40df96e8b67e705",
         "timestamp": "2026-05-26T00:00:00Z"
       }
     ]

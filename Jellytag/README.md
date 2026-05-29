@@ -63,10 +63,15 @@ The warmer includes organized client profiles for:
 - Roku
 - Streamyfin
 - Wholphin
+- Learned Clients
 
-It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed because they calculate image sizes dynamically.
+It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed as fixed profiles because they calculate image sizes dynamically.
 
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order.
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Home & Libraries for Learned Clients, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order.
+
+The **Learned Clients** profile is optional and starts disabled. It records real non-warmer `Primary` and `Thumb` image requests that are not already covered by fixed client profiles, normalizes requested dimensions to the nearest 10 pixels, and makes those variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view.
+
+A scheduled task named **JellyTag-Plus Clear Learned Client Profile** clears learned variants. Learned variants do not expire automatically.
 
 Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
 
@@ -77,13 +82,13 @@ Warmer throttling is configurable:
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid; Learned Clients available but disabled by default |
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
 The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. This is based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them.
 
-> **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. This can make clients faster after warming, but plugin cache storage may become quite large. Use it deliberately and keep an eye on disk usage.
+> **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. The Learned Clients profile can grow large on servers with many clients or dynamic image sizes because there is no built-in variant cap. This can make clients faster after warming, but plugin cache storage and warmer work may become quite large. Use it deliberately and keep an eye on disk usage.
 
 ## Force Image Refresh
 
@@ -116,7 +121,7 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Android TV, Roku, Streamyfin, Wholphin, Findroid; Learned Clients available but disabled by default |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 

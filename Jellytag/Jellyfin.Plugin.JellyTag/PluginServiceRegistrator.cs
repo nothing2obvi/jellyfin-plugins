@@ -21,8 +21,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IImageOverlayService, ImageOverlayService>();
         serviceCollection.AddSingleton<IImageCacheService, ImageCacheService>();
         serviceCollection.AddSingleton<IImageTrafficCoordinator, ImageTrafficCoordinator>();
+        serviceCollection.AddSingleton<ILearnedClientProfileService, LearnedClientProfileService>();
         serviceCollection.AddSingleton<IScheduledTask, CacheCleanupTask>();
         serviceCollection.AddSingleton<IScheduledTask, CacheWarmTask>();
+        serviceCollection.AddSingleton<IScheduledTask, ClearLearnedClientProfileTask>();
 
         // Register middleware via IStartupFilter to intercept image requests for ALL clients
         serviceCollection.AddSingleton<IStartupFilter, JellyTagStartupFilter>();
