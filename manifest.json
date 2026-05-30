@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.4.0",
-        "changelog": "Prevent missing warmer client profile fields from being saved back as default selections. Preserve existing warmer client enablement and order by checking raw configuration payload fields.",
+        "version": "1.50.5.0",
+        "changelog": "Keep warmer progress stable when library option ordering changes without changing settings. Show existing warmer ledger progress when the current progress scope is empty after a harmless scope mismatch.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.4.0.zip",
-        "checksum": "a11145c5da2535174a0530005fe78b03",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.5.0.zip",
+        "checksum": "27e9c36e15b32e6c5dafad2ef7d49f0f",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

@@ -287,7 +287,14 @@ public class CacheWarmTask : IScheduledTask
 
     public static IReadOnlyList<WarmerClientProgress> GetEstimatedClientProgress(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, ILogger<CacheWarmTask> logger)
     {
-        var state = WarmupStateStore.Load(CreateWarmupScope(config), logger);
+        var scope = CreateWarmupScope(config);
+        var state = WarmupStateStore.Load(scope, logger);
+        var fallbackState = WarmupStateStore.Load(scope, logger, allowStoredScope: true);
+        if (state.CompletedCount == 0 && fallbackState.CompletedCount > 0)
+        {
+            state = fallbackState;
+        }
+
         var warmerStateMaxAgeHours = GetWarmerStateMaxAgeHours(config);
         state.PruneExpired(warmerStateMaxAgeHours);
 
@@ -945,15 +952,25 @@ public class CacheWarmTask : IScheduledTask
 
     private static string CreateWarmupScope(PluginConfiguration config)
     {
+        var excludedLibraryIds = (config.ExcludedLibraryIds ?? [])
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var libraryBadgeOptions = (config.LibraryBadgeOptions ?? [])
+            .OrderBy(option => option.LibraryId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var customBadgeTexts = (config.CustomBadgeTexts ?? [])
+            .OrderBy(overrideItem => overrideItem.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         var scope = new
         {
             Version = "warmer-v3",
             config.Enabled,
             config.ThumbnailSameAsPoster,
             config.ThumbnailSizeReduction,
-            config.ExcludedLibraryIds,
-            config.LibraryBadgeOptions,
-            config.CustomBadgeTexts,
+            ExcludedLibraryIds = excludedLibraryIds,
+            LibraryBadgeOptions = libraryBadgeOptions,
+            CustomBadgeTexts = customBadgeTexts,
             config.PosterConfig,
             config.ThumbnailConfig,
             config.OutputFormat,
@@ -1002,15 +1019,15 @@ public class CacheWarmTask : IScheduledTask
         private readonly object _lock = new();
         private readonly WarmupState _state;
 
-        private WarmupStateStore(string scope, string statePath, WarmupState state, ILogger<CacheWarmTask> logger)
+        private WarmupStateStore(string scope, string statePath, WarmupState state, ILogger<CacheWarmTask> logger, bool allowStoredScope)
         {
             _statePath = statePath;
             _logger = logger;
-            _state = state.Scope == scope ? state : new WarmupState { Scope = scope };
+            _state = state.Scope == scope || allowStoredScope ? state : new WarmupState { Scope = scope };
             _state.CompletedKeys = new Dictionary<string, long>(_state.CompletedKeys ?? [], StringComparer.Ordinal);
         }
 
-        public static WarmupStateStore Load(string scope, ILogger<CacheWarmTask> logger)
+        public static WarmupStateStore Load(string scope, ILogger<CacheWarmTask> logger, bool allowStoredScope = false)
         {
             var statePath = GetStatePath();
             CleanTemporaryStateFiles(statePath, logger);
@@ -1021,7 +1038,7 @@ public class CacheWarmTask : IScheduledTask
                 {
                     var json = File.ReadAllText(statePath);
                     var state = JsonSerializer.Deserialize<WarmupState>(json) ?? new WarmupState { Scope = scope };
-                    return new WarmupStateStore(scope, statePath, state, logger);
+                    return new WarmupStateStore(scope, statePath, state, logger, allowStoredScope);
                 }
             }
             catch (Exception ex)
@@ -1029,8 +1046,10 @@ public class CacheWarmTask : IScheduledTask
                 logger.LogWarning(ex, "Failed to read JellyTag-Plus cache warmer state; starting a fresh warmup ledger");
             }
 
-            return new WarmupStateStore(scope, statePath, new WarmupState { Scope = scope }, logger);
+            return new WarmupStateStore(scope, statePath, new WarmupState { Scope = scope }, logger, allowStoredScope);
         }
+
+        public int CompletedCount => _state.CompletedKeys.Count;
 
         public bool Contains(string key, int? maxAgeHours)
         {

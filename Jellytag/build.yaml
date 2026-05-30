@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.4.0"
+version: "1.50.5.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.5.0
+  - Keep warmer progress stable when library option ordering changes without changing settings
+  - Show existing warmer ledger progress when the current progress scope is empty after a harmless scope mismatch
+
   ## v1.50.4.0
   - Prevent missing warmer client profile fields from being saved back as default selections
   - Preserve existing warmer client enablement and order by checking raw configuration payload fields
