@@ -133,12 +133,26 @@ public partial class JellyTagController : ControllerBase
         if (plugin == null) return BadRequest("Plugin not loaded");
         if (config == null) return BadRequest("Invalid configuration");
 
+        PreserveExistingWarmerClientProfiles(config, plugin.Configuration);
         NormalizeWarmerClientProfiles(config);
         plugin.UpdateConfiguration(config);
         _qualityService.ClearBadgeCache();
         _overlayService.ReloadBadges();
 
         return NoContent();
+    }
+
+    private static void PreserveExistingWarmerClientProfiles(PluginConfiguration incoming, PluginConfiguration existing)
+    {
+        if (incoming.WarmerClientProfiles == null && existing.WarmerClientProfiles != null)
+        {
+            incoming.WarmerClientProfiles = new List<string>(existing.WarmerClientProfiles);
+        }
+
+        if (incoming.WarmerClientProfileOrder == null && existing.WarmerClientProfileOrder != null)
+        {
+            incoming.WarmerClientProfileOrder = new List<string>(existing.WarmerClientProfileOrder);
+        }
     }
 
     private static void NormalizeWarmerClientProfiles(PluginConfiguration config)
