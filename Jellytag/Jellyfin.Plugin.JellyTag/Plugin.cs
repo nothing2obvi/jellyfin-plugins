@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Jellyfin.Plugin.JellyTag.Configuration;
+using Jellyfin.Plugin.JellyTag.Services;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -30,6 +31,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
         // Run legacy migration once at startup
         Configuration.MigrateFromLegacy();
+        if (WarmerClientProfileSettingsStore.Apply(Configuration, WarmerClientProfileSettingsStore.Load(DataFolderPath)))
+        {
+            UpdateConfiguration(Configuration);
+        }
     }
 
     /// <inheritdoc />

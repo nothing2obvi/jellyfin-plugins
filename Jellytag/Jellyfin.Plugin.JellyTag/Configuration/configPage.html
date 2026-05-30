@@ -1189,6 +1189,27 @@
             });
         }
 
+        function loadWarmerClientProfileSettings(config) {
+            return ApiClient.ajax({
+                type: 'GET',
+                url: ApiClient.getUrl('JellyTagPlus/WarmerClientProfiles'),
+                dataType: 'json'
+            }).then(function(result) {
+                var profiles = readConfigValue(result, 'Profiles', 'profiles');
+                var order = readConfigValue(result, 'Order', 'order');
+                if (Array.isArray(profiles)) {
+                    config.WarmerClientProfiles = profiles;
+                    config.warmerClientProfiles = profiles;
+                }
+                if (Array.isArray(order)) {
+                    config.WarmerClientProfileOrder = order;
+                    config.warmerClientProfileOrder = order;
+                }
+            }).catch(function(err) {
+                console.warn('[JellyTag-Plus] Failed to load warmer client profile settings:', err);
+            });
+        }
+
         // ===== Library filter =====
         var LIB_BADGE_TYPES = [
             {key:'Resolution', label:'Resolution'},
@@ -1342,6 +1363,8 @@
 
             Dashboard.showLoadingMsg();
             ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config) {
+                return loadWarmerClientProfileSettings(config).then(function() { return config; });
+            }).then(function(config) {
                 q('Enabled').checked = config.Enabled;
                 q('ThumbnailSameAsPoster').checked = config.ThumbnailSameAsPoster === true;
                 q('ThumbnailSizeReduction').value = config.ThumbnailSizeReduction != null ? config.ThumbnailSizeReduction : 10;

@@ -124,6 +124,25 @@ public partial class JellyTagController : ControllerBase
         return Ok(new { Profiles = progress });
     }
 
+    [HttpGet("WarmerClientProfiles")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetWarmerClientProfiles()
+    {
+        var plugin = Plugin.Instance;
+        if (plugin == null)
+        {
+            return BadRequest("Plugin not loaded");
+        }
+
+        var settings = WarmerClientProfileSettingsStore.Load(plugin.DataFolderPath);
+        return Ok(new
+        {
+            Profiles = settings?.Profiles ?? plugin.Configuration.WarmerClientProfiles,
+            Order = settings?.Order ?? plugin.Configuration.WarmerClientProfileOrder
+        });
+    }
+
     [HttpPost("Configuration")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -147,6 +166,7 @@ public partial class JellyTagController : ControllerBase
             HasJsonProperty(payload, "WarmerClientProfileOrder"));
         NormalizeWarmerClientProfiles(config);
         plugin.UpdateConfiguration(config);
+        WarmerClientProfileSettingsStore.Save(plugin.DataFolderPath, config);
         _qualityService.ClearBadgeCache();
         _overlayService.ReloadBadges();
 
@@ -568,6 +588,7 @@ public partial class JellyTagController : ControllerBase
             }
 
             plugin.UpdateConfiguration(imported);
+            WarmerClientProfileSettingsStore.Save(plugin.DataFolderPath, imported);
             _cacheService.ClearCache();
             _qualityService.ClearBadgeCache();
             _overlayService.ReloadBadges();
@@ -595,6 +616,7 @@ public partial class JellyTagController : ControllerBase
         }
 
         plugin.UpdateConfiguration(new Configuration.PluginConfiguration());
+        WarmerClientProfileSettingsStore.Delete(plugin.DataFolderPath);
         _cacheService.ClearCache();
         _qualityService.ClearBadgeCache();
         _overlayService.ReloadBadges();
