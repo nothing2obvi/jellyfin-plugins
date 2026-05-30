@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.1.0",
-        "changelog": "Fix cache warmer startup when old learned-client phase state is present. Sanitize the JellyTag-Plus README image and scale README previews. Use JellyTag-Plus consistently in user-facing text.",
+        "version": "1.50.2.0",
+        "changelog": "Preserve warmer client profile enablement and ordering across profile migrations. Expand legacy Moonfin warmer settings into the split Moonfin client profiles. Fold ambiguous warmer progress phases into Home, Libraries, or Home & Libraries display labels.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.1.0.zip",
-        "checksum": "df62f14699c70a4d06aef41a2038d77b",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.2.0.zip",
+        "checksum": "ca76f8e3147af44a4412fc394799f815",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

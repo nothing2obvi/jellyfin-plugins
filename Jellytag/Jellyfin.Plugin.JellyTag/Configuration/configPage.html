@@ -1020,26 +1020,37 @@
             { key: 'findroid', label: 'Findroid' },
             { key: 'learned', label: 'Learned Clients' }
         ];
+        var DEFAULT_WARMER_CLIENT_PROFILE_KEYS = ['androidtv', 'roku', 'streamyfin', 'wholphin', 'moonfin-mobile-desktop', 'moonfin-tvos', 'moonfin-smart-tv', 'moonfin-roku', 'dune', 'swiftfin', 'desktop', 'findroid'];
+        var DEFAULT_WARMER_CLIENT_PROFILE_ORDER = DEFAULT_WARMER_CLIENT_PROFILE_KEYS.concat(['learned']);
+        var MOONFIN_SPLIT_PROFILE_KEYS = ['moonfin-mobile-desktop', 'moonfin-tvos', 'moonfin-smart-tv', 'moonfin-roku'];
         var warmerProgressByKey = {};
 
-        function normalizeWarmerClientProfileKey(key) {
+        function expandWarmerClientProfileKey(key) {
             key = (key || '').toLowerCase();
-            return key === 'moonfin' ? 'moonfin-mobile-desktop' : key;
+            return key === 'moonfin' ? MOONFIN_SPLIT_PROFILE_KEYS.slice() : [key];
+        }
+
+        function normalizeWarmerClientProfileKeys(keys, defaults) {
+            var known = {};
+            WARMER_CLIENT_PROFILES.forEach(function(p) { known[p.key] = true; });
+            var source = Array.isArray(keys) ? keys : defaults;
+            var normalized = [];
+            source.forEach(function(key) {
+                expandWarmerClientProfileKey(key).forEach(function(expandedKey) {
+                    if (known[expandedKey] && normalized.indexOf(expandedKey) === -1) normalized.push(expandedKey);
+                });
+            });
+            return normalized;
         }
 
         function renderWarmerClientProfiles(selectedKeys, orderedKeys) {
             var wrap = q('WarmerClientProfiles');
             if (!wrap) return;
 
-            var selected = Array.isArray(selectedKeys) ? selectedKeys.map(normalizeWarmerClientProfileKey) : WARMER_CLIENT_PROFILES.map(function(p) { return p.key; });
-            orderedKeys = Array.isArray(orderedKeys) && orderedKeys.length ? orderedKeys.map(normalizeWarmerClientProfileKey) : selected;
             var known = {};
             WARMER_CLIENT_PROFILES.forEach(function(p) { known[p.key] = p; });
-            var ordered = [];
-            orderedKeys.forEach(function(key) {
-                key = normalizeWarmerClientProfileKey(key);
-                if (known[key] && ordered.indexOf(key) === -1) ordered.push(key);
-            });
+            var selected = normalizeWarmerClientProfileKeys(selectedKeys, DEFAULT_WARMER_CLIENT_PROFILE_KEYS);
+            var ordered = normalizeWarmerClientProfileKeys(orderedKeys && orderedKeys.length ? orderedKeys : DEFAULT_WARMER_CLIENT_PROFILE_ORDER, DEFAULT_WARMER_CLIENT_PROFILE_ORDER);
             WARMER_CLIENT_PROFILES.forEach(function(p) {
                 if (ordered.indexOf(p.key) === -1) ordered.push(p.key);
             });
@@ -1321,7 +1332,7 @@
                 q('WarmerMaxConcurrency').value = config.WarmerMaxConcurrency != null ? config.WarmerMaxConcurrency : 1;
                 q('WarmerDelayMs').value = config.WarmerDelayMs != null ? config.WarmerDelayMs : 5000;
                 q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 120;
-                renderWarmerClientProfiles(config.WarmerClientProfiles || [], config.WarmerClientProfileOrder || config.WarmerClientProfiles || []);
+                renderWarmerClientProfiles(config.WarmerClientProfiles, config.WarmerClientProfileOrder || config.WarmerClientProfiles);
                 loadWarmerProgress();
                 q('OutputFormat').value = config.OutputFormat;
                 q('JpegQuality').value = config.JpegQuality;

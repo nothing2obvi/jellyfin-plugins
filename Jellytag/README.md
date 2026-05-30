@@ -86,7 +86,7 @@ Some listed clients also have a mix of fixed and variable variants:
 
 When JellyTag-Plus cannot reliably tell whether a learned non-episode, non-video image request came from a home row or a library view, it groups that learned variant under **Home & Libraries**.
 
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Home & Libraries, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order.
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Home & Libraries, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order. Progress display folds ambiguous Other variants into Home, Libraries, or Home & Libraries so a client does not show overlapping Home/Libraries phase labels.
 
 The **Learned Clients** profile is optional and starts disabled. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
 

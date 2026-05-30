@@ -40,6 +40,7 @@ public class CacheWarmTask : IScheduledTask
     ];
 
     private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
+    private static readonly string[] MoonfinSplitProfileKeys = ["moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku"];
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
     private static readonly IReadOnlyList<ClientWarmupProfile> FixedClientWarmupProfiles =
     [
@@ -322,20 +323,66 @@ public class CacheWarmTask : IScheduledTask
                 var completed = requests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours));
                 var total = requests.Count;
                 var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
-                var phases = WarmupPhases
-                    .Select(phase =>
-                    {
-                        var phaseRequests = requests.Where(request => request.Phase.Key == phase.Key).ToList();
-                        var phaseCompleted = phaseRequests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours));
-                        var phaseTotal = phaseRequests.Count;
-                        var phasePercent = phaseTotal == 0 ? 100 : Math.Round(phaseCompleted * 100.0 / phaseTotal, 1);
-                        return new WarmerPhaseProgress(phase.Key, phase.Name, phaseCompleted, phaseTotal, phasePercent);
-                    })
-                    .ToList();
+                var phases = GetDisplayPhaseProgress(requests, state, warmerStateMaxAgeHours);
 
                 return new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases);
             })
             .ToList();
+    }
+
+    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours)
+    {
+        var hasHome = requests.Any(request => string.Equals(request.Phase.Key, HomePhaseKey, StringComparison.OrdinalIgnoreCase));
+        var hasLibraries = requests.Any(request => string.Equals(request.Phase.Key, LibrariesPhaseKey, StringComparison.OrdinalIgnoreCase));
+        var groups = requests
+            .GroupBy(request => GetDisplayPhase(request.Phase, hasHome, hasLibraries).Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        return WarmupPhases
+            .Where(phase => !string.Equals(phase.Key, OtherPhaseKey, StringComparison.OrdinalIgnoreCase))
+            .Where(phase => groups.ContainsKey(phase.Key))
+            .Select(phase =>
+            {
+                var phaseRequests = groups[phase.Key];
+                var phaseCompleted = phaseRequests.Count(request => state.Contains(request.CompletionKey, maxAgeHours));
+                var phaseTotal = phaseRequests.Count;
+                var phasePercent = phaseTotal == 0 ? 100 : Math.Round(phaseCompleted * 100.0 / phaseTotal, 1);
+                return new WarmerPhaseProgress(phase.Key, phase.Name, phaseCompleted, phaseTotal, phasePercent);
+            })
+            .ToList();
+    }
+
+    private static WarmupPhase GetDisplayPhase(WarmupPhase phase, bool hasHome, bool hasLibraries)
+    {
+        if (string.Equals(phase.Key, HomeLibrariesPhaseKey, StringComparison.OrdinalIgnoreCase))
+        {
+            if (hasLibraries)
+            {
+                return GetPhase(LibrariesPhaseKey);
+            }
+
+            if (hasHome)
+            {
+                return GetPhase(HomePhaseKey);
+            }
+        }
+
+        if (string.Equals(phase.Key, OtherPhaseKey, StringComparison.OrdinalIgnoreCase))
+        {
+            if (hasLibraries)
+            {
+                return GetPhase(LibrariesPhaseKey);
+            }
+
+            if (hasHome)
+            {
+                return GetPhase(HomePhaseKey);
+            }
+
+            return GetPhase(HomeLibrariesPhaseKey);
+        }
+
+        return phase;
     }
 
     private static IEnumerable<ClientWarmupProfile> GetEnabledClientWarmupProfiles(PluginConfiguration config, ILearnedClientProfileService learnedClientProfileService)
@@ -386,7 +433,7 @@ public class CacheWarmTask : IScheduledTask
     private static IEnumerable<string> GetEnabledClientProfileKeys(PluginConfiguration config)
     {
         return (config.WarmerClientProfiles ?? DefaultClientWarmupProfileKeys.AsEnumerable())
-            .Select(NormalizeClientProfileKey);
+            .SelectMany(ExpandClientProfileKey);
     }
 
     private static IEnumerable<string> GetConfiguredClientProfileOrder(PluginConfiguration config)
@@ -394,14 +441,17 @@ public class CacheWarmTask : IScheduledTask
         var order = config.WarmerClientProfileOrder?.Count > 0
             ? config.WarmerClientProfileOrder
             : GetEnabledClientProfileKeys(config).Concat(DefaultClientWarmupProfileKeys).Concat([LearnedClientProfileKey]);
-        return order.Select(NormalizeClientProfileKey);
+        return order.SelectMany(ExpandClientProfileKey);
     }
 
-    private static string NormalizeClientProfileKey(string key)
+    private static IEnumerable<string> ExpandClientProfileKey(string key)
     {
-        return string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase)
-            ? "moonfin-mobile-desktop"
-            : key;
+        if (string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase))
+        {
+            return MoonfinSplitProfileKeys;
+        }
+
+        return string.IsNullOrWhiteSpace(key) ? [] : [key];
     }
 
     private static int? GetWarmerStateMaxAgeHours(PluginConfiguration config)

@@ -20,7 +20,9 @@ namespace Jellyfin.Plugin.JellyTag.Controllers;
 [Route("JellyTagPlus")]
 public partial class JellyTagController : ControllerBase
 {
+    private static readonly string[] DefaultWarmerClientProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
     private static readonly string[] WarmerClientProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned"];
+    private static readonly string[] MoonfinSplitProfileKeys = ["moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku"];
     private readonly IImageCacheService _cacheService;
     private readonly IImageOverlayService _overlayService;
     private readonly IQualityDetectionService _qualityService;
@@ -142,14 +144,29 @@ public partial class JellyTagController : ControllerBase
     private static void NormalizeWarmerClientProfiles(PluginConfiguration config)
     {
         var known = new HashSet<string>(WarmerClientProfileKeys, StringComparer.OrdinalIgnoreCase);
-        config.WarmerClientProfiles = (config.WarmerClientProfiles ?? new List<string>())
-            .Select(NormalizeWarmerClientProfileKey)
+        IEnumerable<string> selectedSource = config.WarmerClientProfiles != null ? config.WarmerClientProfiles : DefaultWarmerClientProfileKeys;
+        var selectedHadLegacyMoonfin = selectedSource.Any(key => string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase));
+        var selected = selectedSource
+            .SelectMany(ExpandWarmerClientProfileKey)
             .Where(known.Contains)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (selectedHadLegacyMoonfin)
+        {
+            foreach (var key in MoonfinSplitProfileKeys)
+            {
+                if (!selected.Contains(key, StringComparer.OrdinalIgnoreCase))
+                {
+                    selected.Add(key);
+                }
+            }
+        }
+
+        config.WarmerClientProfiles = selected;
+
         var ordered = (config.WarmerClientProfileOrder ?? new List<string>())
-            .Select(NormalizeWarmerClientProfileKey)
+            .SelectMany(ExpandWarmerClientProfileKey)
             .Where(known.Contains)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -170,11 +187,14 @@ public partial class JellyTagController : ControllerBase
         config.WarmerClientProfileOrder = ordered;
     }
 
-    private static string NormalizeWarmerClientProfileKey(string key)
+    private static IEnumerable<string> ExpandWarmerClientProfileKey(string key)
     {
-        return string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase)
-            ? "moonfin-mobile-desktop"
-            : key.ToLowerInvariant();
+        if (string.Equals(key, "moonfin", StringComparison.OrdinalIgnoreCase))
+        {
+            return MoonfinSplitProfileKeys;
+        }
+
+        return string.IsNullOrWhiteSpace(key) ? [] : [key.ToLowerInvariant()];
     }
 
     /// <summary>
