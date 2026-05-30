@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.3.0",
-        "changelog": "Preserve saved warmer client profile enablement and order if a configuration save omits those fields. Keep Learned Clients last in the default warmer profile order. Sort library settings alphabetically. Keep Home & Libraries visible in warmer progress unless a profile has separate Home and Libraries phases.",
+        "version": "1.50.4.0",
+        "changelog": "Prevent missing warmer client profile fields from being saved back as default selections. Preserve existing warmer client enablement and order by checking raw configuration payload fields.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.3.0.zip",
-        "checksum": "df123ae288a0f390e4bbe167cc4b53ce",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.4.0.zip",
+        "checksum": "a11145c5da2535174a0530005fe78b03",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

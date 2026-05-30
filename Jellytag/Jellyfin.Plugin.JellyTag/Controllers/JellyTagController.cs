@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Middleware;
@@ -127,13 +128,23 @@ public partial class JellyTagController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult SaveConfig([FromBody] PluginConfiguration config)
+    public IActionResult SaveConfig([FromBody] JsonElement payload)
     {
         var plugin = Plugin.Instance;
         if (plugin == null) return BadRequest("Plugin not loaded");
+        var config = payload.Deserialize<PluginConfiguration>(new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        });
+
         if (config == null) return BadRequest("Invalid configuration");
 
-        PreserveExistingWarmerClientProfiles(config, plugin.Configuration);
+        PreserveExistingWarmerClientProfiles(
+            config,
+            plugin.Configuration,
+            HasJsonProperty(payload, "WarmerClientProfiles"),
+            HasJsonProperty(payload, "WarmerClientProfileOrder"));
         NormalizeWarmerClientProfiles(config);
         plugin.UpdateConfiguration(config);
         _qualityService.ClearBadgeCache();
@@ -142,17 +153,27 @@ public partial class JellyTagController : ControllerBase
         return NoContent();
     }
 
-    private static void PreserveExistingWarmerClientProfiles(PluginConfiguration incoming, PluginConfiguration existing)
+    private static void PreserveExistingWarmerClientProfiles(PluginConfiguration incoming, PluginConfiguration existing, bool hasIncomingProfiles, bool hasIncomingOrder)
     {
-        if (incoming.WarmerClientProfiles == null && existing.WarmerClientProfiles != null)
+        if (!hasIncomingProfiles && existing.WarmerClientProfiles != null)
         {
             incoming.WarmerClientProfiles = new List<string>(existing.WarmerClientProfiles);
         }
 
-        if (incoming.WarmerClientProfileOrder == null && existing.WarmerClientProfileOrder != null)
+        if (!hasIncomingOrder && existing.WarmerClientProfileOrder != null)
         {
             incoming.WarmerClientProfileOrder = new List<string>(existing.WarmerClientProfileOrder);
         }
+    }
+
+    private static bool HasJsonProperty(JsonElement payload, string name)
+    {
+        if (payload.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        return payload.EnumerateObject().Any(property => string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
     private static void NormalizeWarmerClientProfiles(PluginConfiguration config)

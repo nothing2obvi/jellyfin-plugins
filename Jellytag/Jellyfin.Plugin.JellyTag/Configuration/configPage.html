@@ -981,8 +981,20 @@
             config.WarmerMaxConcurrency = parseInt(q('WarmerMaxConcurrency').value, 10) || 1;
             config.WarmerDelayMs = parseInt(q('WarmerDelayMs').value, 10) || 0;
             config.WarmerClientQuietSeconds = parseInt(q('WarmerClientQuietSeconds').value, 10) || 0;
-            config.WarmerClientProfiles = collectWarmerClientProfiles();
-            config.WarmerClientProfileOrder = collectWarmerClientProfileOrder();
+            if (warmerClientProfilesLoaded || warmerClientProfilesTouched) {
+                config.WarmerClientProfiles = collectWarmerClientProfiles();
+                config.warmerClientProfiles = config.WarmerClientProfiles;
+            } else {
+                delete config.WarmerClientProfiles;
+                delete config.warmerClientProfiles;
+            }
+            if (warmerClientProfileOrderLoaded || warmerClientProfilesTouched) {
+                config.WarmerClientProfileOrder = collectWarmerClientProfileOrder();
+                config.warmerClientProfileOrder = config.WarmerClientProfileOrder;
+            } else {
+                delete config.WarmerClientProfileOrder;
+                delete config.warmerClientProfileOrder;
+            }
             config.OutputFormat = q('OutputFormat').value;
             config.JpegQuality = parseInt(q('JpegQuality').value, 10);
             config.WebPQuality = parseInt(q('WebPQuality').value, 10);
@@ -1029,6 +1041,9 @@
         var DEFAULT_WARMER_CLIENT_PROFILE_ORDER = DEFAULT_WARMER_CLIENT_PROFILE_KEYS.concat(['learned']);
         var MOONFIN_SPLIT_PROFILE_KEYS = ['moonfin-mobile-desktop', 'moonfin-tvos', 'moonfin-smart-tv', 'moonfin-roku'];
         var warmerProgressByKey = {};
+        var warmerClientProfilesLoaded = false;
+        var warmerClientProfileOrderLoaded = false;
+        var warmerClientProfilesTouched = false;
 
         function expandWarmerClientProfileKey(key) {
             key = (key || '').toLowerCase();
@@ -1080,12 +1095,18 @@
 
             wrap.querySelectorAll('.warmer-profile-up,.warmer-profile-down').forEach(function(button) {
                 button.addEventListener('click', function() {
+                    warmerClientProfilesTouched = true;
                     var row = button.closest('.warmer-profile-row');
                     var sibling = button.classList.contains('warmer-profile-up') ? row.previousElementSibling : row.nextElementSibling;
                     if (!sibling) return;
                     if (button.classList.contains('warmer-profile-up')) wrap.insertBefore(row, sibling);
                     else wrap.insertBefore(sibling, row);
                     renderWarmerClientProfiles(readWarmerProfileState(), readWarmerProfileOrder());
+                });
+            });
+            wrap.querySelectorAll('.warmer-profile-enabled').forEach(function(input) {
+                input.addEventListener('change', function() {
+                    warmerClientProfilesTouched = true;
                 });
             });
 
@@ -1342,6 +1363,9 @@
                 q('WarmerClientQuietSeconds').value = config.WarmerClientQuietSeconds != null ? config.WarmerClientQuietSeconds : 120;
                 var warmerClientProfiles = readConfigValue(config, 'WarmerClientProfiles', 'warmerClientProfiles');
                 var warmerClientProfileOrder = readConfigValue(config, 'WarmerClientProfileOrder', 'warmerClientProfileOrder');
+                warmerClientProfilesLoaded = Array.isArray(warmerClientProfiles);
+                warmerClientProfileOrderLoaded = Array.isArray(warmerClientProfileOrder);
+                warmerClientProfilesTouched = false;
                 renderWarmerClientProfiles(warmerClientProfiles, warmerClientProfileOrder || warmerClientProfiles);
                 loadWarmerProgress();
                 q('OutputFormat').value = config.OutputFormat;

@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.3.0"
+version: "1.50.4.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.4.0
+  - Prevent missing warmer client profile fields from being saved back as default selections
+  - Preserve existing warmer client enablement and order by checking raw configuration payload fields
+
   ## v1.50.3.0
   - Preserve saved warmer client profile enablement and order if a configuration save omits those fields
   - Keep Learned Clients last in the default warmer profile order
