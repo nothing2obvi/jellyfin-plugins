@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.6.0",
-        "changelog": "Store warmer client profile enablement and order in a small sidecar file. Restore warmer client profile settings on plugin startup if Jellyfin rehydrates defaults after an update. Load warmer client profile settings from the sidecar for the configuration page.",
+        "version": "1.50.7.0",
+        "changelog": "Stabilize image cache keys by sorting order-insensitive configuration lists before fingerprinting.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.6.0.zip",
-        "checksum": "6746f71e00cd510450657eba4062331e",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.7.0.zip",
+        "checksum": "a81a1fe8fa13a32df5c5e08400cfaf8c",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

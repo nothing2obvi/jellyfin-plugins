@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.6.0"
+version: "1.50.7.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,9 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.7.0
+  - Stabilize image cache keys by sorting order-insensitive configuration lists before fingerprinting
+
   ## v1.50.6.0
   - Store warmer client profile enablement and order in a small sidecar file
   - Restore warmer client profile settings on plugin startup if Jellyfin rehydrates defaults after an update

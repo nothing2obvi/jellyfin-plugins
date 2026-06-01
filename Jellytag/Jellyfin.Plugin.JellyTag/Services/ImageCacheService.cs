@@ -403,7 +403,7 @@ public class ImageCacheService : IImageCacheService
         sb.Append(config.Enabled).Append('|');
         sb.Append((int)config.OutputFormat).Append(config.JpegQuality).Append(config.WebPQuality).Append('|');
         sb.Append(config.ThumbnailSameAsPoster).Append('|');
-        sb.Append(string.Join(",", config.ExcludedLibraryIds ?? new List<string>())).Append('|');
+        sb.Append(string.Join(",", (config.ExcludedLibraryIds ?? new List<string>()).OrderBy(id => id, StringComparer.OrdinalIgnoreCase))).Append('|');
         if (config.LibraryBadgeOptions != null)
         {
             foreach (var option in config.LibraryBadgeOptions.OrderBy(o => o.LibraryId, StringComparer.OrdinalIgnoreCase))
@@ -418,7 +418,7 @@ public class ImageCacheService : IImageCacheService
         AppendImageTypeFingerprint(sb, config.ThumbnailConfig);
         if (config.CustomBadgeTexts != null)
         {
-            foreach (var cbt in config.CustomBadgeTexts)
+            foreach (var cbt in config.CustomBadgeTexts.OrderBy(cbt => cbt.Key, StringComparer.OrdinalIgnoreCase))
             {
                 sb.Append(cbt.Key).Append('=').Append(cbt.Text).Append(',');
             }
@@ -457,10 +457,10 @@ public class ImageCacheService : IImageCacheService
         sb.Append((int)p.Layout).Append(p.GapPercent).Append(p.SizePercent).Append(p.MarginPercent);
         sb.Append((int)p.Style).Append(p.Order);
         sb.Append(p.TextBgColor).Append(p.TextBgOpacity).Append(p.TextColor).Append(p.TextCornerRadius);
-        sb.Append(string.Join(",", p.EnabledBadges));
+        sb.Append(string.Join(",", (p.EnabledBadges ?? new List<string>()).OrderBy(badge => badge, StringComparer.OrdinalIgnoreCase)));
         if (p.BadgeTypeOverrides != null)
         {
-            foreach (var o in p.BadgeTypeOverrides)
+            foreach (var o in p.BadgeTypeOverrides.OrderBy(o => o.BadgeKey, StringComparer.OrdinalIgnoreCase))
             {
                 sb.Append(o.BadgeKey).Append(o.BgColor ?? "n").Append(o.BgOpacity).Append(o.TextColor ?? "n").Append(o.CornerRadius);
             }
