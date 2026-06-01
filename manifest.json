@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.8.0",
-        "changelog": "Process cache warmer work in explicit phase/client buckets so one client phase completes before the next client starts.",
+        "version": "1.50.9.0",
+        "changelog": "Keep the warmer on the current client/phase until that bucket reaches 100% before moving to the next client. Report warmer task progress from recorded completions instead of raw attempts.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.8.0.zip",
-        "checksum": "5d80a4289cca58ab2f8a5941bf0a0a5e",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.9.0.zip",
+        "checksum": "15b0b14cd2dd897de42f247343b46c3c",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

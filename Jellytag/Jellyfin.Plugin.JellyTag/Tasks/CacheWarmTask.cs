@@ -28,6 +28,7 @@ public class CacheWarmTask : IScheduledTask
     private const string WarmupResultCacheHit = "cache-hit";
     private const string WarmupResultCacheWritten = "cache-written";
     private const string WarmupResultNoVisibleBadges = "no-visible-badges";
+    private static readonly TimeSpan PhaseRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly HashSet<string> DimensionQueryKeys = new(StringComparer.OrdinalIgnoreCase) { "width", "height", "maxWidth", "maxHeight", "fillWidth", "fillHeight" };
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
@@ -151,7 +152,6 @@ public class CacheWarmTask : IScheduledTask
         using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator };
         using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
 
-        var completed = 0;
         var warmed = 0;
         var cacheHits = 0;
         var noVisibleBadges = 0;
@@ -160,6 +160,7 @@ public class CacheWarmTask : IScheduledTask
         var delayMs = Math.Clamp(config.WarmerDelayMs, 0, 10000);
         var quietPeriod = TimeSpan.FromSeconds(Math.Clamp(config.WarmerClientQuietSeconds, 0, 120));
         using var throttler = new SemaphoreSlim(maxConcurrency, maxConcurrency);
+        int GetRecordedCompletedCount() => requests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours));
 
         foreach (var phase in WarmupPhases)
         {
@@ -178,64 +179,84 @@ public class CacheWarmTask : IScheduledTask
             _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase with {Count} requests", phase.Name, phaseRequests.Count);
             foreach (var clientGroup in phaseRequests.GroupBy(request => request.ClientProfileOrder).OrderBy(group => group.Key))
             {
-                var clientRequests = clientGroup.ToList();
-                var clientName = clientRequests[0].ClientProfile;
-                _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase for {ClientProfile} with {Count} requests", phase.Name, clientName, clientRequests.Count);
-                var tasks = clientRequests.Select(async request =>
+                var clientPhaseRequests = clientGroup.ToList();
+                var clientName = clientPhaseRequests[0].ClientProfile;
+                var clientPass = 0;
+                while (true)
                 {
-                    await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
-                    try
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var remainingClientRequests = clientPhaseRequests
+                        .Where(request => !state.Contains(request.CompletionKey, warmerStateMaxAgeHours))
+                        .ToList();
+                    if (remainingClientRequests.Count == 0)
                     {
-                        await WaitForClientQuietPeriodWithProgressAsync(
-                            quietPeriod,
-                            progress,
-                            () => skipped + Volatile.Read(ref completed),
-                            deduplicatedRequests,
-                            cancellationToken).ConfigureAwait(false);
-                        var url = request.ToUrl(baseUrl);
-                        using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
-                        var warmupResult = GetWarmupResult(response);
-                        if (response.IsSuccessStatusCode && IsCompletedWarmupResult(warmupResult))
+                        break;
+                    }
+
+                    clientPass++;
+                    _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase for {ClientProfile} pass {Pass} with {Count} remaining requests", phase.Name, clientName, clientPass, remainingClientRequests.Count);
+                    var completedBeforePass = GetRecordedCompletedCount();
+                    var tasks = remainingClientRequests.Select(async request =>
+                    {
+                        await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
+                        try
                         {
-                            state.MarkCompleted(request.CompletionKey);
-                            if (string.Equals(warmupResult, WarmupResultCacheWritten, StringComparison.OrdinalIgnoreCase))
+                            await WaitForClientQuietPeriodWithProgressAsync(
+                                quietPeriod,
+                                progress,
+                                () => skipped + GetRecordedCompletedCount(),
+                                deduplicatedRequests,
+                                cancellationToken).ConfigureAwait(false);
+                            var url = request.ToUrl(baseUrl);
+                            using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+                            var warmupResult = GetWarmupResult(response);
+                            if (response.IsSuccessStatusCode && IsCompletedWarmupResult(warmupResult))
                             {
-                                Interlocked.Increment(ref warmed);
+                                state.MarkCompleted(request.CompletionKey);
+                                if (string.Equals(warmupResult, WarmupResultCacheWritten, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Interlocked.Increment(ref warmed);
+                                }
+                                else if (string.Equals(warmupResult, WarmupResultCacheHit, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Interlocked.Increment(ref cacheHits);
+                                }
+                                else if (string.Equals(warmupResult, WarmupResultNoVisibleBadges, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Interlocked.Increment(ref noVisibleBadges);
+                                }
                             }
-                            else if (string.Equals(warmupResult, WarmupResultCacheHit, StringComparison.OrdinalIgnoreCase))
+                            else
                             {
-                                Interlocked.Increment(ref cacheHits);
+                                Interlocked.Increment(ref failed);
+                                _logger.LogDebug("JellyTag-Plus cache warmer got {StatusCode} with warmup result {WarmupResult} for {Url}", response.StatusCode, warmupResult ?? "none", url);
                             }
-                            else if (string.Equals(warmupResult, WarmupResultNoVisibleBadges, StringComparison.OrdinalIgnoreCase))
+
+                            if (delayMs > 0)
                             {
-                                Interlocked.Increment(ref noVisibleBadges);
+                                await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
                             }
                         }
-                        else
+                        catch (Exception ex)
                         {
                             Interlocked.Increment(ref failed);
-                            _logger.LogDebug("JellyTag-Plus cache warmer got {StatusCode} with warmup result {WarmupResult} for {Url}", response.StatusCode, warmupResult ?? "none", url);
+                            _logger.LogDebug(ex, "JellyTag-Plus cache warmer failed for {ItemId} {ImageType} using {ClientProfile}", request.ItemId, request.ImageType, request.ClientProfile);
                         }
-
-                        if (delayMs > 0)
+                        finally
                         {
-                            await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+                            ReportWarmupProgress(progress, skipped + GetRecordedCompletedCount(), deduplicatedRequests);
+                            throttler.Release();
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Interlocked.Increment(ref failed);
-                        _logger.LogDebug(ex, "JellyTag-Plus cache warmer failed for {ItemId} {ImageType} using {ClientProfile}", request.ItemId, request.ImageType, request.ClientProfile);
-                    }
-                    finally
-                    {
-                        var done = Interlocked.Increment(ref completed);
-                        ReportWarmupProgress(progress, skipped + done, deduplicatedRequests);
-                        throttler.Release();
-                    }
-                }).ToArray();
+                    }).ToArray();
 
-                await Task.WhenAll(tasks).ConfigureAwait(false);
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                    if (remainingClientRequests.Any(request => !state.Contains(request.CompletionKey, warmerStateMaxAgeHours)) && GetRecordedCompletedCount() == completedBeforePass)
+                    {
+                        _logger.LogWarning("JellyTag-Plus cache warmer made no progress in {Phase} phase for {ClientProfile} pass {Pass}; retrying this client phase after {DelaySeconds} seconds", phase.Name, clientName, clientPass, PhaseRetryDelay.TotalSeconds);
+                        await Task.Delay(PhaseRetryDelay, cancellationToken).ConfigureAwait(false);
+                    }
+                }
             }
         }
 
