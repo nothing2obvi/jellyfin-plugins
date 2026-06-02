@@ -318,7 +318,7 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    public static IReadOnlyList<WarmerClientProgress> GetEstimatedClientProgress(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, ILogger<CacheWarmTask> logger)
+    public static async Task<IReadOnlyList<WarmerClientProgress>> GetEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
     {
         var scope = CreateWarmupScope(config);
         var state = WarmupStateStore.Load(scope, logger);
@@ -338,39 +338,62 @@ public class CacheWarmTask : IScheduledTask
         }).Where(item => IsInEnabledLibrary(item, config, libraryManager)).ToList();
 
         var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return GetOrderedClientWarmupProfiles(config, includeDisabled: true, learnedClientProfileService)
-            .Select(profile =>
+        var progress = new List<WarmerClientProgress>();
+        foreach (var profile in GetOrderedClientWarmupProfiles(config, includeDisabled: true, learnedClientProfileService))
+        {
+            var requests = new List<WarmupRequest>();
+            foreach (var item in items)
             {
-                var requests = new List<WarmupRequest>();
-                foreach (var item in items)
+                if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
                 {
-                    if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
-                    {
-                        requests.AddRange(CreateWarmupRequests(profile, 0, item, "Primary"));
-                    }
-
-                    if (ShouldRequestThumb(item, config) && item.HasImage(ImageType.Thumb, 0))
-                    {
-                        requests.AddRange(CreateWarmupRequests(profile, 0, item, "Thumb"));
-                    }
+                    requests.AddRange(CreateWarmupRequests(profile, 0, item, "Primary"));
                 }
 
-                requests = requests
-                    .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
-                    .Select(group => group.First())
-                    .ToList();
+                if (ShouldRequestThumb(item, config) && item.HasImage(ImageType.Thumb, 0))
+                {
+                    requests.AddRange(CreateWarmupRequests(profile, 0, item, "Thumb"));
+                }
+            }
 
-                var completed = requests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours));
-                var total = requests.Count;
-                var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
-                var phases = GetDisplayPhaseProgress(requests, state, warmerStateMaxAgeHours);
+            requests = requests
+                .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList();
 
-                return new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases);
-            })
-            .ToList();
+            var completedKeys = await GetCompletedWarmupRequestKeysAsync(requests, state, warmerStateMaxAgeHours, cacheService).ConfigureAwait(false);
+            var completed = completedKeys.Count;
+            var total = requests.Count;
+            var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
+            var phases = GetDisplayPhaseProgress(requests, completedKeys);
+
+            progress.Add(new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases));
+        }
+
+        return progress;
     }
 
-    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours)
+    private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService)
+    {
+        var completedKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var request in requests)
+        {
+            if (state.Contains(request.CompletionKey, maxAgeHours))
+            {
+                completedKeys.Add(request.CompletionKey);
+                continue;
+            }
+
+            var requestCacheKey = cacheService.CreateRequestCacheKey(request.ItemId, request.ImageType, request.ImageVersion, request.Variant.CacheKey, request.ItemModifiedTicks);
+            if (await cacheService.GetCachedImageFileForRequestAsync(request.ItemId, requestCacheKey).ConfigureAwait(false) != null)
+            {
+                completedKeys.Add(request.CompletionKey);
+            }
+        }
+
+        return completedKeys;
+    }
+
+    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, HashSet<string> completedKeys)
     {
         var hasHome = requests.Any(request => string.Equals(request.Phase.Key, HomePhaseKey, StringComparison.OrdinalIgnoreCase));
         var hasLibraries = requests.Any(request => string.Equals(request.Phase.Key, LibrariesPhaseKey, StringComparison.OrdinalIgnoreCase));
@@ -384,7 +407,7 @@ public class CacheWarmTask : IScheduledTask
             .Select(phase =>
             {
                 var phaseRequests = groups[phase.Key];
-                var phaseCompleted = phaseRequests.Count(request => state.Contains(request.CompletionKey, maxAgeHours));
+                var phaseCompleted = phaseRequests.Count(request => completedKeys.Contains(request.CompletionKey));
                 var phaseTotal = phaseRequests.Count;
                 var phasePercent = phaseTotal == 0 ? 100 : Math.Round(phaseCompleted * 100.0 / phaseTotal, 1);
                 return new WarmerPhaseProgress(phase.Key, phase.Name, phaseCompleted, phaseTotal, phasePercent);

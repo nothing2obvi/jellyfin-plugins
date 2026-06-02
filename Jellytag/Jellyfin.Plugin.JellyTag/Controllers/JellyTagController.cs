@@ -112,7 +112,7 @@ public partial class JellyTagController : ControllerBase
     [HttpGet("WarmerProgress")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public IActionResult GetWarmerProgress()
+    public async Task<IActionResult> GetWarmerProgress()
     {
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.Enabled)
@@ -120,7 +120,7 @@ public partial class JellyTagController : ControllerBase
             return Ok(new { Profiles = Array.Empty<object>() });
         }
 
-        var progress = CacheWarmTask.GetEstimatedClientProgress(config, _libraryManager, _learnedClientProfileService, _cacheWarmLogger);
+        var progress = await CacheWarmTask.GetEstimatedClientProgressAsync(config, _libraryManager, _learnedClientProfileService, _cacheService, _cacheWarmLogger).ConfigureAwait(false);
         return Ok(new { Profiles = progress });
     }
 
