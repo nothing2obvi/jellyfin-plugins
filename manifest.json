@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.16.0",
-        "changelog": "Update the plugin catalog image to JellyTag-Plus.png and include JellyTag-Plus.png in the plugin release zip.",
+        "version": "1.50.17.0",
+        "changelog": "Use Jellyfin dashboard session data to improve Learned Variants client, user, and device source details.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.16.0.zip",
-        "checksum": "d351c37b116aa8285c09099e25e3decb",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.17.0.zip",
+        "checksum": "d31d34a01a7920e46e90a297477370dd",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

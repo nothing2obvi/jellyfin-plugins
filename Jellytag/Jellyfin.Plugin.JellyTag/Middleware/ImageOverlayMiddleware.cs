@@ -10,6 +10,7 @@ using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Providers;
+using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -73,7 +74,8 @@ public partial class ImageOverlayMiddleware
         ILearnedClientProfileService learnedClientProfileService,
         MediaBrowser.Controller.Library.ILibraryManager libraryManager,
         IProviderManager providerManager,
-        IAuthorizationContext authorizationContext)
+        IAuthorizationContext authorizationContext,
+        ISessionManager sessionManager)
     {
         var path = context.Request.Path.Value;
         if (path == null)
@@ -151,7 +153,8 @@ public partial class ImageOverlayMiddleware
         if (!IsWarmupRequest(context.Request.Query))
         {
             var authorizationInfo = await authorizationContext.GetAuthorizationInfo(context).ConfigureAwait(false);
-            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query, context.Request.Headers, context.User, authorizationInfo);
+            var sessionInfo = await GetRequestSessionInfoAsync(context, authorizationInfo, sessionManager).ConfigureAwait(false);
+            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query, context.Request.Headers, context.User, authorizationInfo, sessionInfo);
         }
 
         var query = GetCacheRelevantQuery(context.Request.Query);
@@ -482,6 +485,36 @@ public partial class ImageOverlayMiddleware
     {
         return query.TryGetValue("jellytagwarm", out var value)
             && value.Any(v => string.Equals(v, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<SessionInfo?> GetRequestSessionInfoAsync(HttpContext context, AuthorizationInfo authorizationInfo, ISessionManager sessionManager)
+    {
+        if (!string.IsNullOrWhiteSpace(authorizationInfo.DeviceId) && !string.IsNullOrWhiteSpace(authorizationInfo.Client))
+        {
+            var existingSession = sessionManager.GetSession(authorizationInfo.DeviceId, authorizationInfo.Client, authorizationInfo.Version ?? string.Empty);
+            if (existingSession != null)
+            {
+                return existingSession;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(authorizationInfo.Token))
+        {
+            return null;
+        }
+
+        try
+        {
+            return await sessionManager.GetSessionByAuthenticationToken(
+                authorizationInfo.Token,
+                authorizationInfo.DeviceId ?? string.Empty,
+                context.Connection.RemoteIpAddress?.ToString() ?? string.Empty).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Unable to resolve JellyTag-Plus learned variant source from Jellyfin session data");
+            return null;
+        }
     }
 
     private static bool IsBypassRequest(IQueryCollection query)

@@ -4,6 +4,7 @@ using Jellyfin.Plugin.JellyTag.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Net;
+using MediaBrowser.Controller.Session;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +35,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
     }
 
     /// <inheritdoc />
-    public void RecordVariant(BaseItem item, string imageType, IQueryCollection query, IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo)
+    public void RecordVariant(BaseItem item, string imageType, IQueryCollection query, IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo, SessionInfo? sessionInfo)
     {
         if (!IsSupportedImageType(imageType))
         {
@@ -47,7 +48,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         var label = normalizedQuery.Count == 0
             ? "learned unsized"
             : "learned " + string.Join("&", normalizedQuery.Select(kvp => $"{kvp.Key}={kvp.Value}"));
-        var source = GetRequestSource(headers, user, authorizationInfo);
+        var source = GetRequestSource(headers, user, authorizationInfo, sessionInfo);
         var nowTicks = DateTime.UtcNow.Ticks;
 
         lock (_lock)
@@ -262,13 +263,14 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         return Math.Max(1, (int)(Math.Round(value / 10.0, MidpointRounding.AwayFromZero) * 10));
     }
 
-    private static RequestSource GetRequestSource(IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo)
+    private static RequestSource GetRequestSource(IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo, SessionInfo? sessionInfo)
     {
         var userAgent = GetHeader(headers, "User-Agent");
         var authorization = ParseEmbyAuthorization(FirstNonBlank(
             GetHeader(headers, "X-Emby-Authorization"),
             GetHeader(headers, "Authorization")));
         var client = FirstNonBlank(
+            sessionInfo?.Client,
             authorizationInfo?.Client,
             GetHeader(headers, "X-Emby-Client"),
             GetHeader(headers, "X-MediaBrowser-Client"),
@@ -278,6 +280,8 @@ public class LearnedClientProfileService : ILearnedClientProfileService
             GetAuthValue(authorization, "Client"),
             InferClientFromUserAgent(userAgent));
         var deviceName = FirstNonBlank(
+            sessionInfo?.DeviceName,
+            sessionInfo?.DeviceId,
             authorizationInfo?.Device,
             authorizationInfo?.DeviceId,
             GetHeader(headers, "X-Emby-Device-Name"),
@@ -289,12 +293,14 @@ public class LearnedClientProfileService : ILearnedClientProfileService
             GetHeader(headers, "X-Jellyfin-Device-Id"),
             GetAuthValue(authorization, "DeviceId"));
         var userName = FirstNonBlank(
+            sessionInfo?.UserName,
             authorizationInfo?.User?.Username,
             user.Identity?.Name,
             GetClaim(user, ClaimTypes.Name),
             GetClaim(user, "name"),
             GetClaim(user, "preferred_username"));
         var userId = FirstNonBlank(
+            FormatUserId(sessionInfo),
             FormatUserId(authorizationInfo),
             GetClaim(user, ClaimTypes.NameIdentifier),
             GetClaim(user, "sub"),
@@ -314,6 +320,13 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         return authorizationInfo == null || authorizationInfo.UserId == Guid.Empty
             ? string.Empty
             : authorizationInfo.UserId.ToString("N");
+    }
+
+    private static string FormatUserId(SessionInfo? sessionInfo)
+    {
+        return sessionInfo == null || sessionInfo.UserId == Guid.Empty
+            ? string.Empty
+            : sessionInfo.UserId.ToString("N");
     }
 
     private static string InferClientFromUserAgent(string userAgent)
