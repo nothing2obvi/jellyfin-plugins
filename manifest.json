@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.14.0",
-        "changelog": "Respect configured warmer client order for Learned Clients instead of forcing Learned Home & Libraries ahead of all profiles. Treat Home and Home & Libraries as the same first warmer phase priority. Clarify Learned Clients progress and priority behavior in the admin UI and README.",
+        "version": "1.50.15.0",
+        "changelog": "Use Jellyfin request authorization details for Learned Clients source information when recording real client image variants. Sort the Learned Variants viewer by Last Seen, newest first. Improve client, device, and user fallbacks for learned variant rows.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.14.0.zip",
-        "checksum": "022ad8f6976b1868da124bc0e50a5fce",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.15.0.zip",
+        "checksum": "189ec7dd9baa9a3d270ed7816d6fb868",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

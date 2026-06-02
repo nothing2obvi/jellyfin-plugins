@@ -8,6 +8,7 @@ using Jellyfin.Plugin.JellyTag.Services;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Http;
@@ -71,7 +72,8 @@ public partial class ImageOverlayMiddleware
         IImageTrafficCoordinator trafficCoordinator,
         ILearnedClientProfileService learnedClientProfileService,
         MediaBrowser.Controller.Library.ILibraryManager libraryManager,
-        IProviderManager providerManager)
+        IProviderManager providerManager,
+        IAuthorizationContext authorizationContext)
     {
         var path = context.Request.Path.Value;
         if (path == null)
@@ -148,7 +150,8 @@ public partial class ImageOverlayMiddleware
 
         if (!IsWarmupRequest(context.Request.Query))
         {
-            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query, context.Request.Headers, context.User);
+            var authorizationInfo = await authorizationContext.GetAuthorizationInfo(context).ConfigureAwait(false);
+            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query, context.Request.Headers, context.User, authorizationInfo);
         }
 
         var query = GetCacheRelevantQuery(context.Request.Query);

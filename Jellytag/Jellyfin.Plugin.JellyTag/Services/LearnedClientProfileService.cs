@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Jellyfin.Plugin.JellyTag.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -33,7 +34,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
     }
 
     /// <inheritdoc />
-    public void RecordVariant(BaseItem item, string imageType, IQueryCollection query, IHeaderDictionary headers, ClaimsPrincipal user)
+    public void RecordVariant(BaseItem item, string imageType, IQueryCollection query, IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo)
     {
         if (!IsSupportedImageType(imageType))
         {
@@ -46,7 +47,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         var label = normalizedQuery.Count == 0
             ? "learned unsized"
             : "learned " + string.Join("&", normalizedQuery.Select(kvp => $"{kvp.Key}={kvp.Value}"));
-        var source = GetRequestSource(headers, user);
+        var source = GetRequestSource(headers, user, authorizationInfo);
         var nowTicks = DateTime.UtcNow.Ticks;
 
         lock (_lock)
@@ -108,7 +109,8 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         lock (_lock)
         {
             return GetStateLocked().Variants.Values
-                .OrderBy(entry => entry.PhaseKey, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(entry => entry.LastSeenUtcTicks)
+                .ThenBy(entry => entry.PhaseKey, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(entry => entry.ImageType, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(entry => CreateQueryKey(entry.Query), StringComparer.Ordinal)
                 .Select(entry => new LearnedClientVariantInfo(
@@ -118,7 +120,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
                     entry.Query,
                     UnknownIfBlank(entry.Client),
                     UnknownIfBlank(entry.DeviceName),
-                    UnknownIfBlank(entry.UserName),
+                    UnknownIfBlank(FirstNonBlank(entry.UserName, entry.UserId)),
                     UnknownIfBlank(entry.UserId),
                     UnknownIfBlank(entry.UserAgent),
                     Math.Max(0, entry.SeenCount),
@@ -260,29 +262,40 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         return Math.Max(1, (int)(Math.Round(value / 10.0, MidpointRounding.AwayFromZero) * 10));
     }
 
-    private static RequestSource GetRequestSource(IHeaderDictionary headers, ClaimsPrincipal user)
+    private static RequestSource GetRequestSource(IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo)
     {
+        var userAgent = GetHeader(headers, "User-Agent");
         var authorization = ParseEmbyAuthorization(FirstNonBlank(
             GetHeader(headers, "X-Emby-Authorization"),
             GetHeader(headers, "Authorization")));
         var client = FirstNonBlank(
+            authorizationInfo?.Client,
             GetHeader(headers, "X-Emby-Client"),
             GetHeader(headers, "X-MediaBrowser-Client"),
             GetHeader(headers, "X-Jellyfin-Client"),
             GetHeader(headers, "X-Client"),
             GetHeader(headers, "X-Application"),
-            GetAuthValue(authorization, "Client"));
+            GetAuthValue(authorization, "Client"),
+            InferClientFromUserAgent(userAgent));
         var deviceName = FirstNonBlank(
+            authorizationInfo?.Device,
+            authorizationInfo?.DeviceId,
             GetHeader(headers, "X-Emby-Device-Name"),
             GetHeader(headers, "X-MediaBrowser-Device-Name"),
             GetHeader(headers, "X-Jellyfin-Device-Name"),
-            GetAuthValue(authorization, "Device"));
+            GetAuthValue(authorization, "Device"),
+            GetHeader(headers, "X-Emby-Device-Id"),
+            GetHeader(headers, "X-MediaBrowser-Device-Id"),
+            GetHeader(headers, "X-Jellyfin-Device-Id"),
+            GetAuthValue(authorization, "DeviceId"));
         var userName = FirstNonBlank(
+            authorizationInfo?.User?.Username,
             user.Identity?.Name,
             GetClaim(user, ClaimTypes.Name),
             GetClaim(user, "name"),
             GetClaim(user, "preferred_username"));
         var userId = FirstNonBlank(
+            FormatUserId(authorizationInfo),
             GetClaim(user, ClaimTypes.NameIdentifier),
             GetClaim(user, "sub"),
             GetClaim(user, "user_id"),
@@ -293,7 +306,58 @@ public class LearnedClientProfileService : ILearnedClientProfileService
             deviceName,
             userName,
             userId,
-            GetHeader(headers, "User-Agent"));
+            userAgent);
+    }
+
+    private static string FormatUserId(AuthorizationInfo? authorizationInfo)
+    {
+        return authorizationInfo == null || authorizationInfo.UserId == Guid.Empty
+            ? string.Empty
+            : authorizationInfo.UserId.ToString("N");
+    }
+
+    private static string InferClientFromUserAgent(string userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent))
+        {
+            return string.Empty;
+        }
+
+        var value = userAgent.ToLowerInvariant();
+        if (value.Contains("jellyfin android tv", StringComparison.Ordinal) || value.Contains("jellyfin-androidtv", StringComparison.Ordinal))
+        {
+            return "Jellyfin Android TV";
+        }
+
+        if (value.Contains("streamyfin", StringComparison.Ordinal))
+        {
+            return "Streamyfin";
+        }
+
+        if (value.Contains("findroid", StringComparison.Ordinal))
+        {
+            return "Findroid";
+        }
+
+        if (value.Contains("swiftfin", StringComparison.Ordinal))
+        {
+            return "Swiftfin";
+        }
+
+        if (value.Contains("iphone", StringComparison.Ordinal)
+            || value.Contains("ipad", StringComparison.Ordinal)
+            || value.Contains("ios", StringComparison.Ordinal)
+            || (value.Contains("cfnetwork", StringComparison.Ordinal) && value.Contains("darwin", StringComparison.Ordinal)))
+        {
+            return "Jellyfin iOS";
+        }
+
+        if (value.Contains("android", StringComparison.Ordinal))
+        {
+            return "Jellyfin Android";
+        }
+
+        return string.Empty;
     }
 
     private static void ApplyBetterSource(LearnedClientVariantEntry entry, RequestSource source)

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Http;
 
 namespace Jellyfin.Plugin.JellyTag.Services;
@@ -17,7 +18,8 @@ public interface ILearnedClientProfileService
     /// <param name="query">The request query.</param>
     /// <param name="headers">The request headers.</param>
     /// <param name="user">The authenticated user principal.</param>
-    void RecordVariant(BaseItem item, string imageType, IQueryCollection query, IHeaderDictionary headers, ClaimsPrincipal user);
+    /// <param name="authorizationInfo">Jellyfin request authorization details, when available.</param>
+    void RecordVariant(BaseItem item, string imageType, IQueryCollection query, IHeaderDictionary headers, ClaimsPrincipal user, AuthorizationInfo? authorizationInfo);
 
     /// <summary>
     /// Gets learned variants.

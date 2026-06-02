@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.14.0"
+version: "1.50.15.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,11 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.15.0
+  - Use Jellyfin request authorization details for Learned Clients source information when recording real client image variants
+  - Sort the Learned Variants viewer by Last Seen, newest first
+  - Improve client, device, and user fallbacks for learned variant rows
+
   ## v1.50.14.0
   - Respect configured warmer client order for Learned Clients instead of forcing Learned Home & Libraries ahead of all profiles
   - Treat Home and Home & Libraries as the same first warmer phase priority
