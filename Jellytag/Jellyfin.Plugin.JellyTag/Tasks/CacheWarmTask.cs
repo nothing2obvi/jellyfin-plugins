@@ -33,7 +33,7 @@ public class CacheWarmTask : IScheduledTask
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
         new WarmupPhase(HomePhaseKey, "Home", 0),
-        new WarmupPhase(HomeLibrariesPhaseKey, "Home & Libraries", 1),
+        new WarmupPhase(HomeLibrariesPhaseKey, "Home & Libraries", 0),
         new WarmupPhase(LibrariesPhaseKey, "Libraries", 2),
         new WarmupPhase(EpisodesPhaseKey, "Episodes", 3),
         new WarmupPhase(VideosPhaseKey, "Videos", 4),
@@ -133,7 +133,7 @@ public class CacheWarmTask : IScheduledTask
         requests = requests
             .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
             .Select(group => group.First())
-            .OrderBy(GetExecutionOrder)
+            .OrderBy(request => request.Phase.Order)
             .ThenBy(request => request.ClientProfileOrder)
             .ThenBy(request => request.ItemId)
             .ThenBy(request => request.ImageType, StringComparer.Ordinal)
@@ -165,7 +165,7 @@ public class CacheWarmTask : IScheduledTask
         foreach (var bucket in GetExecutionBuckets(requests))
         {
             var bucketRequests = requests
-                .Where(request => IsInExecutionBucket(request, bucket.Key))
+                .Where(request => IsInExecutionBucket(request, bucket))
                 .OrderBy(request => request.ClientProfileOrder)
                 .ThenBy(request => request.ItemId)
                 .ThenBy(request => request.ImageType, StringComparer.Ordinal)
@@ -530,34 +530,24 @@ public class CacheWarmTask : IScheduledTask
 
     private static IEnumerable<WarmupExecutionBucket> GetExecutionBuckets(IReadOnlyList<WarmupRequest> requests)
     {
-        if (requests.Any(IsPriorityLearnedHomeLibrariesRequest))
+        foreach (var phaseGroup in WarmupPhases.GroupBy(phase => phase.Order).OrderBy(group => group.Key))
         {
-            yield return new WarmupExecutionBucket("learned-home-libraries-priority", "Learned Clients Home & Libraries", -1);
+            var phaseKeys = phaseGroup.Select(phase => phase.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (!requests.Any(request => phaseKeys.Contains(request.Phase.Key)))
+            {
+                continue;
+            }
+
+            yield return new WarmupExecutionBucket(
+                string.Join("-", phaseGroup.Select(phase => phase.Key)),
+                string.Join(" / ", phaseGroup.Select(phase => phase.Name)),
+                phaseGroup.Key);
         }
-
-        foreach (var phase in WarmupPhases)
-        {
-            yield return new WarmupExecutionBucket(phase.Key, phase.Name, phase.Order);
-        }
     }
 
-    private static bool IsInExecutionBucket(WarmupRequest request, string bucketKey)
+    private static bool IsInExecutionBucket(WarmupRequest request, WarmupExecutionBucket bucket)
     {
-        return string.Equals(bucketKey, "learned-home-libraries-priority", StringComparison.OrdinalIgnoreCase)
-            ? IsPriorityLearnedHomeLibrariesRequest(request)
-            : string.Equals(request.Phase.Key, bucketKey, StringComparison.OrdinalIgnoreCase)
-                && !IsPriorityLearnedHomeLibrariesRequest(request);
-    }
-
-    private static int GetExecutionOrder(WarmupRequest request)
-    {
-        return IsPriorityLearnedHomeLibrariesRequest(request) ? -1 : request.Phase.Order;
-    }
-
-    private static bool IsPriorityLearnedHomeLibrariesRequest(WarmupRequest request)
-    {
-        return string.Equals(request.ClientProfileKey, LearnedClientProfileKey, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(request.Phase.Key, HomeLibrariesPhaseKey, StringComparison.OrdinalIgnoreCase);
+        return request.Phase.Order == bucket.Order;
     }
 
     private static WarmupPhase GetRequestPhase(BaseItem item, ImageVariant variant)

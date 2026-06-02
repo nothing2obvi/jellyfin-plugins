@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.13.0",
-        "changelog": "Update existing Learned Clients variant source details from real client requests, including standard Jellyfin authorization headers.",
+        "version": "1.50.14.0",
+        "changelog": "Respect configured warmer client order for Learned Clients instead of forcing Learned Home & Libraries ahead of all profiles. Treat Home and Home & Libraries as the same first warmer phase priority. Clarify Learned Clients progress and priority behavior in the admin UI and README.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.13.0.zip",
-        "checksum": "7e55cc4839dd9687febe263253ba5add",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.14.0.zip",
+        "checksum": "022ad8f6976b1868da124bc0e50a5fce",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]
