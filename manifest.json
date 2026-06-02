@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.17.0",
-        "changelog": "Use Jellyfin dashboard session data to improve Learned Variants client, user, and device source details.",
+        "version": "1.50.18.0",
+        "changelog": "Safely infer Learned Variants user and device details from a single recent matching Jellyfin session, and display learned Home & Libraries variants with the friendly phase name.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.17.0.zip",
-        "checksum": "d31d34a01a7920e46e90a297477370dd",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.18.0.zip",
+        "checksum": "d992ee4134608fd78e0c5e2bcb4bf89d",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

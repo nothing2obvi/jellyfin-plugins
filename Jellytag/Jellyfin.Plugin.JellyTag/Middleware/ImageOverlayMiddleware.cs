@@ -505,16 +505,115 @@ public partial class ImageOverlayMiddleware
 
         try
         {
-            return await sessionManager.GetSessionByAuthenticationToken(
+            var tokenSession = await sessionManager.GetSessionByAuthenticationToken(
                 authorizationInfo.Token,
                 authorizationInfo.DeviceId ?? string.Empty,
                 context.Connection.RemoteIpAddress?.ToString() ?? string.Empty).ConfigureAwait(false);
+            if (HasSessionSourceDetails(tokenSession))
+            {
+                return tokenSession;
+            }
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Unable to resolve JellyTag-Plus learned variant source from Jellyfin session data");
+        }
+
+        return GetSingleMatchingRecentSession(context, authorizationInfo, sessionManager);
+    }
+
+    private static SessionInfo? GetSingleMatchingRecentSession(HttpContext context, AuthorizationInfo authorizationInfo, ISessionManager sessionManager)
+    {
+        var remoteIp = context.Connection.RemoteIpAddress?.ToString();
+        if (string.IsNullOrWhiteSpace(remoteIp))
+        {
             return null;
         }
+
+        var client = FirstNonBlank(authorizationInfo.Client, InferClientFromUserAgent(context.Request.Headers.UserAgent.ToString()));
+        if (string.IsNullOrWhiteSpace(client))
+        {
+            return null;
+        }
+
+        var cutoff = DateTime.UtcNow.AddMinutes(-5);
+        var matches = sessionManager.Sessions
+            .Where(session => session.LastActivityDate >= cutoff)
+            .Where(session => string.Equals(session.Client, client, StringComparison.OrdinalIgnoreCase))
+            .Where(session => RemoteEndpointMatches(session.RemoteEndPoint, remoteIp))
+            .Where(session => authorizationInfo.UserId == Guid.Empty || session.UserId == authorizationInfo.UserId)
+            .Where(session => string.IsNullOrWhiteSpace(authorizationInfo.DeviceId)
+                || string.Equals(session.DeviceId, authorizationInfo.DeviceId, StringComparison.OrdinalIgnoreCase))
+            .Take(2)
+            .ToList();
+
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
+    private static bool HasSessionSourceDetails(SessionInfo? sessionInfo)
+    {
+        return sessionInfo != null
+            && (!string.IsNullOrWhiteSpace(sessionInfo.UserName)
+                || sessionInfo.UserId != Guid.Empty
+                || !string.IsNullOrWhiteSpace(sessionInfo.DeviceName)
+                || !string.IsNullOrWhiteSpace(sessionInfo.DeviceId));
+    }
+
+    private static bool RemoteEndpointMatches(string? remoteEndPoint, string remoteIp)
+    {
+        return !string.IsNullOrWhiteSpace(remoteEndPoint)
+            && (string.Equals(remoteEndPoint, remoteIp, StringComparison.OrdinalIgnoreCase)
+                || remoteEndPoint.StartsWith(remoteIp + ":", StringComparison.OrdinalIgnoreCase)
+                || remoteEndPoint.StartsWith("[" + remoteIp + "]:", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string FirstNonBlank(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static string InferClientFromUserAgent(string userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent))
+        {
+            return string.Empty;
+        }
+
+        var value = userAgent.ToLowerInvariant();
+        if (value.Contains("jellyfin android tv", StringComparison.Ordinal) || value.Contains("jellyfin-androidtv", StringComparison.Ordinal))
+        {
+            return "Jellyfin Android TV";
+        }
+
+        if (value.Contains("streamyfin", StringComparison.Ordinal))
+        {
+            return "Streamyfin";
+        }
+
+        if (value.Contains("findroid", StringComparison.Ordinal))
+        {
+            return "Findroid";
+        }
+
+        if (value.Contains("swiftfin", StringComparison.Ordinal))
+        {
+            return "Swiftfin";
+        }
+
+        if (value.Contains("iphone", StringComparison.Ordinal)
+            || value.Contains("ipad", StringComparison.Ordinal)
+            || value.Contains("ios", StringComparison.Ordinal)
+            || (value.Contains("cfnetwork", StringComparison.Ordinal) && value.Contains("darwin", StringComparison.Ordinal)))
+        {
+            return "Jellyfin iOS";
+        }
+
+        if (value.Contains("android", StringComparison.Ordinal))
+        {
+            return "Jellyfin Android";
+        }
+
+        return string.Empty;
     }
 
     private static bool IsBypassRequest(IQueryCollection query)

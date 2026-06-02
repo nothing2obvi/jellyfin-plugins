@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.17.0"
+version: "1.50.18.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.18.0
+  - Safely infer Learned Variants user and device details from a single recent matching Jellyfin session
+  - Display learned Home & Libraries variants with the friendly phase name in the admin UI
+
   ## v1.50.17.0
   - Use Jellyfin dashboard session data to improve Learned Variants client, user, and device source details
 
