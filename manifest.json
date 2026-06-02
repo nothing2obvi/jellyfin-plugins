@@ -25,14 +25,14 @@
     "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports per-library badge type controls, resolution, HDR, video codec, audio, alphabetized language flags with undetermined fallback, VOST indicator, and multiple regex-matched collection badges with custom images.",
     "owner": "nothing2obvi",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
+    "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.15.0",
-        "changelog": "Use Jellyfin request authorization details for Learned Clients source information when recording real client image variants. Sort the Learned Variants viewer by Last Seen, newest first. Improve client, device, and user fallbacks for learned variant rows.",
+        "version": "1.50.16.0",
+        "changelog": "Update the plugin catalog image to JellyTag-Plus.png and include JellyTag-Plus.png in the plugin release zip.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.15.0.zip",
-        "checksum": "189ec7dd9baa9a3d270ed7816d6fb868",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.16.0.zip",
+        "checksum": "d351c37b116aa8285c09099e25e3decb",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]
