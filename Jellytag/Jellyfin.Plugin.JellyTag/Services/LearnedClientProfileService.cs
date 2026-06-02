@@ -41,11 +41,6 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         }
 
         var normalizedQuery = NormalizeQuery(query);
-        if (CacheWarmTask.IsFixedClientVariant(imageType, normalizedQuery))
-        {
-            return;
-        }
-
         var phaseKey = GetPhaseKey(item);
         var key = CreateKey(imageType, phaseKey, normalizedQuery);
         var label = normalizedQuery.Count == 0
@@ -66,6 +61,11 @@ public class LearnedClientProfileService : ILearnedClientProfileService
                 existing.SeenCount = Math.Max(1, existing.SeenCount) + 1;
                 ApplyBetterSource(existing, source);
                 SaveLocked();
+                return;
+            }
+
+            if (CacheWarmTask.IsFixedClientVariant(imageType, normalizedQuery))
+            {
                 return;
             }
 
@@ -262,7 +262,9 @@ public class LearnedClientProfileService : ILearnedClientProfileService
 
     private static RequestSource GetRequestSource(IHeaderDictionary headers, ClaimsPrincipal user)
     {
-        var authorization = ParseEmbyAuthorization(GetHeader(headers, "X-Emby-Authorization"));
+        var authorization = ParseEmbyAuthorization(FirstNonBlank(
+            GetHeader(headers, "X-Emby-Authorization"),
+            GetHeader(headers, "Authorization")));
         var client = FirstNonBlank(
             GetHeader(headers, "X-Emby-Client"),
             GetHeader(headers, "X-MediaBrowser-Client"),

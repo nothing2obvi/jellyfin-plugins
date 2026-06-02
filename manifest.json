@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.12.0",
-        "changelog": "Make warmer progress cache-aware by counting exact variants already recorded in the JellyTag-Plus cache shortcut index. Reduce confusing progress drops when cached variants still exist but the warmer ledger is incomplete.",
+        "version": "1.50.13.0",
+        "changelog": "Update existing Learned Clients variant source details from real client requests, including standard Jellyfin authorization headers.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.12.0.zip",
-        "checksum": "cf3bb6bdf3e3a7b0f4cedb4351de56e0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.13.0.zip",
+        "checksum": "7e55cc4839dd9687febe263253ba5add",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]
