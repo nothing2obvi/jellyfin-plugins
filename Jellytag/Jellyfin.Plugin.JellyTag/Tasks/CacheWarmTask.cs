@@ -40,7 +40,7 @@ public class CacheWarmTask : IScheduledTask
         new WarmupPhase(OtherPhaseKey, "Other", 5)
     ];
 
-    private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
+    private static readonly string[] DefaultClientWarmupProfileKeys = [LearnedClientProfileKey, "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
     private static readonly string[] MoonfinSplitProfileKeys = ["moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku"];
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
     private static readonly IReadOnlyList<ClientWarmupProfile> FixedClientWarmupProfiles =
@@ -133,7 +133,7 @@ public class CacheWarmTask : IScheduledTask
         requests = requests
             .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
             .Select(group => group.First())
-            .OrderBy(request => request.Phase.Order)
+            .OrderBy(GetExecutionOrder)
             .ThenBy(request => request.ClientProfileOrder)
             .ThenBy(request => request.ItemId)
             .ThenBy(request => request.ImageType, StringComparer.Ordinal)
@@ -162,22 +162,22 @@ public class CacheWarmTask : IScheduledTask
         using var throttler = new SemaphoreSlim(maxConcurrency, maxConcurrency);
         int GetRecordedCompletedCount() => requests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours));
 
-        foreach (var phase in WarmupPhases)
+        foreach (var bucket in GetExecutionBuckets(requests))
         {
-            var phaseRequests = requests
-                .Where(request => request.Phase.Key == phase.Key)
+            var bucketRequests = requests
+                .Where(request => IsInExecutionBucket(request, bucket.Key))
                 .OrderBy(request => request.ClientProfileOrder)
                 .ThenBy(request => request.ItemId)
                 .ThenBy(request => request.ImageType, StringComparer.Ordinal)
                 .ThenBy(request => request.Variant.CacheKey, StringComparer.Ordinal)
                 .ToList();
-            if (phaseRequests.Count == 0)
+            if (bucketRequests.Count == 0)
             {
                 continue;
             }
 
-            _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase with {Count} requests", phase.Name, phaseRequests.Count);
-            foreach (var clientGroup in phaseRequests.GroupBy(request => request.ClientProfileOrder).OrderBy(group => group.Key))
+            _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase with {Count} requests", bucket.Name, bucketRequests.Count);
+            foreach (var clientGroup in bucketRequests.GroupBy(request => request.ClientProfileOrder).OrderBy(group => group.Key))
             {
                 var clientPhaseRequests = clientGroup.ToList();
                 var clientName = clientPhaseRequests[0].ClientProfile;
@@ -194,7 +194,7 @@ public class CacheWarmTask : IScheduledTask
                     }
 
                     clientPass++;
-                    _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase for {ClientProfile} pass {Pass} with {Count} remaining requests", phase.Name, clientName, clientPass, remainingClientRequests.Count);
+                    _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase for {ClientProfile} pass {Pass} with {Count} remaining requests", bucket.Name, clientName, clientPass, remainingClientRequests.Count);
                     var completedBeforePass = GetRecordedCompletedCount();
                     var tasks = remainingClientRequests.Select(async request =>
                     {
@@ -253,7 +253,7 @@ public class CacheWarmTask : IScheduledTask
 
                     if (remainingClientRequests.Any(request => !state.Contains(request.CompletionKey, warmerStateMaxAgeHours)) && GetRecordedCompletedCount() == completedBeforePass)
                     {
-                        _logger.LogWarning("JellyTag-Plus cache warmer made no progress in {Phase} phase for {ClientProfile} pass {Pass}; retrying this client phase after {DelaySeconds} seconds", phase.Name, clientName, clientPass, PhaseRetryDelay.TotalSeconds);
+                        _logger.LogWarning("JellyTag-Plus cache warmer made no progress in {Phase} phase for {ClientProfile} pass {Pass}; retrying this client phase after {DelaySeconds} seconds", bucket.Name, clientName, clientPass, PhaseRetryDelay.TotalSeconds);
                         await Task.Delay(PhaseRetryDelay, cancellationToken).ConfigureAwait(false);
                     }
                 }
@@ -501,8 +501,40 @@ public class CacheWarmTask : IScheduledTask
         foreach (var variant in profile.GetVariants(imageType))
         {
             var phase = GetRequestPhase(item, variant);
-            yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, profile.Name, profileOrder, phase, variant);
+            yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, profile.Key, profile.Name, profileOrder, phase, variant);
         }
+    }
+
+    private static IEnumerable<WarmupExecutionBucket> GetExecutionBuckets(IReadOnlyList<WarmupRequest> requests)
+    {
+        if (requests.Any(IsPriorityLearnedHomeLibrariesRequest))
+        {
+            yield return new WarmupExecutionBucket("learned-home-libraries-priority", "Learned Clients Home & Libraries", -1);
+        }
+
+        foreach (var phase in WarmupPhases)
+        {
+            yield return new WarmupExecutionBucket(phase.Key, phase.Name, phase.Order);
+        }
+    }
+
+    private static bool IsInExecutionBucket(WarmupRequest request, string bucketKey)
+    {
+        return string.Equals(bucketKey, "learned-home-libraries-priority", StringComparison.OrdinalIgnoreCase)
+            ? IsPriorityLearnedHomeLibrariesRequest(request)
+            : string.Equals(request.Phase.Key, bucketKey, StringComparison.OrdinalIgnoreCase)
+                && !IsPriorityLearnedHomeLibrariesRequest(request);
+    }
+
+    private static int GetExecutionOrder(WarmupRequest request)
+    {
+        return IsPriorityLearnedHomeLibrariesRequest(request) ? -1 : request.Phase.Order;
+    }
+
+    private static bool IsPriorityLearnedHomeLibrariesRequest(WarmupRequest request)
+    {
+        return string.Equals(request.ClientProfileKey, LearnedClientProfileKey, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(request.Phase.Key, HomeLibrariesPhaseKey, StringComparison.OrdinalIgnoreCase);
     }
 
     private static WarmupPhase GetRequestPhase(BaseItem item, ImageVariant variant)
@@ -894,6 +926,8 @@ public class CacheWarmTask : IScheduledTask
 
     private sealed record WarmupPhase(string Key, string Name, int Order);
 
+    private sealed record WarmupExecutionBucket(string Key, string Name, int Order);
+
     private sealed record ImageVariant(WarmupPhase Phase, string Label, IReadOnlyList<KeyValuePair<string, string>> Query)
     {
         public string CacheKey => CreateCacheKey(Query);
@@ -1020,7 +1054,7 @@ public class CacheWarmTask : IScheduledTask
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)))[..16];
     }
 
-    private sealed record WarmupRequest(Guid ItemId, string ImageType, string ImageVersion, long ItemModifiedTicks, string ClientProfile, int ClientProfileOrder, WarmupPhase Phase, ImageVariant Variant)
+    private sealed record WarmupRequest(Guid ItemId, string ImageType, string ImageVersion, long ItemModifiedTicks, string ClientProfileKey, string ClientProfile, int ClientProfileOrder, WarmupPhase Phase, ImageVariant Variant)
     {
         public string CacheKey => $"{ItemId:N}:{ImageType}:{Variant.CacheKey}";
         public string CompletionKey => $"{ItemId:N}:{ImageType}:{ImageVersion}:{ItemModifiedTicks}:{Variant.CacheKey}";

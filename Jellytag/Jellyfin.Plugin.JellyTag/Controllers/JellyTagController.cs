@@ -21,8 +21,8 @@ namespace Jellyfin.Plugin.JellyTag.Controllers;
 [Route("JellyTagPlus")]
 public partial class JellyTagController : ControllerBase
 {
-    private static readonly string[] DefaultWarmerClientProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
-    private static readonly string[] WarmerClientProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned"];
+    private static readonly string[] DefaultWarmerClientProfileKeys = ["learned", "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
+    private static readonly string[] WarmerClientProfileKeys = ["learned", "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
     private static readonly string[] MoonfinSplitProfileKeys = ["moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku"];
     private readonly IImageCacheService _cacheService;
     private readonly IImageOverlayService _overlayService;

@@ -1046,8 +1046,8 @@
             { key: 'findroid', label: 'Findroid' },
             { key: 'learned', label: 'Learned Clients' }
         ];
-        var DEFAULT_WARMER_CLIENT_PROFILE_KEYS = ['androidtv', 'roku', 'streamyfin', 'wholphin', 'moonfin-mobile-desktop', 'moonfin-tvos', 'moonfin-smart-tv', 'moonfin-roku', 'dune', 'swiftfin', 'desktop', 'findroid'];
-        var DEFAULT_WARMER_CLIENT_PROFILE_ORDER = DEFAULT_WARMER_CLIENT_PROFILE_KEYS.concat(['learned']);
+        var DEFAULT_WARMER_CLIENT_PROFILE_KEYS = ['learned', 'androidtv', 'roku', 'streamyfin', 'wholphin', 'moonfin-mobile-desktop', 'moonfin-tvos', 'moonfin-smart-tv', 'moonfin-roku', 'dune', 'swiftfin', 'desktop', 'findroid'];
+        var DEFAULT_WARMER_CLIENT_PROFILE_ORDER = DEFAULT_WARMER_CLIENT_PROFILE_KEYS.slice();
         var MOONFIN_SPLIT_PROFILE_KEYS = ['moonfin-mobile-desktop', 'moonfin-tvos', 'moonfin-smart-tv', 'moonfin-roku'];
         var warmerProgressByKey = {};
         var warmerClientProfilesLoaded = false;

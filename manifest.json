@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.10.0",
-        "changelog": "Add a read-only Learned Clients variant viewer showing source client, device, user, query, phase, and seen timestamps. Update existing unknown learned variants with source details when real clients request them again.",
+        "version": "1.50.11.0",
+        "changelog": "Enable Learned Clients first by default while preserving saved warmer profile orders. Prioritize Learned Clients Home & Libraries before all other warmer client phases. Document that newly learned variants require restarting the warmer task to enter an active run.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.10.0.zip",
-        "checksum": "7016e3975299c6c102674c39a13dc286",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.11.0.zip",
+        "checksum": "3dd27a868e8ba80e5030e5c1ca151921",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

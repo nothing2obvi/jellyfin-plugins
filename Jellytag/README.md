@@ -88,7 +88,9 @@ When JellyTag-Plus cannot reliably tell whether a learned non-episode, non-video
 
 Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Home & Libraries, then Libraries, then Episodes, then Videos, then Other. Within each phase it follows the configured client profile order. Progress display folds ambiguous Other variants into Home, Libraries, or Home & Libraries so a client does not show overlapping Home/Libraries phase labels.
 
-The **Learned Clients** profile is optional and starts disabled. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
+The **Learned Clients** profile is enabled first by default and is recommended to keep first because it warms the real variants your clients and users have actually requested before fixed client presets. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
+
+The warmer gives **Learned Clients Home & Libraries** the highest priority of all client phases, so real-world learned home/library poster and thumbnail variants are handled before fixed client phase work. Newly learned variants are not added to a cache warmer run that is already in progress. Restart the **JellyTag-Plus Cache Warmer** scheduled task to have a running warmup pick up variants learned while users were browsing.
 
 A scheduled task named **JellyTag-Plus Clear Learned Client Profile** clears learned variants. Learned variants do not expire automatically.
 
@@ -101,7 +103,7 @@ Warmer throttling is configurable:
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid; Learned Clients available but disabled by default |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Learned Clients, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid |
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
@@ -141,7 +143,7 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid; Learned Clients available but disabled by default |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Learned Clients, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 
