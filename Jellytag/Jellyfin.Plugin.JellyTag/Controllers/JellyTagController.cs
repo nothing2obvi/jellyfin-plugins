@@ -143,6 +143,17 @@ public partial class JellyTagController : ControllerBase
         });
     }
 
+    [HttpGet("LearnedClientVariants")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetLearnedClientVariants()
+    {
+        return Ok(new
+        {
+            Variants = _learnedClientProfileService.GetVariantInfo()
+        });
+    }
+
     [HttpPost("Configuration")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

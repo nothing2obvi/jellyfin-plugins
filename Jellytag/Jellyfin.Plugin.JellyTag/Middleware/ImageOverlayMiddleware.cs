@@ -148,7 +148,7 @@ public partial class ImageOverlayMiddleware
 
         if (!IsWarmupRequest(context.Request.Query))
         {
-            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query);
+            learnedClientProfileService.RecordVariant(item, imageType, context.Request.Query, context.Request.Headers, context.User);
         }
 
         var query = GetCacheRelevantQuery(context.Request.Query);

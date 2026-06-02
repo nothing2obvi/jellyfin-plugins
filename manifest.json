@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/Jellyfin.Plugin.JellyTag/JellyTag.png",
     "versions": [
       {
-        "version": "1.50.9.0",
-        "changelog": "Keep the warmer on the current client/phase until that bucket reaches 100% before moving to the next client. Report warmer task progress from recorded completions instead of raw attempts.",
+        "version": "1.50.10.0",
+        "changelog": "Add a read-only Learned Clients variant viewer showing source client, device, user, query, phase, and seen timestamps. Update existing unknown learned variants with source details when real clients request them again.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.9.0.zip",
-        "checksum": "15b0b14cd2dd897de42f247343b46c3c",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.10.0.zip",
+        "checksum": "7016e3975299c6c102674c39a13dc286",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

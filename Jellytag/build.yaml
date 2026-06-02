@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.9.0"
+version: "1.50.10.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.10.0
+  - Add a read-only Learned Clients variant viewer showing source client, device, user, query, phase, and seen timestamps
+  - Update existing unknown learned variants with source details when real clients request them again
+
   ## v1.50.9.0
   - Keep the warmer on the current client/phase until that bucket reaches 100% before moving to the next client
   - Report warmer task progress from recorded completions instead of raw attempts
