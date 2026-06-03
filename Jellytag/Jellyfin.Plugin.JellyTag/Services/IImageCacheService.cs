@@ -35,6 +35,16 @@ public interface IImageCacheService
     void SetRequestCacheEntry(string requestCacheKey, Guid itemId, string badgeKey, string imageTag, string badgeState);
 
     /// <summary>
+    /// Learns the final cache state for several compatible request-level cache keys.
+    /// </summary>
+    /// <param name="requestCacheKeys">The request-level cache keys.</param>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="badgeKey">The composite badge key.</param>
+    /// <param name="imageTag">The image tag/etag.</param>
+    /// <param name="badgeState">The badge state fingerprint.</param>
+    void SetRequestCacheEntries(IEnumerable<string> requestCacheKeys, Guid itemId, string badgeKey, string imageTag, string badgeState);
+
+    /// <summary>
     /// Gets a cached image file if available and not expired.
     /// </summary>
     /// <param name="itemId">The item ID.</param>

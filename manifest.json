@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.18.0",
-        "changelog": "Safely infer Learned Variants user and device details from a single recent matching Jellyfin session, and display learned Home & Libraries variants with the friendly phase name.",
+        "version": "1.50.19.0",
+        "changelog": "Reuse compatible cached image variants when request size is within 10px and only quality differs, and cache visible badge decisions briefly to reduce repeated detection/filtering during normal browsing bursts.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.18.0.zip",
-        "checksum": "d992ee4134608fd78e0c5e2bcb4bf89d",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.19.0.zip",
+        "checksum": "2fb0dbc1f12d646bf14b121095e95657",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

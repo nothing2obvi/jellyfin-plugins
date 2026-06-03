@@ -64,19 +64,29 @@ public class ImageCacheService : IImageCacheService
     /// <inheritdoc />
     public void SetRequestCacheEntry(string requestCacheKey, Guid itemId, string badgeKey, string imageTag, string badgeState)
     {
+        SetRequestCacheEntries([requestCacheKey], itemId, badgeKey, imageTag, badgeState);
+    }
+
+    /// <inheritdoc />
+    public void SetRequestCacheEntries(IEnumerable<string> requestCacheKeys, Guid itemId, string badgeKey, string imageTag, string badgeState)
+    {
         var finalCacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
         lock (_lock)
         {
             var index = GetCacheIndexLocked();
-            index.RequestEntries[requestCacheKey] = new RequestCacheIndexEntry
+            foreach (var requestCacheKey in requestCacheKeys.Where(key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                ItemId = itemId.ToString("N"),
-                BadgeKey = badgeKey,
-                ImageTag = imageTag,
-                BadgeState = badgeState,
-                FinalCacheKey = finalCacheKey,
-                UpdatedUtcTicks = DateTime.UtcNow.Ticks
-            };
+                index.RequestEntries[requestCacheKey] = new RequestCacheIndexEntry
+                {
+                    ItemId = itemId.ToString("N"),
+                    BadgeKey = badgeKey,
+                    ImageTag = imageTag,
+                    BadgeState = badgeState,
+                    FinalCacheKey = finalCacheKey,
+                    UpdatedUtcTicks = DateTime.UtcNow.Ticks
+                };
+            }
+
             SaveCacheIndexLocked();
         }
     }

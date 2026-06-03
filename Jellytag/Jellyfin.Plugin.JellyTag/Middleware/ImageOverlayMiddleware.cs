@@ -35,11 +35,14 @@ public partial class ImageOverlayMiddleware
     private static readonly ConcurrentDictionary<string, string> ForceRefreshStates = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ForceRefreshLocks = new();
     private static readonly ConcurrentDictionary<string, RenderLockState> RenderLocks = new();
+    private static readonly ConcurrentDictionary<string, VisibleBadgeCacheEntry> VisibleBadgeCache = new();
     private static readonly object RenderLocksLock = new();
     private static readonly object ForceRefreshStateFileLock = new();
     private static bool ForceRefreshStateLoaded;
     private static readonly string EmptyBadgeState = GetBadgeStateFingerprint(Array.Empty<BadgeInfo>());
     private static readonly byte[] StockRefreshImage = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
+    private static readonly TimeSpan VisibleBadgeCacheTtl = TimeSpan.FromMinutes(10);
+    private const int CompatibleSizeTolerancePx = 10;
 
     [GeneratedRegex(@"/Items/([0-9a-f]{32}|[0-9a-f-]{36})/Images/(Primary|Thumb)(/\d+)?$", RegexOptions.IgnoreCase)]
     private static partial Regex ImagePathRegex();
@@ -160,6 +163,8 @@ public partial class ImageOverlayMiddleware
         var query = GetCacheRelevantQuery(context.Request.Query);
         var imageVersion = GetImageVersion(item, imageType);
         var requestCacheKey = cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, query, item.DateModified.Ticks);
+        var compatibleRequestCacheLookupKeys = GetCompatibleRequestCacheLookupKeys(cacheService, itemId, imageType, imageVersion, context.Request.Query, item.DateModified.Ticks).ToList();
+        var compatibleRequestCacheLearnKeys = GetCompatibleRequestCacheLearnKeys(cacheService, itemId, imageType, imageVersion, context.Request.Query, item.DateModified.Ticks).ToList();
         var requestCachedFile = await cacheService.GetCachedImageFileForRequestAsync(itemId, requestCacheKey).ConfigureAwait(false);
         if (requestCachedFile != null)
         {
@@ -169,16 +174,20 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
-        // Detect all badges and filter by config
-        var allBadges = qualityService.DetectAllBadges(item, imageConfig);
-        _logger.LogDebug("DetectAllBadges for {Item}: {Count} badges found: {Badges}",
-            item.Name, allBadges.Count, string.Join(", ", allBadges.Select(b => $"{b.Category}:{b.BadgeKey}")));
+        foreach (var compatibleRequestCacheKey in compatibleRequestCacheLookupKeys)
+        {
+            requestCachedFile = await cacheService.GetCachedImageFileForRequestAsync(itemId, compatibleRequestCacheKey).ConfigureAwait(false);
+            if (requestCachedFile != null)
+            {
+                await TryForceImageRefreshAsync(item, imageType, requestCachedFile.BadgeState, true, providerManager, context.RequestAborted).ConfigureAwait(false);
+                SetWarmupResult(context, WarmupResultCacheHit);
+                await ServeCachedImageFileAsync(context, requestCachedFile).ConfigureAwait(false);
+                return;
+            }
+        }
 
-        var visibleBadges = allBadges
-            .Where(b => overlayService.ShouldShowBadge(b, imageConfig))
-            .Where(b => ShouldShowCollectionBadgeForImage(b, imageConfig, imageType, item))
-            .Where(b => ShouldShowBadgeForLibrary(b, config, collectionFolders))
-            .ToList();
+        // Detect all badges and filter by config
+        var visibleBadges = GetVisibleBadges(item, imageType, imageVersion, imageConfig, config, collectionFolders, qualityService, overlayService);
         _logger.LogDebug("Visible badges after filter: {Count}: {Badges}",
             visibleBadges.Count, string.Join(", ", visibleBadges.Select(b => b.BadgeKey)));
 
@@ -200,7 +209,7 @@ public partial class ImageOverlayMiddleware
         var cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, imageTag, badgeState).ConfigureAwait(false);
         if (cachedFile != null)
         {
-            cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);
+            cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
             SetWarmupResult(context, WarmupResultCacheHit);
             await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
             return;
@@ -221,7 +230,7 @@ public partial class ImageOverlayMiddleware
             cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, imageTag, badgeState).ConfigureAwait(false);
             if (cachedFile != null)
             {
-                cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);
+                cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
                 SetWarmupResult(context, WarmupResultCacheHit);
                 await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
                 return;
@@ -260,7 +269,7 @@ public partial class ImageOverlayMiddleware
                 var cached = await cacheService.CacheImageAsync(itemId, badgeKey, imageTag, badgeState, result.resultStream).ConfigureAwait(false);
                 if (cached)
                 {
-                    cacheService.SetRequestCacheEntry(requestCacheKey, itemId, badgeKey, imageTag, badgeState);
+                    cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
                 }
 
                 SetWarmupResult(context, cached ? WarmupResultCacheWritten : WarmupResultCacheWriteFailed);
@@ -320,6 +329,200 @@ public partial class ImageOverlayMiddleware
         }
     }
 
+    private List<BadgeInfo> GetVisibleBadges(
+        BaseItem item,
+        string imageType,
+        string imageVersion,
+        ImageTypeConfig imageConfig,
+        PluginConfiguration config,
+        IReadOnlyList<Folder> collectionFolders,
+        IQualityDetectionService qualityService,
+        IImageOverlayService overlayService)
+    {
+        var cacheKey = GetVisibleBadgeCacheKey(item, imageType, imageVersion, imageConfig, config, collectionFolders);
+        if (VisibleBadgeCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow - cached.CachedAt < VisibleBadgeCacheTtl)
+        {
+            return cached.Badges.Select(CloneBadgeInfo).ToList();
+        }
+
+        var allBadges = qualityService.DetectAllBadges(item, imageConfig);
+        _logger.LogDebug("DetectAllBadges for {Item}: {Count} badges found: {Badges}",
+            item.Name, allBadges.Count, string.Join(", ", allBadges.Select(b => $"{b.Category}:{b.BadgeKey}")));
+
+        var visibleBadges = allBadges
+            .Where(b => overlayService.ShouldShowBadge(b, imageConfig))
+            .Where(b => ShouldShowCollectionBadgeForImage(b, imageConfig, imageType, item))
+            .Where(b => ShouldShowBadgeForLibrary(b, config, collectionFolders))
+            .ToList();
+
+        VisibleBadgeCache[cacheKey] = new VisibleBadgeCacheEntry(visibleBadges.Select(CloneBadgeInfo).ToList(), DateTime.UtcNow);
+        PruneVisibleBadgeCache();
+        return visibleBadges;
+    }
+
+    private static void PruneVisibleBadgeCache()
+    {
+        var cutoff = DateTime.UtcNow - VisibleBadgeCacheTtl;
+        foreach (var key in VisibleBadgeCache
+            .Where(kvp => kvp.Value.CachedAt < cutoff)
+            .Select(kvp => kvp.Key)
+            .Take(100)
+            .ToArray())
+        {
+            VisibleBadgeCache.TryRemove(key, out _);
+        }
+    }
+
+    private static string GetVisibleBadgeCacheKey(
+        BaseItem item,
+        string imageType,
+        string imageVersion,
+        ImageTypeConfig imageConfig,
+        PluginConfiguration config,
+        IReadOnlyList<Folder> collectionFolders)
+    {
+        var libraryIds = string.Join(",", collectionFolders.Select(folder => folder.Id.ToString("N")).OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+        var configJson = JsonSerializer.Serialize(new
+        {
+            config.Enabled,
+            LibraryBadgeOptions = config.LibraryBadgeOptions?.OrderBy(option => option.LibraryId, StringComparer.OrdinalIgnoreCase),
+            ImageConfig = imageConfig,
+            config.CustomBadgeTexts
+        });
+        var input = $"{item.Id:N}|{imageType}|{imageVersion}|{item.DateModified.Ticks}|{libraryIds}|{configJson}";
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(hashBytes);
+    }
+
+    private static BadgeInfo CloneBadgeInfo(BadgeInfo badge)
+    {
+        return new BadgeInfo
+        {
+            BadgeKey = badge.BadgeKey,
+            Category = badge.Category,
+            ResourceFileName = badge.ResourceFileName
+        };
+    }
+
+    private static IEnumerable<string> GetRequestCacheKeysToLearn(string exactRequestCacheKey, IEnumerable<string> compatibleRequestCacheKeys)
+    {
+        yield return exactRequestCacheKey;
+        foreach (var key in compatibleRequestCacheKeys)
+        {
+            yield return key;
+        }
+    }
+
+    private static IEnumerable<string> GetCompatibleRequestCacheLookupKeys(
+        IImageCacheService cacheService,
+        Guid itemId,
+        string imageType,
+        string imageVersion,
+        IQueryCollection query,
+        long itemModifiedTicks)
+    {
+        foreach (var compatibleQuery in GetCompatibleCacheRelevantQueries(query))
+        {
+            yield return cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, compatibleQuery, itemModifiedTicks);
+        }
+    }
+
+    private static IEnumerable<string> GetCompatibleRequestCacheLearnKeys(
+        IImageCacheService cacheService,
+        Guid itemId,
+        string imageType,
+        string imageVersion,
+        IQueryCollection query,
+        long itemModifiedTicks)
+    {
+        yield return cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, GetCompatibleCacheRelevantQuery(query), itemModifiedTicks);
+    }
+
+    private static string GetCompatibleCacheRelevantQuery(IQueryCollection query)
+    {
+        var parts = query
+            .Where(kvp => IsCacheRelevantCompatibleQueryKey(kvp.Key))
+            .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp => new QueryPart(kvp.Key, kvp.Value.Select(value => value ?? string.Empty).ToArray()));
+        return FormatQueryParts(parts);
+    }
+
+    private static IEnumerable<string> GetCompatibleCacheRelevantQueries(IQueryCollection query)
+    {
+        var parts = query
+            .Where(kvp => IsCacheRelevantCompatibleQueryKey(kvp.Key))
+            .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kvp => new QueryPart(kvp.Key, kvp.Value.Select(value => value ?? string.Empty).ToArray()))
+            .ToList();
+        if (parts.Count == 0)
+        {
+            yield return string.Empty;
+            yield break;
+        }
+
+        var sizePartIndexes = parts
+            .Select((part, index) => IsSizeQueryKey(part.Key) && part.Values.Length == 1 && int.TryParse(part.Values[0], out _) ? index : -1)
+            .Where(index => index >= 0)
+            .Take(2)
+            .ToArray();
+
+        if (sizePartIndexes.Length == 0)
+        {
+            yield return FormatQueryParts(parts);
+            yield break;
+        }
+
+        foreach (var candidate in ExpandCompatibleSizeQueries(parts, sizePartIndexes, 0))
+        {
+            yield return FormatQueryParts(candidate);
+        }
+    }
+
+    private static IEnumerable<List<QueryPart>> ExpandCompatibleSizeQueries(List<QueryPart> parts, int[] sizePartIndexes, int depth)
+    {
+        if (depth >= sizePartIndexes.Length)
+        {
+            yield return parts;
+            yield break;
+        }
+
+        var partIndex = sizePartIndexes[depth];
+        var part = parts[partIndex];
+        var value = int.Parse(part.Values[0]);
+        for (var candidateValue = Math.Max(1, value - CompatibleSizeTolerancePx); candidateValue <= value + CompatibleSizeTolerancePx; candidateValue++)
+        {
+            var candidate = parts.ToList();
+            candidate[partIndex] = new QueryPart(part.Key, [candidateValue.ToString()]);
+            foreach (var expanded in ExpandCompatibleSizeQueries(candidate, sizePartIndexes, depth + 1))
+            {
+                yield return expanded;
+            }
+        }
+    }
+
+    private static string FormatQueryParts(IEnumerable<QueryPart> parts)
+    {
+        return string.Join("&", parts.Select(part => $"{part.Key}={string.Join(",", part.Values)}"));
+    }
+
+    private static bool IsCacheRelevantCompatibleQueryKey(string key)
+    {
+        return !string.Equals(key, "tag", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(key, "api_key", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(key, "jellytagwarm", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(key, "quality", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSizeQueryKey(string key)
+    {
+        return string.Equals(key, "width", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "height", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "fillWidth", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "fillHeight", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "maxWidth", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "maxHeight", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static async Task ServeCachedImageFileAsync(HttpContext context, CachedImageFile cachedImage)
     {
         context.Response.ContentType = cachedImage.ContentType;
@@ -333,6 +536,10 @@ public partial class ImageOverlayMiddleware
 
         public int RefCount { get; set; } = 1;
     }
+
+    private sealed record QueryPart(string Key, string[] Values);
+
+    private sealed record VisibleBadgeCacheEntry(List<BadgeInfo> Badges, DateTime CachedAt);
 
 
     private async Task TryForceImageRefreshAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, CancellationToken cancellationToken)
