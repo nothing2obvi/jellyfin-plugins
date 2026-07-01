@@ -219,7 +219,7 @@
                                 <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
                                 <div class="fieldDescription" style="opacity:.72; margin-bottom:.5em;">Estimated Warmer Progress: Based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them. Learned Clients progress is dynamic and can decrease when new real client image sizes are discovered. Refresh this page to update progress.</div>
                                 <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
-                                <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Variable-size clients are covered by Learned Clients after real browsing records their Primary and Thumb requests. Learned Clients is first by default and recommended to keep first, but it follows the configured profile order. Jellyfin Web, Android, iOS, Desktop Qt, Tizen, WebOS, and Xbox calculate home and library sizes through Jellyfin Web. Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, DUNE, Swiftfin, and Jellyfin Desktop each have some fixed variants listed here, but their dynamic, grid, layout, or screen-derived variants are also handled by Learned Clients. Learned non-episode and non-video variants are grouped as Home &amp; Libraries when the request does not reliably separate home from library browsing.</div>
+                                <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Variable-size clients are covered by Learned Clients after real browsing records their Primary and Thumb requests. Learned Clients is first by default and recommended to keep first, but it follows the configured profile order. Jellyfin Web, Android, iOS, Desktop Qt, Tizen, WebOS, and Xbox calculate home and library sizes through Jellyfin Web. Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, DUNE, Swiftfin, and Jellyfin Desktop each have some fixed variants listed here, but their dynamic, grid, layout, or screen-derived variants are also handled by Learned Clients. Learned non-episode and non-video variants are grouped as Home &amp; Libraries when the request does not reliably separate home from library browsing.</div>
                                 <button id="ViewLearnedVariants" is="emby-button" type="button" class="raised" style="margin-top:.75em;"><span>View Learned Variants</span></button>
                                 <div id="LearnedVariantsPanel" class="learned-variants-panel"></div>
                             </div>
@@ -1037,7 +1037,7 @@
             { key: 'roku', label: 'Jellyfin Roku' },
             { key: 'streamyfin', label: 'Streamyfin' },
             { key: 'wholphin', label: 'Wholphin' },
-            { key: 'moonfin-mobile-desktop', label: 'Moonfin Mobile-Desktop' },
+            { key: 'moonfin-mobile-desktop', label: 'Moonfin Core' },
             { key: 'moonfin-tvos', label: 'Moonfin tvOS' },
             { key: 'moonfin-smart-tv', label: 'Moonfin Smart-TV' },
             { key: 'moonfin-roku', label: 'Moonfin Roku' },

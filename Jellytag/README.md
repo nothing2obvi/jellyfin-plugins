@@ -63,7 +63,7 @@ The warmer includes organized client profiles for:
 - Jellyfin Roku
 - Streamyfin
 - Wholphin
-- Moonfin Mobile-Desktop
+- Moonfin Core
 - Moonfin tvOS
 - Moonfin Smart-TV
 - Moonfin Roku
@@ -77,7 +77,7 @@ It warms only documented `Primary` and `Thumb` variants for those clients. Jelly
 Some listed clients also have a mix of fixed and variable variants:
 
 - **Wholphin**: fixed `quality=96` and row-height variants are in its profile; dynamic grid `fillWidth` requests are covered by **Learned Clients**.
-- **Moonfin Mobile-Desktop**: fixed library browse buckets are in its profile; dynamic home, genre, and detail sizes are covered by **Learned Clients**.
+- **Moonfin Core**: fixed Primary and Thumb sizes found in Moonfin Core are in its profile; dynamic card, genre, folder-grid, scaled desktop, and screen-derived sizes are covered by **Learned Clients**.
 - **Moonfin tvOS**: fixed detail/search/playback/episode sizes are in its profile; dynamic card and shelf sizes are covered by **Learned Clients**.
 - **Moonfin Smart-TV**: fixed card/detail/playback sizes are in its profile; any layout-dependent sizes are covered by **Learned Clients**.
 - **DUNE**: fixed search and carousel variants are in its profile; screen-derived main browse `maxHeight` variants are covered by **Learned Clients**.
@@ -103,7 +103,7 @@ Warmer throttling is configurable:
 | Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Learned Clients, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Learned Clients, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid |
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
@@ -143,7 +143,7 @@ Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page
 | Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
 | Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
 | Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 120 |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Learned Clients, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Mobile-Desktop, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid |
+| Warmer Client Profiles | Enabled client profiles and their warmup order | Learned Clients, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid |
 | Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
 | Excluded Libraries | Libraries to skip for badge generation | None |
 

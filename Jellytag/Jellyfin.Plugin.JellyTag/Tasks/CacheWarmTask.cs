@@ -53,7 +53,7 @@ public class CacheWarmTask : IScheduledTask
         CreateRokuProfile(),
         CreateStreamyfinProfile(),
         CreateWholphinProfile(),
-        CreateMoonfinMobileDesktopProfile(),
+        CreateMoonfinCoreProfile(),
         CreateMoonfinTvOsProfile(),
         CreateMoonfinSmartTvProfile(),
         CreateMoonfinRokuProfile(),
@@ -738,23 +738,33 @@ public class CacheWarmTask : IScheduledTask
         return new ClientWarmupProfile("wholphin", "Wholphin", "quality=96 and fixed fillHeight requests used by Wholphin rows and cards; dynamic grid fillWidth values are intentionally not guessed.", variants, variants);
     }
 
-    private static ClientWarmupProfile CreateMoonfinMobileDesktopProfile()
+    private static ClientWarmupProfile CreateMoonfinCoreProfile()
     {
         var primaryVariants = new[]
         {
-            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 420, "library poster small"),
-            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 560, "library poster medium"),
-            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 700, "library poster large")
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 120, "mini player, sidebar, and playlist primary"),
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 200, "compact person primary"),
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 240, "mobile album row primary"),
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 300, "music, recordings, remote, and list primary"),
+            ImageVariant.MaxHeight(GetPhase(HomeLibrariesPhaseKey), 400, "book, person, and detail row primary"),
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 400, "episode and next up primary width"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 360, "mobile detail poster primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 420, "player artwork primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 480, "Apple TV Top Shelf primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 500, "offline/detail poster primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 520, "compact book cover primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 600, "audio artwork primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 720, "book cover primary"),
+            ImageVariant.MaxHeight(GetPhase(OtherPhaseKey), 1080, "focused primary artwork")
         };
 
         var thumbVariants = new[]
         {
-            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 720, "library thumb small"),
-            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 960, "library thumb medium"),
-            ImageVariant.MaxWidth(GetPhase(LibrariesPhaseKey), 1200, "library thumb large")
+            ImageVariant.MaxWidth(GetPhase(HomeLibrariesPhaseKey), 120, "playlist thumbnail"),
+            ImageVariant.MaxWidth(GetPhase(OtherPhaseKey), 960, "Top Shelf and player landscape thumbnail")
         };
 
-        return new ClientWarmupProfile("moonfin-mobile-desktop", "Moonfin Mobile-Desktop", "Fixed library browse maxWidth buckets from Moonfin Mobile-Desktop. Dynamic home, genre, and detail sizes are intentionally left to Learned Clients.", primaryVariants, thumbVariants);
+        return new ClientWarmupProfile("moonfin-mobile-desktop", "Moonfin Core", "Fixed Primary and Thumb sizes found in Moonfin Core. Dynamic card, genre, folder-grid, scaled desktop, and screen-derived variants are handled by Learned Clients.", primaryVariants, thumbVariants);
     }
 
     private static ClientWarmupProfile CreateMoonfinTvOsProfile()
