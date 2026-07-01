@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.19.0"
+version: "1.50.20.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.20.0
+  - Rename the Moonfin Mobile-Desktop warmer profile to Moonfin Core while preserving the saved profile key
+  - Update the Moonfin Core warmer profile with fixed Primary and Thumb sizes found in Moonfin Core
+
   ## v1.50.19.0
   - Reuse compatible cached image variants when request size is within 10px and only quality differs
   - Cache visible badge decisions briefly to reduce repeated detection/filtering during normal browsing bursts

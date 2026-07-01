@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.19.0",
-        "changelog": "Reuse compatible cached image variants when request size is within 10px and only quality differs, and cache visible badge decisions briefly to reduce repeated detection/filtering during normal browsing bursts.",
+        "version": "1.50.20.0",
+        "changelog": "Rename the Moonfin Mobile-Desktop warmer profile to Moonfin Core while preserving the saved profile key, and update it with fixed Primary and Thumb sizes found in Moonfin Core.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.19.0.zip",
-        "checksum": "2fb0dbc1f12d646bf14b121095e95657",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.20.0.zip",
+        "checksum": "3f9a95ff5cd52b4b0412c2826b6ddeea",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]
