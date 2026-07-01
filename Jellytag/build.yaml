@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.21.0"
+version: "1.50.22.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.50.22.0
+  - Show an animated calculating state on warmer client profile progress bars while progress is being loaded
+  - Show an animated loading bar below cache statistics while total cache files are being counted
+
   ## v1.50.21.0
   - Cache warmer progress estimates briefly to avoid repeated library scans from the plugin page
   - Prevent overlapping warmer progress calculations when the configuration page is opened or refreshed

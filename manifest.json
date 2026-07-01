@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.21.0",
-        "changelog": "Cache warmer progress estimates briefly and prevent overlapping progress calculations so opening or refreshing the plugin page does not repeatedly scan the library while Jellyfin is busy.",
+        "version": "1.50.22.0",
+        "changelog": "Show animated calculating states on warmer client profile progress bars and below cache statistics while progress and total cache files are being loaded.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.21.0.zip",
-        "checksum": "01b45814c19aca6e9bb0f6a1f7db6f5c",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.22.0.zip",
+        "checksum": "db0339357c7dc0c4fd5fd639e5766379",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

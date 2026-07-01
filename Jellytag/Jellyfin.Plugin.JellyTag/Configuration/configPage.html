@@ -47,10 +47,15 @@
             .warmer-profile-button:hover:not(:disabled) { background: #666 !important; }
             .warmer-profile-button:disabled { background: #555 !important; color: rgba(255,255,255,.75) !important; opacity: 1 !important; cursor: default; }
             .warmer-profile-progress { grid-column: 2 / 5; display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; color: rgba(255,255,255,.72); font-size: .85em; }
-            .warmer-profile-progress-bar { grid-column: 1 / 2; height: 6px; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; }
+            .warmer-profile-progress-bar { grid-column: 1 / 2; height: 6px; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; position: relative; }
             .warmer-profile-progress-fill { height: 100%; width: 0%; background: #00a4dc; transition: width .2s ease; }
+            .warmer-profile-row.calculating .warmer-profile-progress-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent); animation: warmer-progress-sweep 1.2s linear infinite; }
             .warmer-profile-progress-value { grid-column: 2 / 3; min-width: 46px; text-align: right; }
             .warmer-profile-progress-phases { grid-column: 1 / 3; opacity: .72; font-size: .9em; white-space: normal; }
+            @keyframes warmer-progress-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+            .cache-stats-progress { display: none; height: 6px; margin-top: .5em; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; position: relative; }
+            .cache-stats-progress.calculating { display: block; }
+            .cache-stats-progress.calculating::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent); animation: warmer-progress-sweep 1.2s linear infinite; }
             .learned-variants-panel { display: none; margin-top: .75em; overflow-x: auto; border: 1px solid rgba(255,255,255,.12); border-radius: .3em; }
             .learned-variants-panel.visible { display: block; }
             .learned-variants-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: .85em; }
@@ -246,6 +251,7 @@
                                 <div class="fieldDescription">Advanced: when visible badges change for an image request, temporarily touches the real Jellyfin image and restores it so clients are more likely to request refreshed artwork.</div>
                             </div>
                             <div id="CacheStatsInfo" class="fieldDescription" style="margin-top:.5em;"></div>
+                            <div id="CacheStatsProgress" class="cache-stats-progress" aria-hidden="true"></div>
                         </div>
                     </details>
 
@@ -1168,7 +1174,15 @@
             });
         }
 
+        function setWarmerProgressCalculating(isCalculating) {
+            var rows = document.querySelectorAll('#WarmerClientProfiles .warmer-profile-row');
+            Array.prototype.forEach.call(rows, function(row) {
+                row.classList.toggle('calculating', !!isCalculating);
+            });
+        }
+
         function loadWarmerProgress() {
+            setWarmerProgressCalculating(true);
             return ApiClient.ajax({
                 type: 'GET',
                 url: ApiClient.getUrl('JellyTagPlus/WarmerProgress'),
@@ -1195,6 +1209,8 @@
                 applyWarmerProgress();
             }).catch(function(err) {
                 console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
+            }).then(function() {
+                setWarmerProgressCalculating(false);
             });
         }
 
@@ -1432,13 +1448,17 @@
             var url = ApiClient.getUrl('JellyTagPlus/CacheStats');
             var token = ApiClient.accessToken(); var headers = {};
             if (token) headers['Authorization'] = 'MediaBrowser Token="' + token + '"';
+            var progress = document.querySelector('#CacheStatsProgress');
+            if (progress) progress.classList.add('calculating');
             fetch(url, {headers:headers}).then(function(r){return r.json();}).then(function(stats) {
                 var el = document.querySelector('#CacheStatsInfo');
                 if (stats.FileCount > 0) {
                     var oldest = stats.OldestEntry ? new Date(stats.OldestEntry).toLocaleString() : 'N/A';
                     el.textContent = stats.FileCount + ' files | ' + stats.TotalSizeMB + ' MB | oldest: ' + oldest;
                 } else { el.textContent = 'Cache is empty.'; }
-            }).catch(function(){document.querySelector('#CacheStatsInfo').textContent='';});
+            }).catch(function(){document.querySelector('#CacheStatsInfo').textContent='';}).then(function() {
+                if (progress) progress.classList.remove('calculating');
+            });
         }
 
         // ===== Page Show =====
