@@ -28,11 +28,11 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.50.20.0",
-        "changelog": "Rename the Moonfin Mobile-Desktop warmer profile to Moonfin Core while preserving the saved profile key, and update it with fixed Primary and Thumb sizes found in Moonfin Core.",
+        "version": "1.50.21.0",
+        "changelog": "Cache warmer progress estimates briefly and prevent overlapping progress calculations so opening or refreshing the plugin page does not repeatedly scan the library while Jellyfin is busy.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.20.0.zip",
-        "checksum": "3f9a95ff5cd52b4b0412c2826b6ddeea",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.50.21.0.zip",
+        "checksum": "01b45814c19aca6e9bb0f6a1f7db6f5c",
         "timestamp": "2026-05-29T00:00:00Z"
       }
     ]

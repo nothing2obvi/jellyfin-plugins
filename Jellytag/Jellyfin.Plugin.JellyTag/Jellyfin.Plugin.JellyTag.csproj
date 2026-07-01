@@ -9,8 +9,8 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
-    <AssemblyVersion>1.50.20.0</AssemblyVersion>
-    <Version>1.50.20.0</Version>
+    <AssemblyVersion>1.50.21.0</AssemblyVersion>
+    <Version>1.50.21.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

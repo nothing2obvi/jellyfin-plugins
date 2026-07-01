@@ -29,6 +29,9 @@ public class CacheWarmTask : IScheduledTask
     private const string WarmupResultCacheWritten = "cache-written";
     private const string WarmupResultNoVisibleBadges = "no-visible-badges";
     private static readonly TimeSpan PhaseRetryDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ProgressCacheDuration = TimeSpan.FromSeconds(60);
+    private static readonly SemaphoreSlim ProgressCalculationGate = new(1, 1);
+    private static readonly object ProgressCacheLock = new();
     private static readonly HashSet<string> DimensionQueryKeys = new(StringComparer.OrdinalIgnoreCase) { "width", "height", "maxWidth", "maxHeight", "fillWidth", "fillHeight" };
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
@@ -43,6 +46,9 @@ public class CacheWarmTask : IScheduledTask
     private static readonly string[] DefaultClientWarmupProfileKeys = [LearnedClientProfileKey, "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
     private static readonly string[] MoonfinSplitProfileKeys = ["moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku"];
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
+    private static string? _cachedProgressKey;
+    private static DateTime _cachedProgressUtc;
+    private static IReadOnlyList<WarmerClientProgress>? _cachedProgress;
     private static readonly IReadOnlyList<ClientWarmupProfile> FixedClientWarmupProfiles =
     [
         CreateFindroidProfile(),
@@ -320,6 +326,41 @@ public class CacheWarmTask : IScheduledTask
 
     public static async Task<IReadOnlyList<WarmerClientProgress>> GetEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
     {
+        var progressCacheKey = CreateProgressCacheKey(config);
+        if (TryGetCachedProgress(progressCacheKey, out var cachedProgress))
+        {
+            return cachedProgress;
+        }
+
+        if (!await ProgressCalculationGate.WaitAsync(0).ConfigureAwait(false))
+        {
+            if (TryGetAnyCachedProgress(out cachedProgress))
+            {
+                return cachedProgress;
+            }
+
+            await ProgressCalculationGate.WaitAsync().ConfigureAwait(false);
+        }
+
+        try
+        {
+            if (TryGetCachedProgress(progressCacheKey, out cachedProgress))
+            {
+                return cachedProgress;
+            }
+
+            var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger).ConfigureAwait(false);
+            SetCachedProgress(progressCacheKey, progress);
+            return progress;
+        }
+        finally
+        {
+            ProgressCalculationGate.Release();
+        }
+    }
+
+    private static async Task<IReadOnlyList<WarmerClientProgress>> CalculateEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
+    {
         var scope = CreateWarmupScope(config);
         var state = WarmupStateStore.Load(scope, logger);
         var fallbackState = WarmupStateStore.Load(scope, logger, allowStoredScope: true);
@@ -370,6 +411,48 @@ public class CacheWarmTask : IScheduledTask
         }
 
         return progress;
+    }
+
+    private static bool TryGetCachedProgress(string progressCacheKey, out IReadOnlyList<WarmerClientProgress> progress)
+    {
+        lock (ProgressCacheLock)
+        {
+            if (_cachedProgress != null
+                && string.Equals(_cachedProgressKey, progressCacheKey, StringComparison.Ordinal)
+                && DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration)
+            {
+                progress = _cachedProgress;
+                return true;
+            }
+        }
+
+        progress = [];
+        return false;
+    }
+
+    private static bool TryGetAnyCachedProgress(out IReadOnlyList<WarmerClientProgress> progress)
+    {
+        lock (ProgressCacheLock)
+        {
+            if (_cachedProgress != null && DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration)
+            {
+                progress = _cachedProgress;
+                return true;
+            }
+        }
+
+        progress = [];
+        return false;
+    }
+
+    private static void SetCachedProgress(string progressCacheKey, IReadOnlyList<WarmerClientProgress> progress)
+    {
+        lock (ProgressCacheLock)
+        {
+            _cachedProgressKey = progressCacheKey;
+            _cachedProgressUtc = DateTime.UtcNow;
+            _cachedProgress = progress;
+        }
     }
 
     private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService)
@@ -1070,6 +1153,27 @@ public class CacheWarmTask : IScheduledTask
         var json = JsonSerializer.Serialize(scope);
         var input = $"warmer-v3|{json}";
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)))[..16];
+    }
+
+    private static string CreateProgressCacheKey(PluginConfiguration config)
+    {
+        var profileKeys = (config.WarmerClientProfiles ?? [])
+            .SelectMany(ExpandClientProfileKey)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var profileOrder = (config.WarmerClientProfileOrder ?? [])
+            .SelectMany(ExpandClientProfileKey)
+            .ToList();
+
+        var scope = new
+        {
+            WarmupScope = CreateWarmupScope(config),
+            ProfileKeys = profileKeys,
+            ProfileOrder = profileOrder,
+            config.CacheDurationHours
+        };
+        var json = JsonSerializer.Serialize(scope);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)))[..16];
     }
 
     private static string ComputeShortHash(string input)
