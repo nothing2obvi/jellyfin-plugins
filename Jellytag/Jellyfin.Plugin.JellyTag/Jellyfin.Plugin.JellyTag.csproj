@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <JellyfinTargetAbi Condition="'$(JellyfinTargetAbi)' == ''">10.11.0.0</JellyfinTargetAbi>
+    <JellyfinPackageVersion Condition="'$(JellyfinPackageVersion)' == '' And '$(JellyfinTargetAbi)' == '12.0.0.0'">12.0.0-rc2</JellyfinPackageVersion>
+    <TargetFramework Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(JellyfinTargetAbi)' != '12.0.0.0'">net9.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.JellyTag</RootNamespace>
     <AssemblyName>Jellyfin.Plugin.JellyTagPlus</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,17 +12,51 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
-    <AssemblyVersion>1.50.22.0</AssemblyVersion>
-    <Version>1.50.22.0</Version>
+    <AssemblyVersion>1.51.0.0</AssemblyVersion>
+    <Version>1.51.0.0</Version>
   </PropertyGroup>
 
-  <ItemGroup>
+  <PropertyGroup Condition="'$(JellyfinTargetAbi)' == '12.0.0.0' And '$(JellyfinSourceRoot)' != ''">
+    <JellyfinSourceRoot>$([System.IO.Path]::GetFullPath('$(JellyfinSourceRoot)'))</JellyfinSourceRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(JellyfinTargetAbi)' != '12.0.0.0'">
     <PackageReference Include="Jellyfin.Controller" Version="10.11.0">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
     <PackageReference Include="Jellyfin.Model" Version="10.11.0">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JellyfinTargetAbi)' == '12.0.0.0' And '$(JellyfinSourceRoot)' == ''">
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinPackageVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinPackageVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Data" Version="$(JellyfinPackageVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JellyfinTargetAbi)' == '12.0.0.0' And '$(JellyfinSourceRoot)' != ''">
+    <ProjectReference Include="$(JellyfinSourceRoot)/MediaBrowser.Controller/MediaBrowser.Controller.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="$(JellyfinSourceRoot)/MediaBrowser.Model/MediaBrowser.Model.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="$(JellyfinSourceRoot)/Jellyfin.Data/Jellyfin.Data.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="3.116.*">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>

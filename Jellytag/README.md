@@ -117,6 +117,20 @@ Force Image Refresh is an optional helper for stubborn client-side image caches.
 
 This feature is intentionally more invasive than normal rendering. Keep image backups and use it carefully.
 
+## Jellyfin Compatibility
+
+JellyTag-Plus keeps the regular Jellyfin 10.11 package as the default build. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+
+The newer Jellyfin source line currently targets Jellyfin ABI `12.0.0.0` and .NET 10, so it needs a separate JellyTag-Plus build. From the `Jellytag` folder, build it with:
+
+```bash
+./build.sh 12
+```
+
+That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PACKAGE_VERSION` to use a newer Jellyfin 12 package when one is available, or set `JELLYFIN_SOURCE_ROOT` to build against a local Jellyfin source checkout. A .NET 10 SDK is required for the Jellyfin 12 package.
+
+JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
+
 ## Installation
 
 1. In Jellyfin, go to **Dashboard -> Plugins -> Repositories**

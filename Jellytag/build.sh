@@ -3,17 +3,50 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-ZIP_NAME="jellytag-plus-1.50.22.0.zip"
+VERSION="1.51.0.0"
+TARGET="${1:-10.11}"
+
+case "$TARGET" in
+  10.11|10.11.0|10.11.0.0)
+    TARGET_ABI="10.11.0.0"
+    FRAMEWORK="net9.0"
+    ZIP_NAME="jellytag-plus-$VERSION.zip"
+    ;;
+  12|12.0|12.0.0|12.0.0.0|jellyfin12)
+    TARGET_ABI="12.0.0.0"
+    FRAMEWORK="net10.0"
+    ZIP_NAME="jellytag-plus-$VERSION-jellyfin12.zip"
+    ;;
+  *)
+    echo "Unknown target '$TARGET'. Use 10.11 or 12."
+    exit 1
+    ;;
+esac
 
 echo "=== Building JellyTag-Plus Plugin ==="
+echo "Target ABI: $TARGET_ABI ($FRAMEWORK)"
 
-rm -rf "$OUTPUT_DIR"
+if [ "$TARGET_ABI" = "12.0.0.0" ] && [ -z "${JELLYFIN_SOURCE_ROOT:-}" ]; then
+  JELLYFIN_PACKAGE_VERSION="${JELLYFIN_PACKAGE_VERSION:-12.0.0-rc2}"
+  echo "Using Jellyfin package references version $JELLYFIN_PACKAGE_VERSION."
+fi
+
+rm -rf "$PLUGIN_DIR/publish_out"
 mkdir -p "$OUTPUT_DIR"
+rm -f "$OUTPUT_DIR"/*.dll "$OUTPUT_DIR"/*.png "$OUTPUT_DIR"/meta.json "$OUTPUT_DIR/$ZIP_NAME"
 
 echo "Compiling plugin..."
 cd "$PLUGIN_DIR"
-DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet restore
-DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish -c Release -o publish_out
+DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet restore \
+  /p:JellyfinTargetAbi="$TARGET_ABI" \
+  /p:JellyfinSourceRoot="${JELLYFIN_SOURCE_ROOT:-}" \
+  /p:JellyfinPackageVersion="${JELLYFIN_PACKAGE_VERSION:-}"
+DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish -c Release -f "$FRAMEWORK" -o publish_out \
+  /p:JellyfinTargetAbi="$TARGET_ABI" \
+  /p:JellyfinSourceRoot="${JELLYFIN_SOURCE_ROOT:-}" \
+  /p:JellyfinPackageVersion="${JELLYFIN_PACKAGE_VERSION:-}" \
+  /p:Version="$VERSION" \
+  /p:AssemblyVersion="$VERSION"
 
 echo "Copying files..."
 cd ..
@@ -32,11 +65,13 @@ cat > "$OUTPUT_DIR/meta.json" <<'JSON'
   "description": "JellyTag-Plus automatically overlays quality badges on your media posters and thumbnails. Supports per-library badge type controls, resolution, HDR, video codec, audio, language flags, VOST indicator, and regex-matched collection badges.",
   "owner": "nothing2obvi",
   "category": "General",
-  "version": "1.50.22.0",
-  "targetAbi": "10.11.0.0",
-  "timestamp": "2026-05-29T00:00:00Z"
+  "version": "__VERSION__",
+  "targetAbi": "__TARGET_ABI__",
+  "timestamp": "2026-07-02T00:00:00Z"
 }
 JSON
+sed -i.bak "s/__VERSION__/$VERSION/g; s/__TARGET_ABI__/$TARGET_ABI/g" "$OUTPUT_DIR/meta.json"
+rm -f "$OUTPUT_DIR/meta.json.bak"
 
 echo "Creating ZIP archive..."
 cd "$OUTPUT_DIR"

@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.50.22.0"
+version: "1.51.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.51.0.0
+  - Add a Jellyfin 12 / .NET 10 build target while keeping the default Jellyfin 10.11 / .NET 9 package
+  - Keep JellyTag-Plus image cache keys independent of Jellyfin server version so existing cached images can be reused
+
   ## v1.50.22.0
   - Show an animated calculating state on warmer client profile progress bars while progress is being loaded
   - Show an animated loading bar below cache statistics while total cache files are being counted
