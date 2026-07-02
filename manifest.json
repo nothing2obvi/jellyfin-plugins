@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.0.0",
-        "changelog": "Add a Jellyfin 12 / .NET 10 build while keeping the Jellyfin 10.11 / .NET 9 package. Existing JellyTag-Plus image cache keys stay independent of Jellyfin server version so already cached images can be reused when the image version, request variant, badge state, and settings match.",
+        "version": "1.51.1.0",
+        "changelog": "Keep warmer progress and cache-stat loading animations active until the updated counts have been painted. Includes the Jellyfin 12 / .NET 10 build target while keeping Jellyfin 10.11 / .NET 9 support.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.0.0.zip",
-        "checksum": "069df78bcb1dc6982073af4b8076d6ce",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.1.0.zip",
+        "checksum": "6499473e201719629e1143c962409989",
         "timestamp": "2026-07-02T00:00:00Z"
       },
       {
-        "version": "1.51.0.0",
-        "changelog": "Add a Jellyfin 12 / .NET 10 build while keeping the Jellyfin 10.11 / .NET 9 package. Existing JellyTag-Plus image cache keys stay independent of Jellyfin server version so already cached images can be reused when the image version, request variant, badge state, and settings match.",
+        "version": "1.51.1.0",
+        "changelog": "Keep warmer progress and cache-stat loading animations active until the updated counts have been painted. Includes the Jellyfin 12 / .NET 10 build target while keeping Jellyfin 10.11 / .NET 9 support.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.0.0-jellyfin12.zip",
-        "checksum": "7cbec2aed7bce321d611f2fc84ffe0fc",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.1.0-jellyfin12.zip",
+        "checksum": "085dcadb32857f1cc86b5339e5f23d97",
         "timestamp": "2026-07-02T00:00:00Z"
       }
     ]

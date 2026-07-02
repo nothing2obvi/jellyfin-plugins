@@ -1152,8 +1152,10 @@
         }
 
         function applyWarmerProgress() {
-            Object.keys(warmerProgressByKey || {}).forEach(function(key) {
-                var item = warmerProgressByKey[key];
+            var rows = document.querySelectorAll('#WarmerClientProfiles .warmer-profile-row');
+            Array.prototype.forEach.call(rows, function(row) {
+                var key = row.getAttribute('data-key');
+                var item = warmerProgressByKey ? warmerProgressByKey[key] : null;
                 var fill = document.querySelector('[data-progress-fill="' + key + '"]');
                 var value = document.querySelector('[data-progress-value="' + key + '"]');
                 var phases = document.querySelector('[data-progress-phases="' + key + '"]');
@@ -1172,6 +1174,17 @@
                     }).join(' · ');
                 }
             });
+        }
+
+        function afterNextPaint(callback) {
+            if (window.requestAnimationFrame) {
+                window.requestAnimationFrame(function() {
+                    window.requestAnimationFrame(callback);
+                });
+                return;
+            }
+
+            setTimeout(callback, 0);
         }
 
         function setWarmerProgressCalculating(isCalculating) {
@@ -1210,7 +1223,9 @@
             }).catch(function(err) {
                 console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
             }).then(function() {
-                setWarmerProgressCalculating(false);
+                afterNextPaint(function() {
+                    setWarmerProgressCalculating(false);
+                });
             });
         }
 
@@ -1457,7 +1472,9 @@
                     el.textContent = stats.FileCount + ' files | ' + stats.TotalSizeMB + ' MB | oldest: ' + oldest;
                 } else { el.textContent = 'Cache is empty.'; }
             }).catch(function(){document.querySelector('#CacheStatsInfo').textContent='';}).then(function() {
-                if (progress) progress.classList.remove('calculating');
+                afterNextPaint(function() {
+                    if (progress) progress.classList.remove('calculating');
+                });
             });
         }
 
