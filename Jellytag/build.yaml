@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.51.1.0"
+version: "1.51.2.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 owner: "nothing2obvi"
@@ -19,6 +19,9 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.51.2.0
+  - Match per-client warmer progress loading animation to the overall cache-count loading bar
+
   ## v1.51.1.0
   - Keep warmer progress and cache-stat loading animations active until the updated counts have been painted
 
