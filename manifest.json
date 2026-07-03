@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.7.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Formats cache file totals with thousands separators in the admin UI.",
+        "version": "1.51.8.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Formats cache total size with larger units such as GB and TB in the admin UI.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.7.0.zip",
-        "checksum": "86718d84a5464cdddd9844963d56555d",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.8.0.zip",
+        "checksum": "0409630bd4c88cc288d15f9cad3e8826",
         "timestamp": "2026-07-03T00:00:00Z"
       },
       {
-        "version": "1.52.3.0",
-        "changelog": "Format cache file totals with thousands separators in the admin UI.",
+        "version": "1.52.4.0",
+        "changelog": "Format cache total size with larger units such as GB and TB in the admin UI.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.3.0-jellyfin12.zip",
-        "checksum": "cce9b7fa31406377cae944dbe540a984",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.4.0-jellyfin12.zip",
+        "checksum": "d7f4c3533e1385c8cb79a4669f4810e5",
         "timestamp": "2026-07-03T00:00:00Z"
       }
     ]
