@@ -1275,6 +1275,11 @@
             return isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString();
         }
 
+        function formatCount(value) {
+            var number = Number(value || 0);
+            return isNaN(number) ? '0' : number.toLocaleString();
+        }
+
         function renderLearnedVariants(variants) {
             var panel = q('LearnedVariantsPanel');
             if (!panel) return;
@@ -1492,7 +1497,7 @@
                 var el = document.querySelector('#CacheStatsInfo');
                 if (stats.FileCount > 0) {
                     var oldest = stats.OldestEntry ? new Date(stats.OldestEntry).toLocaleString() : 'N/A';
-                    el.textContent = stats.FileCount + ' files | ' + stats.TotalSizeMB + ' MB | oldest: ' + oldest;
+                    el.textContent = formatCount(stats.FileCount) + ' files | ' + stats.TotalSizeMB + ' MB | oldest: ' + oldest;
                 } else { el.textContent = 'Cache is empty.'; }
             }).catch(function(){document.querySelector('#CacheStatsInfo').textContent='';}).then(function() {
                 afterNextPaint(function() {
