@@ -36,12 +36,12 @@
         "timestamp": "2026-07-02T00:00:00Z"
       },
       {
-        "version": "1.52.0.0",
-        "changelog": "Start the Jellyfin 12+ JellyTag-Plus release line. Shows compact per-client phase ETA estimates while the cache warmer is running.",
+        "version": "1.52.1.0",
+        "changelog": "Keep Learned Clients enabled by default, but place it last in the default warmer client profile order for new installs.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.0.0-jellyfin12.zip",
-        "checksum": "120234bb2109cd0707afd618546fb484",
-        "timestamp": "2026-07-02T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.1.0-jellyfin12.zip",
+        "checksum": "cccc2daa3226b803f35b8a31a2add139",
+        "timestamp": "2026-07-03T00:00:00Z"
       }
     ]
   }

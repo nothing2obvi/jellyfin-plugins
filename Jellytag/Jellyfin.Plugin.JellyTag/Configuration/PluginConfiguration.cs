@@ -161,8 +161,8 @@ public class PluginConfiguration : BasePluginConfiguration
         WarmerMaxConcurrency = 1;
         WarmerDelayMs = 5000;
         WarmerClientQuietSeconds = 120;
-        WarmerClientProfiles = new List<string> { "learned", "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid" };
-        WarmerClientProfileOrder = new List<string> { "learned", "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid" };
+        WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned" };
+        WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned" };
         JpegQuality = 90;
         OutputFormat = OutputImageFormat.Jpeg;
         WebPQuality = 90;

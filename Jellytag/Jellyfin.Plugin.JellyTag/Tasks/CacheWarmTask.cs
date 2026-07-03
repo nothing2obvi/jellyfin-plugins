@@ -44,7 +44,7 @@ public class CacheWarmTask : IScheduledTask
         new WarmupPhase(OtherPhaseKey, "Other", 5)
     ];
 
-    private static readonly string[] DefaultClientWarmupProfileKeys = [LearnedClientProfileKey, "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid"];
+    private static readonly string[] DefaultClientWarmupProfileKeys = ["androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", LearnedClientProfileKey];
     private static readonly string[] MoonfinSplitProfileKeys = ["moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku"];
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
     private static string? _cachedProgressKey;
