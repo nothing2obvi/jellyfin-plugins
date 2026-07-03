@@ -119,19 +119,19 @@ This feature is intentionally more invasive than normal rendering. Keep image ba
 
 ## Jellyfin Compatibility
 
-JellyTag-Plus keeps the regular Jellyfin 10.11 package as the default build. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+JellyTag-Plus `1.51.5.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
 
-The newer Jellyfin source line currently targets Jellyfin ABI `12.0.0.0` and .NET 10, so it needs a separate JellyTag-Plus build. From the `Jellytag` folder, build it with:
+JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
 
 ```bash
-./build.sh 12
+./build.sh
 ```
 
-That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PACKAGE_VERSION` to use a newer Jellyfin 12 package when one is available, or set `JELLYFIN_SOURCE_ROOT` to build against a local Jellyfin source checkout. A .NET 10 SDK is required for the Jellyfin 12 package.
+That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PACKAGE_VERSION` to use a newer Jellyfin 12 package when one is available, or set `JELLYFIN_SOURCE_ROOT` to build against a local Jellyfin source checkout. A .NET 10 SDK is required for the Jellyfin 12 package. The legacy Jellyfin 10.11 package can still be rebuilt with `./build.sh 10.11` if needed.
 
 JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
 
-Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because of that, Jellyfin 12 packages may use a tiny ABI-specific patch version above the Jellyfin 10.11 package so an upgraded server can replace the older ABI package automatically.
+Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.5.0` package on the next plugin update.
 
 ## Installation
 

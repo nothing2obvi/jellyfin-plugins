@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <JellyfinTargetAbi Condition="'$(JellyfinTargetAbi)' == ''">10.11.0.0</JellyfinTargetAbi>
+    <JellyfinTargetAbi Condition="'$(JellyfinTargetAbi)' == ''">12.0.0.0</JellyfinTargetAbi>
     <JellyfinPackageVersion Condition="'$(JellyfinPackageVersion)' == '' And '$(JellyfinTargetAbi)' == '12.0.0.0'">12.0.0-rc2</JellyfinPackageVersion>
     <TargetFramework Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">net10.0</TargetFramework>
     <TargetFramework Condition="'$(JellyfinTargetAbi)' != '12.0.0.0'">net9.0</TargetFramework>
@@ -12,8 +12,8 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
-    <AssemblyVersion>1.51.5.0</AssemblyVersion>
-    <Version>1.51.5.0</Version>
+    <AssemblyVersion>1.52.0.0</AssemblyVersion>
+    <Version>1.52.0.0</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(JellyfinTargetAbi)' == '12.0.0.0' And '$(JellyfinSourceRoot)' != ''">

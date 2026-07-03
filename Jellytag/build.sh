@@ -3,21 +3,22 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-BASE_VERSION="1.51.5.0"
-TARGET="${1:-10.11}"
+VERSION="1.52.0.0"
+LEGACY_10_11_VERSION="1.51.5.0"
+TARGET="${1:-12}"
 
 case "$TARGET" in
   10.11|10.11.0|10.11.0.0)
     TARGET_ABI="10.11.0.0"
     FRAMEWORK="net9.0"
-    VERSION="$BASE_VERSION"
-    ZIP_NAME="jellytag-plus-$VERSION.zip"
+    PACKAGE_VERSION="$LEGACY_10_11_VERSION"
+    ZIP_NAME="jellytag-plus-$PACKAGE_VERSION.zip"
     ;;
   12|12.0|12.0.0|12.0.0.0|jellyfin12)
     TARGET_ABI="12.0.0.0"
     FRAMEWORK="net10.0"
-    VERSION="1.51.5.1"
-    ZIP_NAME="jellytag-plus-$VERSION-jellyfin12.zip"
+    PACKAGE_VERSION="$VERSION"
+    ZIP_NAME="jellytag-plus-$PACKAGE_VERSION-jellyfin12.zip"
     ;;
   *)
     echo "Unknown target '$TARGET'. Use 10.11 or 12."
@@ -47,8 +48,8 @@ DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish -c Release -f "$FRAMEWORK
   /p:JellyfinTargetAbi="$TARGET_ABI" \
   /p:JellyfinSourceRoot="${JELLYFIN_SOURCE_ROOT:-}" \
   /p:JellyfinPackageVersion="${JELLYFIN_PACKAGE_VERSION:-}" \
-  /p:Version="$VERSION" \
-  /p:AssemblyVersion="$VERSION"
+  /p:Version="$PACKAGE_VERSION" \
+  /p:AssemblyVersion="$PACKAGE_VERSION"
 
 echo "Copying files..."
 cd ..
@@ -72,7 +73,7 @@ cat > "$OUTPUT_DIR/meta.json" <<'JSON'
   "timestamp": "2026-07-02T00:00:00Z"
 }
 JSON
-sed -i.bak "s/__VERSION__/$VERSION/g; s/__TARGET_ABI__/$TARGET_ABI/g" "$OUTPUT_DIR/meta.json"
+sed -i.bak "s/__VERSION__/$PACKAGE_VERSION/g; s/__TARGET_ABI__/$TARGET_ABI/g" "$OUTPUT_DIR/meta.json"
 rm -f "$OUTPUT_DIR/meta.json.bak"
 
 echo "Creating ZIP archive..."
