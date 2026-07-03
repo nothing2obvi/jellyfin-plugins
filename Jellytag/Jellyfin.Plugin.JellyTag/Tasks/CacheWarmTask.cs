@@ -30,6 +30,7 @@ public class CacheWarmTask : IScheduledTask
     private const string WarmupResultNoVisibleBadges = "no-visible-badges";
     private static readonly TimeSpan PhaseRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ProgressCacheDuration = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan EtaSampleWindow = TimeSpan.FromMinutes(15);
     private static readonly SemaphoreSlim ProgressCalculationGate = new(1, 1);
     private static readonly object ProgressCacheLock = new();
     private static readonly HashSet<string> DimensionQueryKeys = new(StringComparer.OrdinalIgnoreCase) { "width", "height", "maxWidth", "maxHeight", "fillWidth", "fillHeight" };
@@ -405,7 +406,7 @@ public class CacheWarmTask : IScheduledTask
             var completed = completedKeys.Count;
             var total = requests.Count;
             var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
-            var phases = GetDisplayPhaseProgress(requests, completedKeys);
+            var phases = GetDisplayPhaseProgress(requests, completedKeys, state, warmerStateMaxAgeHours);
 
             progress.Add(new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases));
         }
@@ -476,7 +477,7 @@ public class CacheWarmTask : IScheduledTask
         return completedKeys;
     }
 
-    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, HashSet<string> completedKeys)
+    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, HashSet<string> completedKeys, WarmupStateStore state, int? maxAgeHours)
     {
         var hasHome = requests.Any(request => string.Equals(request.Phase.Key, HomePhaseKey, StringComparison.OrdinalIgnoreCase));
         var hasLibraries = requests.Any(request => string.Equals(request.Phase.Key, LibrariesPhaseKey, StringComparison.OrdinalIgnoreCase));
@@ -493,9 +494,66 @@ public class CacheWarmTask : IScheduledTask
                 var phaseCompleted = phaseRequests.Count(request => completedKeys.Contains(request.CompletionKey));
                 var phaseTotal = phaseRequests.Count;
                 var phasePercent = phaseTotal == 0 ? 100 : Math.Round(phaseCompleted * 100.0 / phaseTotal, 1);
-                return new WarmerPhaseProgress(phase.Key, phase.Name, phaseCompleted, phaseTotal, phasePercent);
+                var etaText = GetPhaseEtaText(phaseRequests, state, maxAgeHours, phaseCompleted, phaseTotal);
+                return new WarmerPhaseProgress(phase.Key, phase.Name, phaseCompleted, phaseTotal, phasePercent, etaText);
             })
             .ToList();
+    }
+
+    private static string? GetPhaseEtaText(IReadOnlyList<WarmupRequest> phaseRequests, WarmupStateStore state, int? maxAgeHours, int completed, int total)
+    {
+        if (total == 0 || completed >= total)
+        {
+            return null;
+        }
+
+        if (Volatile.Read(ref _isRunning) == 0)
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+        var cutoff = now - EtaSampleWindow;
+        var recentCompletions = phaseRequests
+            .Select(request => state.TryGetCompletedUtc(request.CompletionKey, maxAgeHours, out var completedUtc) && completedUtc >= cutoff ? completedUtc : (DateTime?)null)
+            .Where(completedUtc => completedUtc.HasValue)
+            .Select(completedUtc => completedUtc!.Value)
+            .ToList();
+
+        if (recentCompletions.Count < 3)
+        {
+            return null;
+        }
+
+        var sampleSeconds = Math.Max(60, Math.Min(EtaSampleWindow.TotalSeconds, (now - recentCompletions.Min()).TotalSeconds));
+        var variantsPerSecond = recentCompletions.Count / sampleSeconds;
+        if (variantsPerSecond <= 0)
+        {
+            return null;
+        }
+
+        var remainingSeconds = (total - completed) / variantsPerSecond;
+        return FormatEta(TimeSpan.FromSeconds(remainingSeconds));
+    }
+
+    private static string FormatEta(TimeSpan eta)
+    {
+        if (eta.TotalSeconds < 60)
+        {
+            return "~<1m";
+        }
+
+        if (eta.TotalHours < 1)
+        {
+            return $"~{Math.Max(1, (int)Math.Ceiling(eta.TotalMinutes))}m";
+        }
+
+        if (eta.TotalDays < 1)
+        {
+            return $"~{Math.Max(1, (int)Math.Ceiling(eta.TotalHours))}h";
+        }
+
+        return $"~{Math.Max(1, (int)Math.Ceiling(eta.TotalDays))}d";
     }
 
     private static WarmupPhase GetDisplayPhase(WarmupPhase phase, bool hasHome, bool hasLibraries)
@@ -1270,6 +1328,27 @@ public class CacheWarmTask : IScheduledTask
             }
         }
 
+        public bool TryGetCompletedUtc(string key, int? maxAgeHours, out DateTime completedUtc)
+        {
+            lock (_lock)
+            {
+                if (!_state.CompletedKeys.TryGetValue(key, out var completedTicks))
+                {
+                    completedUtc = default;
+                    return false;
+                }
+
+                completedUtc = new DateTime(completedTicks, DateTimeKind.Utc);
+                if (!maxAgeHours.HasValue || (DateTime.UtcNow - completedUtc).TotalHours <= maxAgeHours.Value)
+                {
+                    return true;
+                }
+
+                completedUtc = default;
+                return false;
+            }
+        }
+
         public void MarkCompleted(string key)
         {
             lock (_lock)
@@ -1374,7 +1453,7 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    public sealed record WarmerPhaseProgress(string Key, string Name, int Completed, int Total, double Percent);
+    public sealed record WarmerPhaseProgress(string Key, string Name, int Completed, int Total, double Percent, string? EtaText);
 
     public sealed record WarmerClientProgress(string Key, string Name, bool Enabled, int Completed, int Total, double Percent, IReadOnlyList<WarmerPhaseProgress> Phases);
 

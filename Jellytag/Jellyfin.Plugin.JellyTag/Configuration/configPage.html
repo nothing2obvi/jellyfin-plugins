@@ -52,7 +52,7 @@
             .warmer-profile-row.calculating .warmer-profile-progress-fill { opacity: 0; }
             .warmer-profile-row.calculating .warmer-profile-progress-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent); animation: warmer-progress-sweep 1.2s linear infinite; }
             .warmer-profile-progress-value { grid-column: 2 / 3; min-width: 46px; text-align: right; }
-            .warmer-profile-progress-phases { grid-column: 1 / 3; opacity: .72; font-size: .9em; white-space: normal; }
+            .warmer-profile-progress-phases { grid-column: 1 / 3; opacity: .72; font-size: .9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             @keyframes warmer-progress-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
             .cache-stats-progress { display: none; height: 6px; margin-top: .5em; border-radius: 999px; background: rgba(255,255,255,.16); overflow: hidden; position: relative; }
             .cache-stats-progress.calculating { display: block; }
@@ -1171,7 +1171,8 @@
                         return phase.Total > 0;
                     }).map(function(phase) {
                         var phasePercent = phase.Total ? Math.max(0, Math.min(100, phase.Percent || 0)) : 100;
-                        return phase.Name + ' ' + phasePercent.toFixed(phasePercent % 1 === 0 ? 0 : 1) + '%';
+                        var eta = phase.EtaText ? ' ' + phase.EtaText : '';
+                        return phase.Name + ' ' + phasePercent.toFixed(phasePercent % 1 === 0 ? 0 : 1) + '%' + eta;
                     }).join(' · ');
                 }
             });
@@ -1215,7 +1216,8 @@
                                 Name: phase.Name || phase.name,
                                 Completed: phase.Completed != null ? phase.Completed : phase.completed,
                                 Total: phase.Total != null ? phase.Total : phase.total,
-                                Percent: phase.Percent != null ? phase.Percent : phase.percent
+                                Percent: phase.Percent != null ? phase.Percent : phase.percent,
+                                EtaText: phase.EtaText || phase.etaText || ''
                             };
                         })
                     };
