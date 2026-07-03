@@ -3,18 +3,20 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-VERSION="1.51.4.0"
+BASE_VERSION="1.51.5.0"
 TARGET="${1:-10.11}"
 
 case "$TARGET" in
   10.11|10.11.0|10.11.0.0)
     TARGET_ABI="10.11.0.0"
     FRAMEWORK="net9.0"
+    VERSION="$BASE_VERSION"
     ZIP_NAME="jellytag-plus-$VERSION.zip"
     ;;
   12|12.0|12.0.0|12.0.0.0|jellyfin12)
     TARGET_ABI="12.0.0.0"
     FRAMEWORK="net10.0"
+    VERSION="1.51.5.1"
     ZIP_NAME="jellytag-plus-$VERSION-jellyfin12.zip"
     ;;
   *)

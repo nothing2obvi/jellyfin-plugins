@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.4.0",
+        "version": "1.51.5.0",
         "changelog": "Show compact per-client phase ETA estimates while the cache warmer is running. Includes the Jellyfin 12 / .NET 10 build target while keeping Jellyfin 10.11 / .NET 9 support.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.4.0.zip",
-        "checksum": "169e5639451eff0cbb8d556debd3bd17",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.5.0.zip",
+        "checksum": "d0e6b364e0d7fa0993c220809c9a796a",
         "timestamp": "2026-07-02T00:00:00Z"
       },
       {
-        "version": "1.51.4.0",
+        "version": "1.51.5.1",
         "changelog": "Show compact per-client phase ETA estimates while the cache warmer is running. Includes the Jellyfin 12 / .NET 10 build target while keeping Jellyfin 10.11 / .NET 9 support.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.4.0-jellyfin12.zip",
-        "checksum": "c474279ed18fec52862dbc5eba3402f3",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.5.1-jellyfin12.zip",
+        "checksum": "a05782253e78de15efa2f892fabcaf18",
         "timestamp": "2026-07-02T00:00:00Z"
       }
     ]

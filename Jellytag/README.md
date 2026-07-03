@@ -131,6 +131,8 @@ That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PAC
 
 JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
 
+Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because of that, Jellyfin 12 packages may use a tiny ABI-specific patch version above the Jellyfin 10.11 package so an upgraded server can replace the older ABI package automatically.
+
 ## Installation
 
 1. In Jellyfin, go to **Dashboard -> Plugins -> Repositories**
