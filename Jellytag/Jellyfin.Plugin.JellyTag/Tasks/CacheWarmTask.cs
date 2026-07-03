@@ -36,8 +36,8 @@ public class CacheWarmTask : IScheduledTask
     private static readonly IReadOnlyList<WarmupPhase> WarmupPhases =
     [
         new WarmupPhase(HomePhaseKey, "Home", 0),
-        new WarmupPhase(HomeLibrariesPhaseKey, "Home & Libraries", 0),
-        new WarmupPhase(LibrariesPhaseKey, "Libraries", 2),
+        new WarmupPhase(LibrariesPhaseKey, "Libraries", 1),
+        new WarmupPhase(HomeLibrariesPhaseKey, "Home & Libraries", 2),
         new WarmupPhase(EpisodesPhaseKey, "Episodes", 3),
         new WarmupPhase(VideosPhaseKey, "Videos", 4),
         new WarmupPhase(OtherPhaseKey, "Other", 5)
