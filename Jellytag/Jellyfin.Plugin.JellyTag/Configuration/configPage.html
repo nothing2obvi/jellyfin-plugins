@@ -1157,11 +1157,21 @@
             var rows = document.querySelectorAll('#WarmerClientProfiles .warmer-profile-row');
             Array.prototype.forEach.call(rows, function(row) {
                 var key = row.getAttribute('data-key');
-                var item = warmerProgressByKey ? warmerProgressByKey[key] : null;
+                var hasItem = warmerProgressByKey && Object.prototype.hasOwnProperty.call(warmerProgressByKey, key);
+                var item = hasItem ? warmerProgressByKey[key] : null;
                 var fill = document.querySelector('[data-progress-fill="' + key + '"]');
                 var value = document.querySelector('[data-progress-value="' + key + '"]');
                 var phases = document.querySelector('[data-progress-phases="' + key + '"]');
                 if (!fill || !value) return;
+
+                if (!hasItem) {
+                    row.classList.add('calculating');
+                    fill.style.width = '0%';
+                    value.textContent = '--';
+                    value.title = 'Loading warmer progress';
+                    if (phases) phases.innerHTML = '';
+                    return;
+                }
 
                 var percent = item && item.Total ? Math.max(0, Math.min(100, item.Percent || 0)) : 100;
                 fill.style.width = percent + '%';
@@ -1197,6 +1207,15 @@
             });
         }
 
+        function finishWarmerProgressCalculating() {
+            var rows = document.querySelectorAll('#WarmerClientProfiles .warmer-profile-row');
+            Array.prototype.forEach.call(rows, function(row) {
+                var key = row.getAttribute('data-key');
+                var hasItem = warmerProgressByKey && Object.prototype.hasOwnProperty.call(warmerProgressByKey, key);
+                row.classList.toggle('calculating', !hasItem);
+            });
+        }
+
         function loadWarmerProgress() {
             setWarmerProgressCalculating(true);
             return ApiClient.ajax({
@@ -1228,7 +1247,7 @@
                 console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
             }).then(function() {
                 afterNextPaint(function() {
-                    setWarmerProgressCalculating(false);
+                    finishWarmerProgressCalculating();
                 });
             });
         }
