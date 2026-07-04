@@ -224,7 +224,7 @@
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
-                                <div class="fieldDescription" style="opacity:.72; margin-bottom:.5em;">Estimated Warmer Progress: Based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them. Learned Clients progress is dynamic and can decrease when new real client image sizes are discovered. Run the JellyTag-Plus Calculate Warmer Progress scheduled task to update these counts.</div>
+                                <div class="fieldDescription" style="opacity:.72; margin-bottom:.5em;">Estimated Warmer Progress: Based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them. Learned Clients progress is dynamic and can decrease when new real client image sizes are discovered. Run the JellyTag-Plus Calculate Progress and Totals scheduled task to update these counts.</div>
                                 <div id="WarmerProgressStatus" class="fieldDescription" style="opacity:.72; margin-bottom:.5em;"></div>
                                 <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
                                 <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Variable-size clients are covered by Learned Clients after real browsing records their Primary and Thumb requests. Learned Clients is enabled by default and placed last on new installs, but it follows the configured profile order. Jellyfin Web, Android, iOS, Desktop Qt, Tizen, WebOS, and Xbox calculate home and library sizes through Jellyfin Web. Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, DUNE, Swiftfin, and Jellyfin Desktop each have some fixed variants listed here, but their dynamic, grid, layout, or screen-derived variants are also handled by Learned Clients. Learned non-episode and non-video variants are grouped as Home &amp; Libraries when the request does not reliably separate home from library browsing.</div>
@@ -1577,10 +1577,16 @@
             if (progress) progress.classList.add('calculating');
             fetch(url, {headers:headers}).then(function(r){return r.json();}).then(function(stats) {
                 var el = document.querySelector('#CacheStatsInfo');
+                var status = (stats.Status || stats.status || '').toLowerCase();
+                var calculatedAt = stats.CalculatedAtUtc || stats.calculatedAtUtc || '';
+                var age = formatProgressAge(calculatedAt);
+                var suffix = age ? ' | calculated: ' + age : '';
                 if (stats.FileCount > 0) {
                     var oldest = stats.OldestEntry ? new Date(stats.OldestEntry).toLocaleString() : 'N/A';
-                    el.textContent = formatCount(stats.FileCount) + ' files | ' + formatSizeFromMb(stats.TotalSizeMB) + ' | oldest: ' + oldest;
-                } else { el.textContent = 'Cache is empty.'; }
+                    el.textContent = formatCount(stats.FileCount) + ' files | ' + formatSizeFromMb(stats.TotalSizeMB) + ' | oldest: ' + oldest + suffix;
+                } else if (status === 'unavailable') {
+                    el.textContent = stats.Message || stats.message || 'Run the scheduled task to calculate cache totals.';
+                } else { el.textContent = 'Cache is empty.' + suffix; }
             }).catch(function(){document.querySelector('#CacheStatsInfo').textContent='';}).then(function() {
                 afterNextPaint(function() {
                     if (progress) progress.classList.remove('calculating');

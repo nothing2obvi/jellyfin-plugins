@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.JellyTag.Tasks;
 
 /// <summary>
-/// Scheduled task that calculates cached warmer progress for the configuration page.
+/// Scheduled task that calculates cached warmer progress and totals for the configuration page.
 /// </summary>
 public class CalculateWarmerProgressTask : IScheduledTask
 {
@@ -34,13 +34,13 @@ public class CalculateWarmerProgressTask : IScheduledTask
     }
 
     /// <inheritdoc />
-    public string Name => "JellyTag-Plus Calculate Warmer Progress";
+    public string Name => "JellyTag-Plus Calculate Progress and Totals";
 
     /// <inheritdoc />
     public string Key => "JellyTagPlusCalculateWarmerProgress";
 
     /// <inheritdoc />
-    public string Description => "Calculates cached JellyTag-Plus cache warmer progress for the plugin configuration page.";
+    public string Description => "Calculates cached JellyTag-Plus cache warmer progress and cache totals for the plugin configuration page.";
 
     /// <inheritdoc />
     public string Category => "JellyTag-Plus";
@@ -67,10 +67,12 @@ public class CalculateWarmerProgressTask : IScheduledTask
             return;
         }
 
-        _logger.LogInformation("Calculating JellyTag-Plus warmer progress");
+        _logger.LogInformation("Calculating JellyTag-Plus warmer progress and cache totals");
         progress.Report(1);
         await CacheWarmTask.CalculateAndCacheEstimatedClientProgressAsync(config, _libraryManager, _learnedClientProfileService, _cacheService, _cacheWarmLogger).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        CacheWarmTask.CalculateAndCacheCacheStats(_cacheService);
         progress.Report(100);
-        _logger.LogInformation("Finished calculating JellyTag-Plus warmer progress");
+        _logger.LogInformation("Finished calculating JellyTag-Plus warmer progress and cache totals");
     }
 }

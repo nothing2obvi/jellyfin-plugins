@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.12.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Moves warmer progress calculation to a Jellyfin scheduled task so opening the plugin page does not run the heavy scan.",
+        "version": "1.51.13.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Moves total cache counts to the scheduled progress/totals task and builds warmer work incrementally by phase and client.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.12.0.zip",
-        "checksum": "7b74e54d6e2a0adcbfd9867b4c86cf82",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.13.0.zip",
+        "checksum": "95a30066539dba6d4c8d92a667c474ee",
         "timestamp": "2026-07-04T00:00:00Z"
       },
       {
-        "version": "1.52.8.0",
-        "changelog": "Move warmer progress calculation to a Jellyfin scheduled task so opening the plugin page does not run the heavy scan.",
+        "version": "1.52.9.0",
+        "changelog": "Move total cache counts to the scheduled progress/totals task and build warmer work incrementally by phase and client.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.8.0-jellyfin12.zip",
-        "checksum": "ea29b54a671f688418152e259505da7b",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.9.0-jellyfin12.zip",
+        "checksum": "ca2f800d2f999c74d033863646d560be",
         "timestamp": "2026-07-04T00:00:00Z"
       }
     ]

@@ -66,6 +66,7 @@ public partial class JellyTagController : ControllerBase
         _cacheService.ClearCache();
         _qualityService.ClearBadgeCache();
         ImageOverlayMiddleware.ResetForceRefreshState();
+        CacheWarmTask.ResetCachedCacheStats();
         return NoContent();
     }
 
@@ -77,13 +78,16 @@ public partial class JellyTagController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GetCacheStats()
     {
-        var stats = _cacheService.GetCacheStats();
+        var stats = CacheWarmTask.GetCachedCacheStats();
         return Ok(new
         {
             FileCount = stats.FileCount,
             TotalSizeMB = Math.Round(stats.TotalSizeBytes / (1024.0 * 1024.0), 2),
             OldestEntry = stats.OldestEntry,
-            NewestEntry = stats.NewestEntry
+            NewestEntry = stats.NewestEntry,
+            CalculatedAtUtc = stats.CalculatedAtUtc,
+            Status = stats.Status,
+            Message = stats.Message
         });
     }
 
