@@ -107,7 +107,9 @@ Warmer throttling is configurable:
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
-The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. While the warmer is running and enough recent completions exist, each phase can also show a compact approximate ETA. This is based on variants completed by the cache warmer plus exact request variants already known through the JellyTag-Plus cache shortcut index. Images rendered only by normal client browsing may be counted after the cache shortcut is recorded for that exact variant. **Learned Clients** progress is dynamic and can decrease when new real client image sizes are discovered, because the total amount of learned work has grown. Progress values may be cached briefly so opening or refreshing the plugin page does not repeatedly scan the library while Jellyfin is busy.
+The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. While the warmer is running and enough recent completions exist, each phase can also show a compact approximate ETA. This is based on variants completed by the cache warmer plus exact request variants already known through the JellyTag-Plus cache shortcut index. Images rendered only by normal client browsing may be counted after the cache shortcut is recorded for that exact variant. **Learned Clients** progress is dynamic and can decrease when new real client image sizes are discovered, because the total amount of learned work has grown.
+
+Progress counts are calculated by a separate scheduled task named **JellyTag-Plus Calculate Warmer Progress**. This is deliberate: estimating per-client progress can require walking enabled libraries, client variants, warmer state, and cache shortcut data, which can be heavy on large Jellyfin servers. Keeping it as a scheduled task prevents opening or refreshing the plugin page from locking up Jellyfin. The plugin page reads the most recent calculated progress. The total cache file count and size still update when the plugin page is refreshed.
 
 > **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. The Learned Clients profile can grow large on servers with many clients or dynamic image sizes because there is no built-in variant cap. This can make clients faster after warming, but plugin cache storage and warmer work may become quite large. Use it deliberately and keep an eye on disk usage.
 
@@ -119,7 +121,7 @@ This feature is intentionally more invasive than normal rendering. Keep image ba
 
 ## Jellyfin Compatibility
 
-JellyTag-Plus `1.51.11.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+JellyTag-Plus `1.51.12.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
 
 JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
 
@@ -131,7 +133,7 @@ That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PAC
 
 JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
 
-Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.11.0` package on the next plugin update.
+Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.12.0` package on the next plugin update.
 
 ## Installation
 

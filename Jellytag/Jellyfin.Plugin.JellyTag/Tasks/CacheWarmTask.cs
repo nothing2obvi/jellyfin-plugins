@@ -335,43 +335,33 @@ public class CacheWarmTask : IScheduledTask
 
         if (TryGetCachedProgress(progressCacheKey, out cachedProgress, out cachedAtUtc, allowExpired: true))
         {
-            StartProgressCalculationInBackground(progressCacheKey, config, libraryManager, learnedClientProfileService, cacheService, logger);
-            return new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, "Updating in background.");
+            return new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, "Run the JellyTag-Plus Calculate Warmer Progress scheduled task to update.");
         }
 
-        StartProgressCalculationInBackground(progressCacheKey, config, libraryManager, learnedClientProfileService, cacheService, logger);
-        return new WarmerProgressSnapshot([], "calculating", null, "Still calculating. Refresh later.");
+        return new WarmerProgressSnapshot([], "unavailable", null, "Run the JellyTag-Plus Calculate Warmer Progress scheduled task to calculate progress.");
     }
 
-    private static void StartProgressCalculationInBackground(string progressCacheKey, PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
+    public static async Task<WarmerProgressSnapshot> CalculateAndCacheEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
     {
-        if (!ProgressCalculationGate.Wait(0))
+        var progressCacheKey = CreateProgressCacheKey(config);
+        if (!await ProgressCalculationGate.WaitAsync(0).ConfigureAwait(false))
         {
-            return;
+            return GetEstimatedClientProgressSnapshot(config, libraryManager, learnedClientProfileService, cacheService, logger);
         }
 
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                if (TryGetCachedProgress(progressCacheKey, out _, out _))
-                {
-                    return;
-                }
-
-                var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger).ConfigureAwait(false);
-                SetCachedProgress(progressCacheKey, progress);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to calculate JellyTag-Plus warmer progress");
-            }
-            finally
-            {
-                ProgressCalculationGate.Release();
-            }
-        });
+            var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger).ConfigureAwait(false);
+            SetCachedProgress(progressCacheKey, progress);
+            return new WarmerProgressSnapshot(progress, "fresh", DateTime.UtcNow, null);
+        }
+        finally
+        {
+            ProgressCalculationGate.Release();
+        }
     }
+
+    public static bool IsProgressCalculationRunning => ProgressCalculationGate.CurrentCount == 0;
 
     private static async Task<IReadOnlyList<WarmerClientProgress>> CalculateEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
     {
