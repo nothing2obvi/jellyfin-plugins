@@ -121,11 +121,11 @@ public partial class JellyTagController : ControllerBase
         var config = Plugin.Instance?.Configuration;
         if (config == null || !config.Enabled)
         {
-            return Ok(new { Profiles = Array.Empty<object>(), Status = "unavailable", CalculatedAtUtc = (DateTime?)null, Message = "JellyTag-Plus is disabled." });
+            return Ok(new { Profiles = Array.Empty<object>(), Status = "unavailable", CalculatedAtUtc = (DateTime?)null, CompletedAtUtc = (DateTime?)null, Message = "JellyTag-Plus is disabled." });
         }
 
         var progress = CacheWarmTask.GetEstimatedClientProgressSnapshot(config, _libraryManager, _learnedClientProfileService, _cacheService, _cacheWarmLogger);
-        return Ok(new { progress.Profiles, progress.Status, progress.CalculatedAtUtc, progress.Message });
+        return Ok(new { progress.Profiles, progress.Status, progress.CalculatedAtUtc, progress.CompletedAtUtc, progress.Message });
     }
 
     [HttpGet("WarmerClientProfiles")]

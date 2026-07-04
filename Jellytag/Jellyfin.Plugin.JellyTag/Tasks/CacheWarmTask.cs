@@ -51,6 +51,7 @@ public class CacheWarmTask : IScheduledTask
     private static readonly TimeSpan ProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
     private static string? _cachedProgressKey;
     private static DateTime _cachedProgressUtc;
+    private static DateTime? _cachedProgressCompletedUtc;
     private static IReadOnlyList<WarmerClientProgress>? _cachedProgress;
     private static CacheStatsSnapshot? _cachedCacheStats;
     private static readonly IReadOnlyList<ClientWarmupProfile> FixedClientWarmupProfiles =
@@ -326,23 +327,23 @@ public class CacheWarmTask : IScheduledTask
     public static WarmerProgressSnapshot GetEstimatedClientProgressSnapshot(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
     {
         var progressCacheKey = CreateProgressCacheKey(config);
-        if (TryGetCachedProgress(progressCacheKey, out var cachedProgress, out var cachedAtUtc))
+        if (TryGetCachedProgress(progressCacheKey, out var cachedProgress, out var cachedAtUtc, out var completedAtUtc))
         {
             return IsProgressCalculationRunning
-                ? new WarmerProgressSnapshot(cachedProgress, "calculating", cachedAtUtc, "Still calculating progress and totals. Refresh later.")
-                : new WarmerProgressSnapshot(cachedProgress, "fresh", cachedAtUtc, null);
+                ? new WarmerProgressSnapshot(cachedProgress, "calculating", cachedAtUtc, completedAtUtc, "Still calculating progress and totals. Refresh later.")
+                : new WarmerProgressSnapshot(cachedProgress, "fresh", cachedAtUtc, completedAtUtc, null);
         }
 
-        if (TryGetCachedProgress(progressCacheKey, out cachedProgress, out cachedAtUtc, allowExpired: true))
+        if (TryGetCachedProgress(progressCacheKey, out cachedProgress, out cachedAtUtc, out completedAtUtc, allowExpired: true))
         {
             return IsProgressCalculationRunning
-                ? new WarmerProgressSnapshot(cachedProgress, "calculating", cachedAtUtc, "Still calculating progress and totals. Refresh later.")
-                : new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to update.");
+                ? new WarmerProgressSnapshot(cachedProgress, "calculating", cachedAtUtc, completedAtUtc, "Still calculating progress and totals. Refresh later.")
+                : new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, completedAtUtc, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to update.");
         }
 
         return IsProgressCalculationRunning
-            ? new WarmerProgressSnapshot([], "calculating", null, "Still calculating progress and totals. Refresh later.")
-            : new WarmerProgressSnapshot([], "unavailable", null, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to calculate progress.");
+            ? new WarmerProgressSnapshot([], "calculating", null, null, "Still calculating progress and totals. Refresh later.")
+            : new WarmerProgressSnapshot([], "unavailable", null, null, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to calculate progress.");
     }
 
     public static async Task<WarmerProgressSnapshot> CalculateAndCacheEstimatedClientProgressAsync(
@@ -364,7 +365,7 @@ public class CacheWarmTask : IScheduledTask
         {
             var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger, progressCacheKey, cancellationToken, reportProgress).ConfigureAwait(false);
             SetCachedProgress(progressCacheKey, progress);
-            return new WarmerProgressSnapshot(progress, "fresh", DateTime.UtcNow, null);
+            return new WarmerProgressSnapshot(progress, "fresh", DateTime.UtcNow, _cachedProgressCompletedUtc, null);
         }
         finally
         {
@@ -479,10 +480,17 @@ public class CacheWarmTask : IScheduledTask
         {
             cancellationToken.ThrowIfCancellationRequested();
             var profile = profiles[profileIndex];
+            void ReportProfileProgress(double profileProgress)
+            {
+                reportProgress?.Invoke(profiles.Count == 0 ? 1 : Math.Clamp((profileIndex + Math.Clamp(profileProgress, 0, 1)) / profiles.Count, 0, 1));
+            }
+
+            ReportProfileProgress(0);
             var requests = new List<WarmupRequest>();
-            foreach (var item in items)
+            for (var itemIndex = 0; itemIndex < items.Count; itemIndex++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var item = items[itemIndex];
                 if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
                 {
                     requests.AddRange(CreateWarmupRequests(profile, 0, item, "Primary"));
@@ -492,30 +500,44 @@ public class CacheWarmTask : IScheduledTask
                 {
                     requests.AddRange(CreateWarmupRequests(profile, 0, item, "Thumb"));
                 }
+
+                if ((itemIndex + 1) % ProgressCalculationYieldEvery == 0)
+                {
+                    ReportProfileProgress((itemIndex + 1) * 0.35 / Math.Max(1, items.Count));
+                    await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+                }
             }
 
+            ReportProfileProgress(0.35);
             await Task.Delay(1, cancellationToken).ConfigureAwait(false);
             requests = requests
                 .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
                 .Select(group => group.First())
                 .ToList();
 
-            var completedKeys = await GetCompletedWarmupRequestKeysAsync(requests, state, warmerStateMaxAgeHours, cacheService, cancellationToken).ConfigureAwait(false);
+            ReportProfileProgress(0.4);
+            var completedKeys = await GetCompletedWarmupRequestKeysAsync(
+                requests,
+                state,
+                warmerStateMaxAgeHours,
+                cacheService,
+                cancellationToken,
+                requestProgress => ReportProfileProgress(0.4 + (requestProgress * 0.55))).ConfigureAwait(false);
             var completed = completedKeys.Count;
             var total = requests.Count;
             var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
             var phases = GetDisplayPhaseProgress(requests, completedKeys, state, warmerStateMaxAgeHours);
 
             progress.Add(new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases));
-            SetCachedProgress(progressCacheKey, progress);
-            reportProgress?.Invoke(profiles.Count == 0 ? 1 : (profileIndex + 1) * 1.0 / profiles.Count);
+            SetCachedProgress(progressCacheKey, progress, completed: false);
+            ReportProfileProgress(1);
             await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
 
         return progress;
     }
 
-    private static bool TryGetCachedProgress(string progressCacheKey, out IReadOnlyList<WarmerClientProgress> progress, out DateTime cachedAtUtc, bool allowExpired = false)
+    private static bool TryGetCachedProgress(string progressCacheKey, out IReadOnlyList<WarmerClientProgress> progress, out DateTime cachedAtUtc, out DateTime? completedAtUtc, bool allowExpired = false)
     {
         lock (ProgressCacheLock)
         {
@@ -525,21 +547,28 @@ public class CacheWarmTask : IScheduledTask
             {
                 progress = _cachedProgress;
                 cachedAtUtc = _cachedProgressUtc;
+                completedAtUtc = _cachedProgressCompletedUtc;
                 return true;
             }
         }
 
         progress = [];
         cachedAtUtc = default;
+        completedAtUtc = null;
         return false;
     }
 
-    private static void SetCachedProgress(string progressCacheKey, IReadOnlyList<WarmerClientProgress> progress)
+    private static void SetCachedProgress(string progressCacheKey, IReadOnlyList<WarmerClientProgress> progress, bool completed = true)
     {
         lock (ProgressCacheLock)
         {
             _cachedProgressKey = progressCacheKey;
             _cachedProgressUtc = DateTime.UtcNow;
+            if (completed)
+            {
+                _cachedProgressCompletedUtc = _cachedProgressUtc;
+            }
+
             _cachedProgress = progress;
         }
     }
@@ -554,7 +583,7 @@ public class CacheWarmTask : IScheduledTask
         return snapshot;
     }
 
-    private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService, CancellationToken cancellationToken)
+    private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService, CancellationToken cancellationToken, Action<double>? reportProgress = null)
     {
         var completedKeys = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < requests.Count; index++)
@@ -575,10 +604,12 @@ public class CacheWarmTask : IScheduledTask
 
             if ((index + 1) % ProgressCalculationYieldEvery == 0)
             {
+                reportProgress?.Invoke((index + 1) * 1.0 / Math.Max(1, requests.Count));
                 await Task.Delay(1, cancellationToken).ConfigureAwait(false);
             }
         }
 
+        reportProgress?.Invoke(1);
         return completedKeys;
     }
 
@@ -1587,7 +1618,7 @@ public class CacheWarmTask : IScheduledTask
 
     public sealed record WarmerClientProgress(string Key, string Name, bool Enabled, int Completed, int Total, double Percent, IReadOnlyList<WarmerPhaseProgress> Phases);
 
-    public sealed record WarmerProgressSnapshot(IReadOnlyList<WarmerClientProgress> Profiles, string Status, DateTime? CalculatedAtUtc, string? Message);
+    public sealed record WarmerProgressSnapshot(IReadOnlyList<WarmerClientProgress> Profiles, string Status, DateTime? CalculatedAtUtc, DateTime? CompletedAtUtc, string? Message);
 
     public sealed record CacheStatsSnapshot(int FileCount, long TotalSizeBytes, DateTime? OldestEntry, DateTime? NewestEntry, DateTime? CalculatedAtUtc, string Status, string? Message);
 

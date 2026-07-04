@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.15.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Calculates warmer progress and cache totals in smaller batches with partial saved snapshots.",
+        "version": "1.51.16.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Keeps Last calculated tied to completed progress calculations and reports scheduled-task progress during the current profile scan.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.15.0.zip",
-        "checksum": "6736839d46a32fa5600c7123f60ee8f3",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.16.0.zip",
+        "checksum": "6f81b50bc207c81bacb22cd3e7bee97d",
         "timestamp": "2026-07-04T00:00:00Z"
       },
       {
-        "version": "1.52.11.0",
-        "changelog": "Calculate warmer progress and cache totals in smaller batches with partial saved snapshots.",
+        "version": "1.52.12.0",
+        "changelog": "Keep Last calculated tied to completed progress calculations and report scheduled-task progress during the current profile scan.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.11.0-jellyfin12.zip",
-        "checksum": "d3a410ff4f4f89e88f52a6192a578d3b",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.12.0-jellyfin12.zip",
+        "checksum": "a14e59ac6f3b9902494ec9344bd8eff4",
         "timestamp": "2026-07-04T00:00:00Z"
       }
     ]

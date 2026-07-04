@@ -1274,12 +1274,14 @@
                 warmerProgressByKey = {};
                 var status = (result.Status || result.status || '').toLowerCase();
                 var calculatedAt = result.CalculatedAtUtc || result.calculatedAtUtc || '';
-                var age = formatProgressAge(calculatedAt);
+                var completedAt = result.CompletedAtUtc || result.completedAtUtc || '';
+                var age = formatProgressAge(completedAt || calculatedAt);
+                var completedAge = formatProgressAge(completedAt);
                 var message = result.Message || result.message || '';
                 var profiles = result.Profiles || result.profiles || [];
                 if (!profiles.length) {
                     if (status === 'calculating') {
-                        setWarmerProgressStatus(message || 'Still calculating. Refresh later.');
+                        setWarmerProgressStatus((message || 'Still calculating. Refresh later.') + (completedAge ? ' Last calculated ' + completedAge + '.' : ' No completed calculation yet.'));
                         setWarmerProgressMessage(message || 'Still calculating. Refresh later.', true);
                     } else {
                         setWarmerProgressStatus(message || 'Progress unavailable. Refresh to retry.');
@@ -1307,7 +1309,9 @@
                     };
                 });
                 applyWarmerProgress();
-                if (status === 'stale') {
+                if (status === 'calculating') {
+                    setWarmerProgressStatus((message || 'Still calculating. Refresh later.') + (completedAge ? ' Last calculated ' + completedAge + '.' : ' No completed calculation yet.'));
+                } else if (status === 'stale') {
                     setWarmerProgressStatus('Last calculated ' + (age || 'earlier') + '. Run the scheduled task to update.');
                 } else if (age) {
                     setWarmerProgressStatus('Last calculated ' + age + '.');
