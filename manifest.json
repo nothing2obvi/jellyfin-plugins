@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.14.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Reports cache warmer task progress by phase/client bucket so incremental planning does not show 100% early.",
+        "version": "1.51.15.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Calculates warmer progress and cache totals in smaller batches with partial saved snapshots.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.14.0.zip",
-        "checksum": "de6cdf6185cffbe95e113c82b1f5dbc2",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.15.0.zip",
+        "checksum": "6736839d46a32fa5600c7123f60ee8f3",
         "timestamp": "2026-07-04T00:00:00Z"
       },
       {
-        "version": "1.52.10.0",
-        "changelog": "Report cache warmer task progress by phase/client bucket so incremental planning does not show 100% early.",
+        "version": "1.52.11.0",
+        "changelog": "Calculate warmer progress and cache totals in smaller batches with partial saved snapshots.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.10.0-jellyfin12.zip",
-        "checksum": "f1705f9b2bf1e6ab75e1254e9731ac4d",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.11.0-jellyfin12.zip",
+        "checksum": "d3a410ff4f4f89e88f52a6192a578d3b",
         "timestamp": "2026-07-04T00:00:00Z"
       }
     ]

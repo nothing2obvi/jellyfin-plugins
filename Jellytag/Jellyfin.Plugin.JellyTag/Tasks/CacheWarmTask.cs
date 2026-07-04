@@ -31,6 +31,8 @@ public class CacheWarmTask : IScheduledTask
     private static readonly TimeSpan PhaseRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ProgressCacheDuration = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan EtaSampleWindow = TimeSpan.FromMinutes(15);
+    private const int ProgressCalculationYieldEvery = 100;
+    private const int CacheStatsYieldEvery = 500;
     private static readonly SemaphoreSlim ProgressCalculationGate = new(1, 1);
     private static readonly object ProgressCacheLock = new();
     private static readonly HashSet<string> DimensionQueryKeys = new(StringComparer.OrdinalIgnoreCase) { "width", "height", "maxWidth", "maxHeight", "fillWidth", "fillHeight" };
@@ -326,18 +328,31 @@ public class CacheWarmTask : IScheduledTask
         var progressCacheKey = CreateProgressCacheKey(config);
         if (TryGetCachedProgress(progressCacheKey, out var cachedProgress, out var cachedAtUtc))
         {
-            return new WarmerProgressSnapshot(cachedProgress, "fresh", cachedAtUtc, null);
+            return IsProgressCalculationRunning
+                ? new WarmerProgressSnapshot(cachedProgress, "calculating", cachedAtUtc, "Still calculating progress and totals. Refresh later.")
+                : new WarmerProgressSnapshot(cachedProgress, "fresh", cachedAtUtc, null);
         }
 
         if (TryGetCachedProgress(progressCacheKey, out cachedProgress, out cachedAtUtc, allowExpired: true))
         {
-            return new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to update.");
+            return IsProgressCalculationRunning
+                ? new WarmerProgressSnapshot(cachedProgress, "calculating", cachedAtUtc, "Still calculating progress and totals. Refresh later.")
+                : new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to update.");
         }
 
-        return new WarmerProgressSnapshot([], "unavailable", null, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to calculate progress.");
+        return IsProgressCalculationRunning
+            ? new WarmerProgressSnapshot([], "calculating", null, "Still calculating progress and totals. Refresh later.")
+            : new WarmerProgressSnapshot([], "unavailable", null, "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to calculate progress.");
     }
 
-    public static async Task<WarmerProgressSnapshot> CalculateAndCacheEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
+    public static async Task<WarmerProgressSnapshot> CalculateAndCacheEstimatedClientProgressAsync(
+        PluginConfiguration config,
+        ILibraryManager libraryManager,
+        ILearnedClientProfileService learnedClientProfileService,
+        IImageCacheService cacheService,
+        ILogger<CacheWarmTask> logger,
+        CancellationToken cancellationToken = default,
+        Action<double>? reportProgress = null)
     {
         var progressCacheKey = CreateProgressCacheKey(config);
         if (!await ProgressCalculationGate.WaitAsync(0).ConfigureAwait(false))
@@ -347,7 +362,7 @@ public class CacheWarmTask : IScheduledTask
 
         try
         {
-            var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger).ConfigureAwait(false);
+            var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger, progressCacheKey, cancellationToken, reportProgress).ConfigureAwait(false);
             SetCachedProgress(progressCacheKey, progress);
             return new WarmerProgressSnapshot(progress, "fresh", DateTime.UtcNow, null);
         }
@@ -367,16 +382,58 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    public static CacheStatsSnapshot CalculateAndCacheCacheStats(IImageCacheService cacheService)
+    public static async Task<CacheStatsSnapshot> CalculateAndCacheCacheStatsAsync(IImageCacheService cacheService, CancellationToken cancellationToken = default, Action<double>? reportProgress = null)
     {
-        var stats = cacheService.GetCacheStats();
-        var snapshot = new CacheStatsSnapshot(stats.FileCount, stats.TotalSizeBytes, stats.OldestEntry, stats.NewestEntry, DateTime.UtcNow, "fresh", null);
-        lock (ProgressCacheLock)
+        try
         {
-            _cachedCacheStats = snapshot;
-        }
+            var cachePath = cacheService.GetCacheDirectory();
+            if (!Directory.Exists(cachePath))
+            {
+                return SetCachedCacheStats(new CacheStatsSnapshot(0, 0, null, null, DateTime.UtcNow, "fresh", null));
+            }
 
-        return snapshot;
+            var count = 0;
+            var totalSize = 0L;
+            DateTime? oldest = null;
+            DateTime? newest = null;
+            foreach (var file in Directory.EnumerateFiles(cachePath, "*.*", SearchOption.AllDirectories)
+                .Where(file => file.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                FileInfo info;
+                try
+                {
+                    info = new FileInfo(file);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                count++;
+                totalSize += info.Length;
+                oldest = !oldest.HasValue || info.LastWriteTimeUtc < oldest.Value ? info.LastWriteTimeUtc : oldest;
+                newest = !newest.HasValue || info.LastWriteTimeUtc > newest.Value ? info.LastWriteTimeUtc : newest;
+
+                if (count % CacheStatsYieldEvery == 0)
+                {
+                    SetCachedCacheStats(new CacheStatsSnapshot(count, totalSize, oldest, newest, DateTime.UtcNow, "calculating", "Still calculating cache totals. Refresh later."));
+                    reportProgress?.Invoke(Math.Min(0.99, count / (count + 1000.0)));
+                    await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            reportProgress?.Invoke(1);
+            return SetCachedCacheStats(new CacheStatsSnapshot(count, totalSize, oldest, newest, DateTime.UtcNow, "fresh", null));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return SetCachedCacheStats(new CacheStatsSnapshot(0, 0, null, null, DateTime.UtcNow, "unavailable", "Cache totals could not be calculated. Run the scheduled task to retry."));
+        }
     }
 
     public static void ResetCachedCacheStats()
@@ -387,8 +444,17 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    private static async Task<IReadOnlyList<WarmerClientProgress>> CalculateEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
+    private static async Task<IReadOnlyList<WarmerClientProgress>> CalculateEstimatedClientProgressAsync(
+        PluginConfiguration config,
+        ILibraryManager libraryManager,
+        ILearnedClientProfileService learnedClientProfileService,
+        IImageCacheService cacheService,
+        ILogger<CacheWarmTask> logger,
+        string progressCacheKey,
+        CancellationToken cancellationToken,
+        Action<double>? reportProgress)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var scope = CreateWarmupScope(config);
         var state = WarmupStateStore.Load(scope, logger);
         var fallbackState = WarmupStateStore.Load(scope, logger, allowStoredScope: true);
@@ -407,12 +473,16 @@ public class CacheWarmTask : IScheduledTask
         }).Where(item => IsInEnabledLibrary(item, config, libraryManager)).ToList();
 
         var enabledKeys = GetEnabledClientProfileKeys(config).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var profiles = GetOrderedClientWarmupProfiles(config, includeDisabled: true, learnedClientProfileService).ToList();
         var progress = new List<WarmerClientProgress>();
-        foreach (var profile in GetOrderedClientWarmupProfiles(config, includeDisabled: true, learnedClientProfileService))
+        for (var profileIndex = 0; profileIndex < profiles.Count; profileIndex++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var profile = profiles[profileIndex];
             var requests = new List<WarmupRequest>();
             foreach (var item in items)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (ShouldRequestPrimary(item, config) && item.HasImage(ImageType.Primary, 0))
                 {
                     requests.AddRange(CreateWarmupRequests(profile, 0, item, "Primary"));
@@ -424,18 +494,22 @@ public class CacheWarmTask : IScheduledTask
                 }
             }
 
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
             requests = requests
                 .GroupBy(request => request.CacheKey, StringComparer.Ordinal)
                 .Select(group => group.First())
                 .ToList();
 
-            var completedKeys = await GetCompletedWarmupRequestKeysAsync(requests, state, warmerStateMaxAgeHours, cacheService).ConfigureAwait(false);
+            var completedKeys = await GetCompletedWarmupRequestKeysAsync(requests, state, warmerStateMaxAgeHours, cacheService, cancellationToken).ConfigureAwait(false);
             var completed = completedKeys.Count;
             var total = requests.Count;
             var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
             var phases = GetDisplayPhaseProgress(requests, completedKeys, state, warmerStateMaxAgeHours);
 
             progress.Add(new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases));
+            SetCachedProgress(progressCacheKey, progress);
+            reportProgress?.Invoke(profiles.Count == 0 ? 1 : (profileIndex + 1) * 1.0 / profiles.Count);
+            await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         }
 
         return progress;
@@ -470,11 +544,23 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService)
+    private static CacheStatsSnapshot SetCachedCacheStats(CacheStatsSnapshot snapshot)
+    {
+        lock (ProgressCacheLock)
+        {
+            _cachedCacheStats = snapshot;
+        }
+
+        return snapshot;
+    }
+
+    private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService, CancellationToken cancellationToken)
     {
         var completedKeys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var request in requests)
+        for (var index = 0; index < requests.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var request = requests[index];
             if (state.Contains(request.CompletionKey, maxAgeHours))
             {
                 completedKeys.Add(request.CompletionKey);
@@ -485,6 +571,11 @@ public class CacheWarmTask : IScheduledTask
             if (await cacheService.GetCachedImageFileForRequestAsync(request.ItemId, requestCacheKey).ConfigureAwait(false) != null)
             {
                 completedKeys.Add(request.CompletionKey);
+            }
+
+            if ((index + 1) % ProgressCalculationYieldEvery == 0)
+            {
+                await Task.Delay(1, cancellationToken).ConfigureAwait(false);
             }
         }
 

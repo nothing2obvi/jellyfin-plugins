@@ -69,9 +69,19 @@ public class CalculateWarmerProgressTask : IScheduledTask
 
         _logger.LogInformation("Calculating JellyTag-Plus warmer progress and cache totals");
         progress.Report(1);
-        await CacheWarmTask.CalculateAndCacheEstimatedClientProgressAsync(config, _libraryManager, _learnedClientProfileService, _cacheService, _cacheWarmLogger).ConfigureAwait(false);
+        await CacheWarmTask.CalculateAndCacheEstimatedClientProgressAsync(
+            config,
+            _libraryManager,
+            _learnedClientProfileService,
+            _cacheService,
+            _cacheWarmLogger,
+            cancellationToken,
+            percent => progress.Report(Math.Clamp(1 + (percent * 0.79), 1, 80))).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        CacheWarmTask.CalculateAndCacheCacheStats(_cacheService);
+        await CacheWarmTask.CalculateAndCacheCacheStatsAsync(
+            _cacheService,
+            cancellationToken,
+            percent => progress.Report(Math.Clamp(80 + (percent * 0.20), 80, 99))).ConfigureAwait(false);
         progress.Report(100);
         _logger.LogInformation("Finished calculating JellyTag-Plus warmer progress and cache totals");
     }

@@ -12,8 +12,8 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
-    <AssemblyVersion>1.52.10.0</AssemblyVersion>
-    <Version>1.52.10.0</Version>
+    <AssemblyVersion>1.52.11.0</AssemblyVersion>
+    <Version>1.52.11.0</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(JellyfinTargetAbi)' == '12.0.0.0' And '$(JellyfinSourceRoot)' != ''">
