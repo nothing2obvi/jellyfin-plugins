@@ -225,6 +225,7 @@
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused">Warmer Client Profiles</label>
                                 <div class="fieldDescription" style="opacity:.72; margin-bottom:.5em;">Estimated Warmer Progress: Based on variants completed by the cache warmer. Images rendered only by normal client browsing may be counted after the warmer touches them. Learned Clients progress is dynamic and can decrease when new real client image sizes are discovered. Refresh this page to update progress; values may be cached briefly to avoid slowing Jellyfin.</div>
+                                <div id="WarmerProgressStatus" class="fieldDescription" style="opacity:.72; margin-bottom:.5em;"></div>
                                 <div id="WarmerClientProfiles" style="display:grid; gap:8px;"></div>
                                 <div class="fieldDescription" style="opacity:.72; margin-top:.5em;">Variable-size clients are covered by Learned Clients after real browsing records their Primary and Thumb requests. Learned Clients is enabled by default and placed last on new installs, but it follows the configured profile order. Jellyfin Web, Android, iOS, Desktop Qt, Tizen, WebOS, and Xbox calculate home and library sizes through Jellyfin Web. Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, DUNE, Swiftfin, and Jellyfin Desktop each have some fixed variants listed here, but their dynamic, grid, layout, or screen-derived variants are also handled by Learned Clients. Learned non-episode and non-video variants are grouped as Home &amp; Libraries when the request does not reliably separate home from library browsing.</div>
                                 <button id="ViewLearnedVariants" is="emby-button" type="button" class="raised" style="margin-top:.75em;"><span>View Learned Variants</span></button>
@@ -1216,14 +1217,14 @@
             });
         }
 
-        function setWarmerProgressUnavailable(message) {
+        function setWarmerProgressMessage(message, keepAnimating) {
             var rows = document.querySelectorAll('#WarmerClientProfiles .warmer-profile-row');
             Array.prototype.forEach.call(rows, function(row) {
                 var key = row.getAttribute('data-key');
                 var fill = document.querySelector('[data-progress-fill="' + key + '"]');
                 var value = document.querySelector('[data-progress-value="' + key + '"]');
                 var phases = document.querySelector('[data-progress-phases="' + key + '"]');
-                row.classList.remove('calculating');
+                row.classList.toggle('calculating', !!keepAnimating);
                 if (fill) fill.style.width = '0%';
                 if (value) {
                     value.textContent = '--';
@@ -1233,13 +1234,36 @@
             });
         }
 
+        function setWarmerProgressStatus(message) {
+            var el = q('WarmerProgressStatus');
+            if (el) el.textContent = message || '';
+        }
+
+        function formatProgressAge(value) {
+            if (!value) return '';
+            var date = new Date(value);
+            if (isNaN(date.getTime())) return '';
+            var seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+            if (seconds < 60) return 'just now';
+            var minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return minutes + 'm ago';
+            var hours = Math.floor(minutes / 60);
+            minutes = minutes % 60;
+            if (hours < 24) return hours + 'h' + (minutes ? ' ' + minutes + 'm' : '') + ' ago';
+            var days = Math.floor(hours / 24);
+            hours = hours % 24;
+            return days + 'd' + (hours ? ' ' + hours + 'h' : '') + ' ago';
+        }
+
         function loadWarmerProgress() {
             setWarmerProgressCalculating(true);
+            setWarmerProgressStatus('Loading warmer progress...');
             var completed = false;
             var timeout = setTimeout(function() {
                 if (completed) return;
-                setWarmerProgressUnavailable('Progress unavailable. Refresh to retry.');
-            }, 120000);
+                setWarmerProgressStatus('Progress unavailable. Refresh to retry.');
+                setWarmerProgressMessage('Progress unavailable. Refresh to retry.', false);
+            }, 300000);
             return ApiClient.ajax({
                 type: 'GET',
                 url: ApiClient.getUrl('JellyTagPlus/WarmerProgress'),
@@ -1248,9 +1272,19 @@
                 completed = true;
                 clearTimeout(timeout);
                 warmerProgressByKey = {};
+                var status = (result.Status || result.status || '').toLowerCase();
+                var calculatedAt = result.CalculatedAtUtc || result.calculatedAtUtc || '';
+                var age = formatProgressAge(calculatedAt);
+                var message = result.Message || result.message || '';
                 var profiles = result.Profiles || result.profiles || [];
                 if (!profiles.length) {
-                    setWarmerProgressUnavailable('Progress unavailable. Refresh to retry.');
+                    if (status === 'calculating') {
+                        setWarmerProgressStatus(message || 'Still calculating. Refresh later.');
+                        setWarmerProgressMessage(message || 'Still calculating. Refresh later.', true);
+                    } else {
+                        setWarmerProgressStatus(message || 'Progress unavailable. Refresh to retry.');
+                        setWarmerProgressMessage(message || 'Progress unavailable. Refresh to retry.', false);
+                    }
                     return;
                 }
 
@@ -1273,6 +1307,13 @@
                     };
                 });
                 applyWarmerProgress();
+                if (status === 'stale') {
+                    setWarmerProgressStatus('Updating in background. Last updated ' + (age || 'earlier') + '.');
+                } else if (age) {
+                    setWarmerProgressStatus('Last updated ' + age + '.');
+                } else {
+                    setWarmerProgressStatus('');
+                }
                 afterNextPaint(function() {
                     finishWarmerProgressCalculating();
                 });
@@ -1280,7 +1321,8 @@
                 completed = true;
                 clearTimeout(timeout);
                 console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
-                setWarmerProgressUnavailable('Progress unavailable. Refresh to retry.');
+                setWarmerProgressStatus('Progress unavailable. Refresh to retry.');
+                setWarmerProgressMessage('Progress unavailable. Refresh to retry.', false);
             });
         }
 

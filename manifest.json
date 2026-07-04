@@ -28,20 +28,20 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.9.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Shows a retry message when warmer progress is unavailable and returns stale cached progress while another progress calculation is running.",
+        "version": "1.51.10.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Returns cached warmer progress immediately, refreshes expensive progress calculations in the background, and shows fresh, stale, calculating, and retry states.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.9.0.zip",
-        "checksum": "7807df225bbab8ae3a859ab2b4a31030",
-        "timestamp": "2026-07-03T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.10.0.zip",
+        "checksum": "0bb0a666beaacc695cadd3962c343e17",
+        "timestamp": "2026-07-04T00:00:00Z"
       },
       {
-        "version": "1.52.5.0",
-        "changelog": "Show a retry message when warmer progress is unavailable and return stale cached progress while another progress calculation is running.",
+        "version": "1.52.6.0",
+        "changelog": "Return cached warmer progress immediately, refresh expensive progress calculations in the background, and show fresh, stale, calculating, and retry states.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.5.0-jellyfin12.zip",
-        "checksum": "efda414f979e088ebf1344dab0586d64",
-        "timestamp": "2026-07-03T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.6.0-jellyfin12.zip",
+        "checksum": "ffc00285831fde94fcd4c5a33a3755d6",
+        "timestamp": "2026-07-04T00:00:00Z"
       }
     ]
   }

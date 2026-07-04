@@ -325,39 +325,52 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    public static async Task<IReadOnlyList<WarmerClientProgress>> GetEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
+    public static WarmerProgressSnapshot GetEstimatedClientProgressSnapshot(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
     {
         var progressCacheKey = CreateProgressCacheKey(config);
-        if (TryGetCachedProgress(progressCacheKey, out var cachedProgress))
+        if (TryGetCachedProgress(progressCacheKey, out var cachedProgress, out var cachedAtUtc))
         {
-            return cachedProgress;
+            return new WarmerProgressSnapshot(cachedProgress, "fresh", cachedAtUtc, null);
         }
 
-        if (!await ProgressCalculationGate.WaitAsync(0).ConfigureAwait(false))
+        if (TryGetCachedProgress(progressCacheKey, out cachedProgress, out cachedAtUtc, allowExpired: true))
         {
-            if (TryGetAnyCachedProgress(out cachedProgress, allowExpired: true))
+            StartProgressCalculationInBackground(progressCacheKey, config, libraryManager, learnedClientProfileService, cacheService, logger);
+            return new WarmerProgressSnapshot(cachedProgress, "stale", cachedAtUtc, "Updating in background.");
+        }
+
+        StartProgressCalculationInBackground(progressCacheKey, config, libraryManager, learnedClientProfileService, cacheService, logger);
+        return new WarmerProgressSnapshot([], "calculating", null, "Still calculating. Refresh later.");
+    }
+
+    private static void StartProgressCalculationInBackground(string progressCacheKey, PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
+    {
+        if (!ProgressCalculationGate.Wait(0))
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                return cachedProgress;
+                if (TryGetCachedProgress(progressCacheKey, out _, out _))
+                {
+                    return;
+                }
+
+                var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger).ConfigureAwait(false);
+                SetCachedProgress(progressCacheKey, progress);
             }
-
-            await ProgressCalculationGate.WaitAsync().ConfigureAwait(false);
-        }
-
-        try
-        {
-            if (TryGetCachedProgress(progressCacheKey, out cachedProgress))
+            catch (Exception ex)
             {
-                return cachedProgress;
+                logger.LogWarning(ex, "Failed to calculate JellyTag-Plus warmer progress");
             }
-
-            var progress = await CalculateEstimatedClientProgressAsync(config, libraryManager, learnedClientProfileService, cacheService, logger).ConfigureAwait(false);
-            SetCachedProgress(progressCacheKey, progress);
-            return progress;
-        }
-        finally
-        {
-            ProgressCalculationGate.Release();
-        }
+            finally
+            {
+                ProgressCalculationGate.Release();
+            }
+        });
     }
 
     private static async Task<IReadOnlyList<WarmerClientProgress>> CalculateEstimatedClientProgressAsync(PluginConfiguration config, ILibraryManager libraryManager, ILearnedClientProfileService learnedClientProfileService, IImageCacheService cacheService, ILogger<CacheWarmTask> logger)
@@ -414,35 +427,22 @@ public class CacheWarmTask : IScheduledTask
         return progress;
     }
 
-    private static bool TryGetCachedProgress(string progressCacheKey, out IReadOnlyList<WarmerClientProgress> progress)
+    private static bool TryGetCachedProgress(string progressCacheKey, out IReadOnlyList<WarmerClientProgress> progress, out DateTime cachedAtUtc, bool allowExpired = false)
     {
         lock (ProgressCacheLock)
         {
             if (_cachedProgress != null
                 && string.Equals(_cachedProgressKey, progressCacheKey, StringComparison.Ordinal)
-                && DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration)
+                && (allowExpired || DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration))
             {
                 progress = _cachedProgress;
+                cachedAtUtc = _cachedProgressUtc;
                 return true;
             }
         }
 
         progress = [];
-        return false;
-    }
-
-    private static bool TryGetAnyCachedProgress(out IReadOnlyList<WarmerClientProgress> progress, bool allowExpired = false)
-    {
-        lock (ProgressCacheLock)
-        {
-            if (_cachedProgress != null && (allowExpired || DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration))
-            {
-                progress = _cachedProgress;
-                return true;
-            }
-        }
-
-        progress = [];
+        cachedAtUtc = default;
         return false;
     }
 
@@ -1456,5 +1456,7 @@ public class CacheWarmTask : IScheduledTask
     public sealed record WarmerPhaseProgress(string Key, string Name, int Completed, int Total, double Percent, string? EtaText);
 
     public sealed record WarmerClientProgress(string Key, string Name, bool Enabled, int Completed, int Total, double Percent, IReadOnlyList<WarmerPhaseProgress> Phases);
+
+    public sealed record WarmerProgressSnapshot(IReadOnlyList<WarmerClientProgress> Profiles, string Status, DateTime? CalculatedAtUtc, string? Message);
 
 }
