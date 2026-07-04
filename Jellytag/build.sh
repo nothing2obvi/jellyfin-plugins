@@ -3,8 +3,8 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-VERSION="1.52.4.0"
-LEGACY_10_11_VERSION="1.51.8.0"
+VERSION="1.52.5.0"
+LEGACY_10_11_VERSION="1.51.9.0"
 TARGET="${1:-12}"
 
 case "$TARGET" in

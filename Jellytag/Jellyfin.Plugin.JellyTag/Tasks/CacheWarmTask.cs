@@ -335,7 +335,7 @@ public class CacheWarmTask : IScheduledTask
 
         if (!await ProgressCalculationGate.WaitAsync(0).ConfigureAwait(false))
         {
-            if (TryGetAnyCachedProgress(out cachedProgress))
+            if (TryGetAnyCachedProgress(out cachedProgress, allowExpired: true))
             {
                 return cachedProgress;
             }
@@ -431,11 +431,11 @@ public class CacheWarmTask : IScheduledTask
         return false;
     }
 
-    private static bool TryGetAnyCachedProgress(out IReadOnlyList<WarmerClientProgress> progress)
+    private static bool TryGetAnyCachedProgress(out IReadOnlyList<WarmerClientProgress> progress, bool allowExpired = false)
     {
         lock (ProgressCacheLock)
         {
-            if (_cachedProgress != null && DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration)
+            if (_cachedProgress != null && (allowExpired || DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration))
             {
                 progress = _cachedProgress;
                 return true;

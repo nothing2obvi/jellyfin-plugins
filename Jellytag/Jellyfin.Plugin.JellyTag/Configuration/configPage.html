@@ -1216,15 +1216,45 @@
             });
         }
 
+        function setWarmerProgressUnavailable(message) {
+            var rows = document.querySelectorAll('#WarmerClientProfiles .warmer-profile-row');
+            Array.prototype.forEach.call(rows, function(row) {
+                var key = row.getAttribute('data-key');
+                var fill = document.querySelector('[data-progress-fill="' + key + '"]');
+                var value = document.querySelector('[data-progress-value="' + key + '"]');
+                var phases = document.querySelector('[data-progress-phases="' + key + '"]');
+                row.classList.remove('calculating');
+                if (fill) fill.style.width = '0%';
+                if (value) {
+                    value.textContent = '--';
+                    value.title = message;
+                }
+                if (phases) phases.textContent = message;
+            });
+        }
+
         function loadWarmerProgress() {
             setWarmerProgressCalculating(true);
+            var completed = false;
+            var timeout = setTimeout(function() {
+                if (completed) return;
+                setWarmerProgressUnavailable('Progress unavailable. Refresh to retry.');
+            }, 120000);
             return ApiClient.ajax({
                 type: 'GET',
                 url: ApiClient.getUrl('JellyTagPlus/WarmerProgress'),
                 dataType: 'json'
             }).then(function(result) {
+                completed = true;
+                clearTimeout(timeout);
                 warmerProgressByKey = {};
-                (result.Profiles || result.profiles || []).forEach(function(item) {
+                var profiles = result.Profiles || result.profiles || [];
+                if (!profiles.length) {
+                    setWarmerProgressUnavailable('Progress unavailable. Refresh to retry.');
+                    return;
+                }
+
+                profiles.forEach(function(item) {
                     var key = item.Key || item.key;
                     if (key) warmerProgressByKey[key] = {
                         Completed: item.Completed != null ? item.Completed : item.completed,
@@ -1243,12 +1273,14 @@
                     };
                 });
                 applyWarmerProgress();
-            }).catch(function(err) {
-                console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
-            }).then(function() {
                 afterNextPaint(function() {
                     finishWarmerProgressCalculating();
                 });
+            }).catch(function(err) {
+                completed = true;
+                clearTimeout(timeout);
+                console.warn('[JellyTag-Plus] Failed to load warmer progress:', err);
+                setWarmerProgressUnavailable('Progress unavailable. Refresh to retry.');
             });
         }
 
