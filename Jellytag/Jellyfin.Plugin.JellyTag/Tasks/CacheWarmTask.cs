@@ -129,27 +129,40 @@ public class CacheWarmTask : IScheduledTask
         var failed = 0;
         var planned = 0;
         var completedOrSkipped = 0;
+        var skippedAlreadyWarmed = 0;
+        var executionBuckets = GetExecutionBuckets().ToList();
+        var totalClientBuckets = Math.Max(1, executionBuckets.Count * profiles.Count);
+        var completedClientBuckets = 0;
         var maxConcurrency = Math.Clamp(config.WarmerMaxConcurrency <= 0 ? 1 : config.WarmerMaxConcurrency, 1, 8);
         var delayMs = Math.Clamp(config.WarmerDelayMs, 0, 10000);
         var quietPeriod = TimeSpan.FromSeconds(Math.Clamp(config.WarmerClientQuietSeconds, 0, 120));
 
-        foreach (var bucket in GetExecutionBuckets())
+        foreach (var bucket in executionBuckets)
         {
             _logger.LogInformation("JellyTag-Plus cache warmer starting {Phase} phase", bucket.Name);
             for (var profileIndex = 0; profileIndex < profiles.Count; profileIndex++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var profile = profiles[profileIndex];
+                void ReportClientBucketProgress(int completedInBucket, int totalInBucket)
+                {
+                    ReportWarmupProgress(progress, completedClientBuckets, totalClientBuckets, completedInBucket, totalInBucket);
+                }
+
+                ReportClientBucketProgress(0, 0);
                 var clientPhaseRequests = BuildWarmupRequestsForProfileBucket(profile, profileIndex, bucket, items, config, cancellationToken);
                 if (clientPhaseRequests.Count == 0)
                 {
+                    completedClientBuckets++;
+                    ReportClientBucketProgress(0, 0);
                     continue;
                 }
 
                 planned += clientPhaseRequests.Count;
                 var skippedForClient = clientPhaseRequests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours));
+                skippedAlreadyWarmed += skippedForClient;
                 completedOrSkipped += skippedForClient;
-                ReportWarmupProgress(progress, completedOrSkipped, planned);
+                ReportClientBucketProgress(skippedForClient, clientPhaseRequests.Count);
 
                 var clientName = profile.Name;
                 var clientPass = 0;
@@ -185,8 +198,10 @@ public class CacheWarmTask : IScheduledTask
                                 await WaitForClientQuietPeriodWithProgressAsync(
                                     quietPeriod,
                                     progress,
-                                    () => completedOrSkipped,
-                                    planned,
+                                    () => completedClientBuckets,
+                                    totalClientBuckets,
+                                    () => clientPhaseRequests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours)),
+                                    clientPhaseRequests.Count,
                                     cancellationToken).ConfigureAwait(false);
                                 var url = request.ToUrl(baseUrl);
                                 using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
@@ -226,7 +241,7 @@ public class CacheWarmTask : IScheduledTask
                             }
                             finally
                             {
-                                ReportWarmupProgress(progress, completedOrSkipped, planned);
+                                ReportClientBucketProgress(clientPhaseRequests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours)), clientPhaseRequests.Count);
                             }
                         }
                     }).ToArray();
@@ -239,10 +254,13 @@ public class CacheWarmTask : IScheduledTask
                         await Task.Delay(PhaseRetryDelay, cancellationToken).ConfigureAwait(false);
                     }
                 }
+
+                completedClientBuckets++;
+                ReportClientBucketProgress(0, 0);
             }
         }
 
-        _logger.LogInformation("JellyTag-Plus cache warmer complete. Planned {Total}, newly written {Warmed}, cache hits {CacheHits}, no visible badges {NoVisibleBadges}, failed {Failed}, skipped already warmed {Skipped}", planned, warmed, cacheHits, noVisibleBadges, failed, Math.Max(0, completedOrSkipped - warmed - cacheHits - noVisibleBadges));
+        _logger.LogInformation("JellyTag-Plus cache warmer complete. Planned {Total}, newly written {Warmed}, cache hits {CacheHits}, no visible badges {NoVisibleBadges}, failed {Failed}, skipped already warmed {Skipped}", planned, warmed, cacheHits, noVisibleBadges, failed, skippedAlreadyWarmed);
         progress.Report(100);
     }
 
@@ -263,8 +281,10 @@ public class CacheWarmTask : IScheduledTask
     private async Task WaitForClientQuietPeriodWithProgressAsync(
         TimeSpan quietPeriod,
         IProgress<double> progress,
-        Func<int> getCompletedCount,
-        int totalCount,
+        Func<int> getCompletedBuckets,
+        int totalBuckets,
+        Func<int> getCompletedInBucket,
+        int totalInBucket,
         CancellationToken cancellationToken)
     {
         if (quietPeriod <= TimeSpan.Zero)
@@ -275,21 +295,22 @@ public class CacheWarmTask : IScheduledTask
         var waitTask = _trafficCoordinator.WaitForClientQuietPeriodAsync(quietPeriod, cancellationToken);
         while (await Task.WhenAny(waitTask, Task.Delay(ProgressHeartbeatInterval, cancellationToken)).ConfigureAwait(false) != waitTask)
         {
-            ReportWarmupProgress(progress, getCompletedCount(), totalCount);
+            ReportWarmupProgress(progress, getCompletedBuckets(), totalBuckets, getCompletedInBucket(), totalInBucket);
         }
 
         await waitTask.ConfigureAwait(false);
     }
 
-    private static void ReportWarmupProgress(IProgress<double> progress, int completedCount, int totalCount)
+    private static void ReportWarmupProgress(IProgress<double> progress, int completedBuckets, int totalBuckets, int completedInBucket = 0, int totalInBucket = 0)
     {
-        if (totalCount <= 0)
+        if (totalBuckets <= 0)
         {
             progress.Report(100);
             return;
         }
 
-        progress.Report(Math.Clamp(completedCount * 100.0 / totalCount, 0, 100));
+        var currentBucketProgress = totalInBucket <= 0 ? 0 : Math.Clamp(completedInBucket * 1.0 / totalInBucket, 0, 1);
+        progress.Report(Math.Clamp((completedBuckets + currentBucketProgress) * 100.0 / totalBuckets, 0, 99.9));
     }
 
     private sealed class WarmupRunLease : IDisposable
