@@ -86,7 +86,7 @@ Some listed clients also have a mix of fixed and variable variants:
 
 When JellyTag-Plus cannot reliably tell whether a learned non-episode, non-video image request came from a home row or a library view, it groups that learned variant under **Home & Libraries**.
 
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Home & Libraries, then Episodes, then Videos, then Other. Within each phase priority it follows the configured client profile order. Progress display folds ambiguous Other variants into Home, Libraries, or Home & Libraries so a client does not show overlapping Home/Libraries phase labels.
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Home & Libraries, then Episodes, then Videos, then Other. Within each phase priority it follows the configured client profile order. Progress display folds ambiguous Home & Libraries and Other variants into Home, Libraries, or Home & Libraries so a client does not show overlapping Home/Libraries phase labels.
 
 The **Learned Clients** profile is enabled by default and placed last on new installs. Move it higher if you want to warm the real variants your clients and users have actually requested before fixed client presets. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
 
@@ -119,7 +119,7 @@ This feature is intentionally more invasive than normal rendering. Keep image ba
 
 ## Jellyfin Compatibility
 
-JellyTag-Plus `1.51.10.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+JellyTag-Plus `1.51.11.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
 
 JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
 
@@ -131,7 +131,7 @@ That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PAC
 
 JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
 
-Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.10.0` package on the next plugin update.
+Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.11.0` package on the next plugin update.
 
 ## Installation
 

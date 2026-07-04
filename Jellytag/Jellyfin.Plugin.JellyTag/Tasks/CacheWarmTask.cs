@@ -560,9 +560,14 @@ public class CacheWarmTask : IScheduledTask
     {
         if (string.Equals(phase.Key, HomeLibrariesPhaseKey, StringComparison.OrdinalIgnoreCase))
         {
-            if (hasHome && hasLibraries)
+            if (hasLibraries)
             {
                 return GetPhase(LibrariesPhaseKey);
+            }
+
+            if (hasHome)
+            {
+                return GetPhase(HomePhaseKey);
             }
         }
 
