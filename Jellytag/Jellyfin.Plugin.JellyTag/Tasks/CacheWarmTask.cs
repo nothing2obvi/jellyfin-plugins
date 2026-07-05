@@ -28,6 +28,8 @@ public class CacheWarmTask : IScheduledTask
     private const string WarmupResultCacheHit = "cache-hit";
     private const string WarmupResultCacheWritten = "cache-written";
     private const string WarmupResultNoVisibleBadges = "no-visible-badges";
+    private const string ProgressSnapshotFileName = "warmer-progress-snapshot.json";
+    private const string CacheStatsSnapshotFileName = "cache-stats-snapshot.json";
     private static readonly TimeSpan PhaseRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ProgressCacheDuration = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan EtaSampleWindow = TimeSpan.FromMinutes(15);
@@ -379,6 +381,7 @@ public class CacheWarmTask : IScheduledTask
     {
         lock (ProgressCacheLock)
         {
+            _cachedCacheStats ??= LoadCacheStatsSnapshot();
             return _cachedCacheStats ?? new CacheStatsSnapshot(0, 0, null, null, null, "unavailable", "Run the JellyTag-Plus Calculate Progress and Totals scheduled task to calculate cache totals.");
         }
     }
@@ -541,6 +544,11 @@ public class CacheWarmTask : IScheduledTask
     {
         lock (ProgressCacheLock)
         {
+            if (_cachedProgress == null)
+            {
+                LoadProgressSnapshotLocked();
+            }
+
             if (_cachedProgress != null
                 && string.Equals(_cachedProgressKey, progressCacheKey, StringComparison.Ordinal)
                 && (allowExpired || DateTime.UtcNow - _cachedProgressUtc < ProgressCacheDuration))
@@ -560,6 +568,7 @@ public class CacheWarmTask : IScheduledTask
 
     private static void SetCachedProgress(string progressCacheKey, IReadOnlyList<WarmerClientProgress> progress, bool completed = true)
     {
+        ProgressCacheDocument document;
         lock (ProgressCacheLock)
         {
             _cachedProgressKey = progressCacheKey;
@@ -570,7 +579,16 @@ public class CacheWarmTask : IScheduledTask
             }
 
             _cachedProgress = progress;
+            document = new ProgressCacheDocument
+            {
+                Key = _cachedProgressKey,
+                CachedAtUtc = _cachedProgressUtc,
+                CompletedAtUtc = _cachedProgressCompletedUtc,
+                Profiles = _cachedProgress.ToList()
+            };
         }
+
+        SaveProgressSnapshot(document);
     }
 
     private static CacheStatsSnapshot SetCachedCacheStats(CacheStatsSnapshot snapshot)
@@ -580,7 +598,82 @@ public class CacheWarmTask : IScheduledTask
             _cachedCacheStats = snapshot;
         }
 
+        SaveCacheStatsSnapshot(snapshot);
         return snapshot;
+    }
+
+    private static void LoadProgressSnapshotLocked()
+    {
+        try
+        {
+            var path = GetSnapshotPath(ProgressSnapshotFileName);
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            var document = JsonSerializer.Deserialize<ProgressCacheDocument>(File.ReadAllText(path));
+            if (document == null || string.IsNullOrWhiteSpace(document.Key))
+            {
+                return;
+            }
+
+            _cachedProgressKey = document.Key;
+            _cachedProgressUtc = document.CachedAtUtc;
+            _cachedProgressCompletedUtc = document.CompletedAtUtc;
+            _cachedProgress = document.Profiles;
+        }
+        catch
+        {
+            _cachedProgress = null;
+        }
+    }
+
+    private static CacheStatsSnapshot? LoadCacheStatsSnapshot()
+    {
+        try
+        {
+            var path = GetSnapshotPath(CacheStatsSnapshotFileName);
+            return File.Exists(path)
+                ? JsonSerializer.Deserialize<CacheStatsSnapshot>(File.ReadAllText(path))
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void SaveProgressSnapshot(ProgressCacheDocument document)
+    {
+        SaveSnapshotFile(ProgressSnapshotFileName, document);
+    }
+
+    private static void SaveCacheStatsSnapshot(CacheStatsSnapshot snapshot)
+    {
+        SaveSnapshotFile(CacheStatsSnapshotFileName, snapshot);
+    }
+
+    private static void SaveSnapshotFile<T>(string fileName, T value)
+    {
+        try
+        {
+            var path = GetSnapshotPath(fileName);
+            var tempPath = path + ".tmp";
+            var json = JsonSerializer.Serialize(value);
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch
+        {
+        }
+    }
+
+    private static string GetSnapshotPath(string fileName)
+    {
+        var cachePath = Plugin.Instance?.CacheFolderPath ?? Path.Combine(Path.GetTempPath(), "JellyTag", "cache");
+        Directory.CreateDirectory(cachePath);
+        return Path.Combine(cachePath, fileName);
     }
 
     private static async Task<HashSet<string>> GetCompletedWarmupRequestKeysAsync(IReadOnlyList<WarmupRequest> requests, WarmupStateStore state, int? maxAgeHours, IImageCacheService cacheService, CancellationToken cancellationToken, Action<double>? reportProgress = null)
@@ -1621,5 +1714,16 @@ public class CacheWarmTask : IScheduledTask
     public sealed record WarmerProgressSnapshot(IReadOnlyList<WarmerClientProgress> Profiles, string Status, DateTime? CalculatedAtUtc, DateTime? CompletedAtUtc, string? Message);
 
     public sealed record CacheStatsSnapshot(int FileCount, long TotalSizeBytes, DateTime? OldestEntry, DateTime? NewestEntry, DateTime? CalculatedAtUtc, string Status, string? Message);
+
+    private sealed class ProgressCacheDocument
+    {
+        public string? Key { get; set; }
+
+        public DateTime CachedAtUtc { get; set; }
+
+        public DateTime? CompletedAtUtc { get; set; }
+
+        public List<WarmerClientProgress> Profiles { get; set; } = [];
+    }
 
 }

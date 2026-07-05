@@ -28,20 +28,20 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.16.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Keeps Last calculated tied to completed progress calculations and reports scheduled-task progress during the current profile scan.",
+        "version": "1.51.17.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Persists calculated warmer progress and cache totals so the plugin page keeps showing the latest completed calculation age.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.16.0.zip",
-        "checksum": "6f81b50bc207c81bacb22cd3e7bee97d",
-        "timestamp": "2026-07-04T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.17.0.zip",
+        "checksum": "f18fadcf5c9db14458d03c93a98b8965",
+        "timestamp": "2026-07-05T00:00:00Z"
       },
       {
-        "version": "1.52.12.0",
-        "changelog": "Keep Last calculated tied to completed progress calculations and report scheduled-task progress during the current profile scan.",
+        "version": "1.52.13.0",
+        "changelog": "Persist calculated warmer progress and cache totals so the plugin page keeps showing the latest completed calculation age.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.12.0-jellyfin12.zip",
-        "checksum": "a14e59ac6f3b9902494ec9344bd8eff4",
-        "timestamp": "2026-07-04T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.13.0-jellyfin12.zip",
+        "checksum": "61605294c86ff3eaf82fa7919fc4334d",
+        "timestamp": "2026-07-05T00:00:00Z"
       }
     ]
   }

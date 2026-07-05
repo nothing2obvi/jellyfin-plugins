@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.52.12.0"
+version: "1.52.13.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "nothing2obvi"
@@ -19,6 +19,13 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.52.13.0
+  - Persist calculated warmer progress and cache totals so the plugin page can keep showing the latest completed calculation age
+
+  ## v1.51.17.0
+  - Final Jellyfin 10.11-supported release
+  - Persist calculated warmer progress and cache totals so the plugin page can keep showing the latest completed calculation age
+
   ## v1.52.12.0
   - Keep warmer progress "Last calculated" tied to completed calculations while partial snapshots are updating
   - Report progress during the current profile scan so the scheduled task does not sit at 1% for long scans
