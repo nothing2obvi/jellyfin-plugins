@@ -37,7 +37,10 @@ public partial class ImageOverlayMiddleware
     private static readonly ConcurrentDictionary<string, RenderLockState> RenderLocks = new();
     private static readonly ConcurrentDictionary<string, VisibleBadgeCacheEntry> VisibleBadgeCache = new();
     private static readonly object RenderLocksLock = new();
+    private static readonly object NormalRenderGateLock = new();
     private static readonly object ForceRefreshStateFileLock = new();
+    private static SemaphoreSlim NormalRenderGate = new(2, 2);
+    private static int NormalRenderGateLimit = 2;
     private static bool ForceRefreshStateLoaded;
     private static readonly string EmptyBadgeState = GetBadgeStateFingerprint(Array.Empty<BadgeInfo>());
     private static readonly byte[] StockRefreshImage = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
@@ -218,6 +221,8 @@ public partial class ImageOverlayMiddleware
         var renderKey = $"{itemId:N}:{badgeKey}:{imageTag}";
         var renderLock = RentRenderLock(renderKey);
         var renderLockAcquired = false;
+        SemaphoreSlim? normalRenderGate = null;
+        var normalRenderGateAcquired = false;
 
         var originalBody = context.Response.Body;
         using var capturedBody = new MemoryStream();
@@ -235,6 +240,10 @@ public partial class ImageOverlayMiddleware
                 await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
                 return;
             }
+
+            normalRenderGate = GetNormalRenderGate(config);
+            await normalRenderGate.WaitAsync(context.RequestAborted).ConfigureAwait(false);
+            normalRenderGateAcquired = true;
 
             context.Response.Body = capturedBody;
             await _next(context).ConfigureAwait(false);
@@ -283,12 +292,32 @@ public partial class ImageOverlayMiddleware
         finally
         {
             context.Response.Body = originalBody;
+            if (normalRenderGateAcquired)
+            {
+                normalRenderGate?.Release();
+            }
+
             if (renderLockAcquired)
             {
                 renderLock.Semaphore.Release();
             }
 
             ReleaseRenderLock(renderKey, renderLock);
+        }
+    }
+
+    private static SemaphoreSlim GetNormalRenderGate(PluginConfiguration config)
+    {
+        var limit = Math.Clamp(config.NormalRenderMaxConcurrency <= 0 ? 2 : config.NormalRenderMaxConcurrency, 1, 4);
+        lock (NormalRenderGateLock)
+        {
+            if (limit != NormalRenderGateLimit)
+            {
+                NormalRenderGate = new SemaphoreSlim(limit, limit);
+                NormalRenderGateLimit = limit;
+            }
+
+            return NormalRenderGate;
         }
     }
 

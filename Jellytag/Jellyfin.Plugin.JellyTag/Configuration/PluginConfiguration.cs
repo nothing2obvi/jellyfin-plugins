@@ -158,6 +158,7 @@ public class PluginConfiguration : BasePluginConfiguration
         CustomBadgeTexts = new List<BadgeTextOverride>();
         CacheDurationHours = 168;
         ValidateExpiredCacheBeforeRerender = false;
+        NormalRenderMaxConcurrency = 2;
         WarmerMaxConcurrency = 1;
         WarmerDelayMs = 5000;
         WarmerClientQuietSeconds = 120;
@@ -190,6 +191,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public List<BadgeTextOverride> CustomBadgeTexts { get; set; }
     public int CacheDurationHours { get; set; }
     public bool ValidateExpiredCacheBeforeRerender { get; set; }
+    public int NormalRenderMaxConcurrency { get; set; }
     public int WarmerMaxConcurrency { get; set; }
     public int WarmerDelayMs { get; set; }
     public int WarmerClientQuietSeconds { get; set; }

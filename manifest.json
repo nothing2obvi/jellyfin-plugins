@@ -28,20 +28,20 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.17.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Persists calculated warmer progress and cache totals so the plugin page keeps showing the latest completed calculation age.",
+        "version": "1.51.18.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds configurable normal browsing render concurrency for uncached JellyTag-Plus overlay renders.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.17.0.zip",
-        "checksum": "f18fadcf5c9db14458d03c93a98b8965",
-        "timestamp": "2026-07-05T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.18.0.zip",
+        "checksum": "ffe076a92a9b5da08f173722d4c1fded",
+        "timestamp": "2026-07-09T00:00:00Z"
       },
       {
-        "version": "1.52.13.0",
-        "changelog": "Persist calculated warmer progress and cache totals so the plugin page keeps showing the latest completed calculation age.",
+        "version": "1.52.14.0",
+        "changelog": "Add configurable normal browsing render concurrency for uncached JellyTag-Plus overlay renders.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.13.0-jellyfin12.zip",
-        "checksum": "61605294c86ff3eaf82fa7919fc4334d",
-        "timestamp": "2026-07-05T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.14.0-jellyfin12.zip",
+        "checksum": "3fb044df89616bcd5b3a38c5e6e1800a",
+        "timestamp": "2026-07-09T00:00:00Z"
       }
     ]
   }
