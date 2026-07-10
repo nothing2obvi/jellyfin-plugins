@@ -229,6 +229,7 @@ public partial class ImageOverlayMiddleware
 
         try
         {
+            context.RequestAborted.ThrowIfCancellationRequested();
             await renderLock.Semaphore.WaitAsync(context.RequestAborted).ConfigureAwait(false);
             renderLockAcquired = true;
 
@@ -241,12 +242,15 @@ public partial class ImageOverlayMiddleware
                 return;
             }
 
+            context.RequestAborted.ThrowIfCancellationRequested();
             normalRenderGate = GetNormalRenderGate(config);
             await normalRenderGate.WaitAsync(context.RequestAborted).ConfigureAwait(false);
             normalRenderGateAcquired = true;
+            context.RequestAborted.ThrowIfCancellationRequested();
 
             context.Response.Body = capturedBody;
             await _next(context).ConfigureAwait(false);
+            context.RequestAborted.ThrowIfCancellationRequested();
 
             if (context.Response.StatusCode != 200 || capturedBody.Length == 0)
             {
@@ -261,6 +265,7 @@ public partial class ImageOverlayMiddleware
             (Stream resultStream, string contentType) result;
             try
             {
+                context.RequestAborted.ThrowIfCancellationRequested();
                 result = await overlayService.AddBadgeOverlaysAsync(capturedBody, visibleBadges, imageConfig).ConfigureAwait(false);
             }
             catch (Exception ex)
