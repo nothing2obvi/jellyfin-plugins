@@ -43,7 +43,7 @@ public partial class ImageOverlayMiddleware
     private static readonly object ForceRefreshStateFileLock = new();
     private static SemaphoreSlim NormalRenderGate = new(2, 2);
     private static int NormalRenderGateLimit = 2;
-    private static readonly TimeSpan RecentCompletionQuietDelay = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan RecentCompletionQuietDelay = TimeSpan.FromSeconds(5);
     private const int RecentCompletionMaxEntries = 100;
     private static readonly List<RecentCompletionEntry> RecentCompletionEntries = new();
     private static CancellationTokenSource? RecentCompletionCts;
@@ -229,8 +229,10 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
+        var trackRecentCompletion = false;
         if (isRealClientImageRequest)
         {
+            trackRecentCompletion = true;
             RecordRecentCompletionCandidate(context, cacheService, itemId, badgeKey, imageTag, badgeState);
         }
 
@@ -324,6 +326,10 @@ public partial class ImageOverlayMiddleware
             }
 
             ReleaseRenderLock(renderKey, renderLock);
+            if (trackRecentCompletion)
+            {
+                ScheduleRecentCompletionSweep(cacheService, _logger);
+            }
         }
     }
 
@@ -360,8 +366,6 @@ public partial class ImageOverlayMiddleware
         string imageTag,
         string badgeState)
     {
-        CancellationTokenSource sweepCts;
-        long generation;
         var entry = new RecentCompletionEntry(
             BuildCompletionCheckUrl(context),
             GetForwardedAuthHeaders(context),
@@ -380,14 +384,30 @@ public partial class ImageOverlayMiddleware
                 RecentCompletionEntries.RemoveRange(0, RecentCompletionEntries.Count - RecentCompletionMaxEntries);
             }
 
-            generation = RecentCompletionGeneration;
+        }
+
+        // Experimental/revertable: this lightweight completion sweep fills occasional missed images after a quiet burst.
+        ScheduleRecentCompletionSweep(cacheService, _logger);
+    }
+
+    private static void ScheduleRecentCompletionSweep(IImageCacheService cacheService, ILogger logger)
+    {
+        CancellationTokenSource sweepCts;
+        long generation;
+        lock (RecentCompletionLock)
+        {
+            if (RecentCompletionEntries.Count == 0)
+            {
+                return;
+            }
+
+            generation = ++RecentCompletionGeneration;
             RecentCompletionCts?.Cancel();
             RecentCompletionCts = new CancellationTokenSource();
             sweepCts = RecentCompletionCts;
         }
 
-        // Experimental/revertable: this lightweight completion sweep fills occasional missed images after a quiet burst.
-        _ = Task.Run(() => RunRecentCompletionSweepAsync(cacheService, generation, sweepCts.Token, _logger), CancellationToken.None);
+        _ = Task.Run(() => RunRecentCompletionSweepAsync(cacheService, generation, sweepCts.Token, logger), CancellationToken.None);
     }
 
     private static async Task RunRecentCompletionSweepAsync(IImageCacheService cacheService, long generation, CancellationToken cancellationToken, ILogger logger)

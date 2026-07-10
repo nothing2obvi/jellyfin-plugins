@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.20.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds a lightweight recent request completion check for uncached normal browsing renders.",
+        "version": "1.51.21.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Runs the recent request completion check after 5 seconds of render activity quiet.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.20.0.zip",
-        "checksum": "e5a99743abc022201d3e592b21415ae7",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.21.0.zip",
+        "checksum": "98f91de6e9bec10a03b7249090d5c776",
         "timestamp": "2026-07-10T00:00:00Z"
       },
       {
-        "version": "1.52.16.0",
-        "changelog": "Add a lightweight recent request completion check for uncached normal browsing renders.",
+        "version": "1.52.17.0",
+        "changelog": "Run the recent request completion check after 5 seconds of render activity quiet.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.16.0-jellyfin12.zip",
-        "checksum": "f74b2ea202061d9a5347ca12af26589c",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.17.0-jellyfin12.zip",
+        "checksum": "0392f7ca31759cb0d913e1121638e7f2",
         "timestamp": "2026-07-10T00:00:00Z"
       }
     ]
