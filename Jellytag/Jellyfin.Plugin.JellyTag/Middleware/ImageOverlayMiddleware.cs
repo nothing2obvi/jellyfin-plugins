@@ -32,15 +32,22 @@ public partial class ImageOverlayMiddleware
     private const string WarmupResultCacheWriteFailed = "cache-write-failed";
     private const string WarmupResultPassThrough = "pass-through";
     private const string WarmupResultOverlayError = "overlay-error";
+    private const string CompletionCheckQueryName = "jellytagcompletioncheck";
     private static readonly ConcurrentDictionary<string, string> ForceRefreshStates = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ForceRefreshLocks = new();
     private static readonly ConcurrentDictionary<string, RenderLockState> RenderLocks = new();
     private static readonly ConcurrentDictionary<string, VisibleBadgeCacheEntry> VisibleBadgeCache = new();
     private static readonly object RenderLocksLock = new();
     private static readonly object NormalRenderGateLock = new();
+    private static readonly object RecentCompletionLock = new();
     private static readonly object ForceRefreshStateFileLock = new();
     private static SemaphoreSlim NormalRenderGate = new(2, 2);
     private static int NormalRenderGateLimit = 2;
+    private static readonly TimeSpan RecentCompletionQuietDelay = TimeSpan.FromSeconds(15);
+    private const int RecentCompletionMaxEntries = 100;
+    private static readonly List<RecentCompletionEntry> RecentCompletionEntries = new();
+    private static CancellationTokenSource? RecentCompletionCts;
+    private static long RecentCompletionGeneration;
     private static bool ForceRefreshStateLoaded;
     private static readonly string EmptyBadgeState = GetBadgeStateFingerprint(Array.Empty<BadgeInfo>());
     private static readonly byte[] StockRefreshImage = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=");
@@ -112,10 +119,14 @@ public partial class ImageOverlayMiddleware
 
         var itemIdStr = match.Groups[1].Value;
         var imageType = match.Groups[2].Value;
+        var isWarmupRequest = IsWarmupRequest(context.Request.Query);
+        var isCompletionCheckRequest = IsCompletionCheckRequest(context.Request.Query);
+        var isRealClientImageRequest = !isWarmupRequest && !isCompletionCheckRequest;
 
-        if (!IsWarmupRequest(context.Request.Query))
+        if (isRealClientImageRequest)
         {
             trafficCoordinator.NotifyClientImageRequest();
+            NotifyRecentCompletionRequest();
         }
 
         if (!Guid.TryParse(itemIdStr, out var itemId))
@@ -156,7 +167,7 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
-        if (!IsWarmupRequest(context.Request.Query))
+        if (isRealClientImageRequest)
         {
             var authorizationInfo = await authorizationContext.GetAuthorizationInfo(context).ConfigureAwait(false);
             var sessionInfo = await GetRequestSessionInfoAsync(context, authorizationInfo, sessionManager).ConfigureAwait(false);
@@ -216,6 +227,11 @@ public partial class ImageOverlayMiddleware
             SetWarmupResult(context, WarmupResultCacheHit);
             await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
             return;
+        }
+
+        if (isRealClientImageRequest)
+        {
+            RecordRecentCompletionCandidate(context, cacheService, itemId, badgeKey, imageTag, badgeState);
         }
 
         var renderKey = $"{itemId:N}:{badgeKey}:{imageTag}";
@@ -324,6 +340,128 @@ public partial class ImageOverlayMiddleware
 
             return NormalRenderGate;
         }
+    }
+
+    private static void NotifyRecentCompletionRequest()
+    {
+        lock (RecentCompletionLock)
+        {
+            RecentCompletionGeneration++;
+            RecentCompletionCts?.Cancel();
+            RecentCompletionCts = new CancellationTokenSource();
+        }
+    }
+
+    private void RecordRecentCompletionCandidate(
+        HttpContext context,
+        IImageCacheService cacheService,
+        Guid itemId,
+        string badgeKey,
+        string imageTag,
+        string badgeState)
+    {
+        CancellationTokenSource sweepCts;
+        long generation;
+        var entry = new RecentCompletionEntry(
+            BuildCompletionCheckUrl(context),
+            GetForwardedAuthHeaders(context),
+            itemId,
+            badgeKey,
+            imageTag,
+            badgeState,
+            DateTime.UtcNow);
+
+        lock (RecentCompletionLock)
+        {
+            RecentCompletionEntries.RemoveAll(existing => string.Equals(existing.Url, entry.Url, StringComparison.Ordinal));
+            RecentCompletionEntries.Add(entry);
+            if (RecentCompletionEntries.Count > RecentCompletionMaxEntries)
+            {
+                RecentCompletionEntries.RemoveRange(0, RecentCompletionEntries.Count - RecentCompletionMaxEntries);
+            }
+
+            generation = RecentCompletionGeneration;
+            RecentCompletionCts?.Cancel();
+            RecentCompletionCts = new CancellationTokenSource();
+            sweepCts = RecentCompletionCts;
+        }
+
+        // Experimental/revertable: this lightweight completion sweep fills occasional missed images after a quiet burst.
+        _ = Task.Run(() => RunRecentCompletionSweepAsync(cacheService, generation, sweepCts.Token, _logger), CancellationToken.None);
+    }
+
+    private static async Task RunRecentCompletionSweepAsync(IImageCacheService cacheService, long generation, CancellationToken cancellationToken, ILogger logger)
+    {
+        try
+        {
+            await Task.Delay(RecentCompletionQuietDelay, cancellationToken).ConfigureAwait(false);
+            List<RecentCompletionEntry> entries;
+            lock (RecentCompletionLock)
+            {
+                if (generation != RecentCompletionGeneration)
+                {
+                    return;
+                }
+
+                entries = RecentCompletionEntries.ToList();
+                RecentCompletionEntries.Clear();
+            }
+
+            if (entries.Count == 0)
+            {
+                return;
+            }
+
+            using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(45) };
+            foreach (var entry in entries.OrderBy(entry => entry.CreatedUtc))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (await cacheService.GetCachedImageFileAsync(entry.ItemId, entry.BadgeKey, entry.ImageTag, entry.BadgeState).ConfigureAwait(false) != null)
+                {
+                    continue;
+                }
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, entry.Url);
+                foreach (var header in entry.Headers)
+                {
+                    request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                await response.Content.CopyToAsync(Stream.Null, cancellationToken).ConfigureAwait(false);
+                logger.LogDebug("JellyTag-Plus completion check got {StatusCode} for {Url}", response.StatusCode, entry.Url);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "JellyTag-Plus recent completion check failed");
+        }
+    }
+
+    private static string BuildCompletionCheckUrl(HttpContext context)
+    {
+        var queryString = context.Request.QueryString.HasValue
+            ? context.Request.QueryString.Value + $"&{CompletionCheckQueryName}=1"
+            : $"?{CompletionCheckQueryName}=1";
+        return $"{context.Request.Scheme}://{context.Request.Host}{context.Request.PathBase}{context.Request.Path}{queryString}";
+    }
+
+    private static IReadOnlyList<KeyValuePair<string, string>> GetForwardedAuthHeaders(HttpContext context)
+    {
+        var headers = new List<KeyValuePair<string, string>>();
+        foreach (var headerName in new[] { "Authorization", "X-Emby-Authorization" })
+        {
+            if (context.Request.Headers.TryGetValue(headerName, out var value))
+            {
+                headers.Add(new KeyValuePair<string, string>(headerName, value.ToString()));
+            }
+        }
+
+        return headers;
     }
 
     private static void SetWarmupResult(HttpContext context, string result)
@@ -544,6 +682,7 @@ public partial class ImageOverlayMiddleware
         return !string.Equals(key, "tag", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(key, "api_key", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(key, "jellytagwarm", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(key, CompletionCheckQueryName, StringComparison.OrdinalIgnoreCase)
             && !string.Equals(key, "quality", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -574,6 +713,15 @@ public partial class ImageOverlayMiddleware
     private sealed record QueryPart(string Key, string[] Values);
 
     private sealed record VisibleBadgeCacheEntry(List<BadgeInfo> Badges, DateTime CachedAt);
+
+    private sealed record RecentCompletionEntry(
+        string Url,
+        IReadOnlyList<KeyValuePair<string, string>> Headers,
+        Guid ItemId,
+        string BadgeKey,
+        string ImageTag,
+        string BadgeState,
+        DateTime CreatedUtc);
 
 
     private async Task TryForceImageRefreshAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, CancellationToken cancellationToken)
@@ -716,7 +864,8 @@ public partial class ImageOverlayMiddleware
         var parts = query
             .Where(kvp => !string.Equals(kvp.Key, "tag", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(kvp.Key, "api_key", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(kvp.Key, "jellytagwarm", StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(kvp.Key, "jellytagwarm", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(kvp.Key, CompletionCheckQueryName, StringComparison.OrdinalIgnoreCase))
             .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
             .Select(kvp => $"{kvp.Key}={string.Join(",", kvp.Value.ToArray())}");
         return string.Join("&", parts);
@@ -725,6 +874,12 @@ public partial class ImageOverlayMiddleware
     private static bool IsWarmupRequest(IQueryCollection query)
     {
         return query.TryGetValue("jellytagwarm", out var value)
+            && value.Any(v => string.Equals(v, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsCompletionCheckRequest(IQueryCollection query)
+    {
+        return query.TryGetValue(CompletionCheckQueryName, out var value)
             && value.Any(v => string.Equals(v, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase));
     }
 
