@@ -35,9 +35,10 @@ public interface IQualityDetectionService
     void ClearBadgeCache();
 
     /// <summary>
-    /// Rebuilds the cached Jellyfin collection membership index.
+    /// Rebuilds the cached badge status index.
     /// </summary>
+    /// <param name="progress">Optional progress callback from 0 to 1.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when the index has been rebuilt.</returns>
-    Task RefreshCollectionMembershipIndexAsync(CancellationToken cancellationToken);
+    Task RefreshBadgeStatusIndexAsync(Action<double>? progress, CancellationToken cancellationToken);
 }

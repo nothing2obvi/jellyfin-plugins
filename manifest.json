@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.24.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds a scheduled collection membership index so collection badge checks are shared across image requests.",
+        "version": "1.51.25.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Replaces the collection membership task with a low-impact badge status index task for faster image request badge detection.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.24.0.zip",
-        "checksum": "9954c548ce8ee8db8b3433eaffa80881",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.25.0.zip",
+        "checksum": "bf79470e42157a18ff677e15808071cf",
         "timestamp": "2026-07-11T00:00:00Z"
       },
       {
-        "version": "1.52.20.0",
-        "changelog": "Add a scheduled collection membership index so collection badge checks are shared across image requests.",
+        "version": "1.52.21.0",
+        "changelog": "Replace the collection membership task with a low-impact badge status index task for faster image request badge detection.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.20.0-jellyfin12.zip",
-        "checksum": "05efb6700443b54f89e06a1933129968",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.21.0-jellyfin12.zip",
+        "checksum": "cf0b042cc616608040592acb917e28d3",
         "timestamp": "2026-07-11T00:00:00Z"
       }
     ]

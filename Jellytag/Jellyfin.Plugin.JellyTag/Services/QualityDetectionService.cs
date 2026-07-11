@@ -24,7 +24,9 @@ public class QualityDetectionService : IQualityDetectionService
     private readonly ConcurrentDictionary<string, (List<BadgeInfo> Badges, DateTime CachedAt)> _badgeCache = new();
     private readonly object _collectionIndexLock = new();
     private CollectionMembershipIndex? _collectionMembershipIndex;
-    private static readonly TimeSpan BadgeCacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan BadgeCacheTtl = TimeSpan.FromHours(24);
+    private const int BadgeStatusBuildYieldEvery = 25;
+    private static readonly TimeSpan BadgeStatusBuildDelay = TimeSpan.FromMilliseconds(10);
     private DateTime _lastCacheCleanup = DateTime.UtcNow;
     private static readonly TimeSpan CacheCleanupInterval = TimeSpan.FromMinutes(10);
 
@@ -107,8 +109,7 @@ public class QualityDetectionService : IQualityDetectionService
             return new List<BadgeInfo>(cached.Badges);
         }
 
-        var badges = DetectAllBadgesInternal(item, imageConfig);
-        _badgeCache[cacheKey] = (badges, DateTime.UtcNow);
+        var badges = StoreDetectedBadges(item, imageConfig);
 
         // Periodically evict expired entries to prevent unbounded memory growth
         if (DateTime.UtcNow - _lastCacheCleanup > CacheCleanupInterval)
@@ -137,7 +138,7 @@ public class QualityDetectionService : IQualityDetectionService
     }
 
     /// <inheritdoc />
-    public Task RefreshCollectionMembershipIndexAsync(CancellationToken cancellationToken)
+    public async Task RefreshBadgeStatusIndexAsync(Action<double>? progress, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_collectionIndexLock)
@@ -146,7 +147,45 @@ public class QualityDetectionService : IQualityDetectionService
             _collectionMembershipIndex = BuildCollectionMembershipIndex();
         }
 
-        return Task.CompletedTask;
+        var config = Plugin.Instance?.Configuration;
+        var imageConfigs = new[]
+        {
+            config?.PosterConfig,
+            config?.ThumbnailSameAsPoster == true ? config.PosterConfig : config?.ThumbnailConfig
+        }
+            .Where(imageConfig => imageConfig != null)
+            .Distinct()
+            .Cast<ImageTypeConfig>()
+            .ToList();
+
+        if (imageConfigs.Count == 0)
+        {
+            progress?.Invoke(1);
+            return;
+        }
+
+        var items = GetBadgeStatusIndexItems();
+        var totalWork = Math.Max(1, items.Count * imageConfigs.Count);
+        var completed = 0;
+
+        _badgeCache.Clear();
+        foreach (var item in items)
+        {
+            foreach (var imageConfig in imageConfigs)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                StoreDetectedBadges(item, imageConfig);
+                completed++;
+            }
+
+            if (completed % BadgeStatusBuildYieldEvery == 0)
+            {
+                progress?.Invoke(Math.Clamp(completed * 1.0 / totalWork, 0, 1));
+                await Task.Delay(BadgeStatusBuildDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        progress?.Invoke(1);
     }
 
     private List<BadgeInfo> DetectAllBadgesInternal(BaseItem item, ImageTypeConfig? imageConfig = null)
@@ -194,6 +233,41 @@ public class QualityDetectionService : IQualityDetectionService
             }
         }
 
+        return badges;
+    }
+
+    private List<BaseItem> GetBadgeStatusIndexItems()
+    {
+        try
+        {
+            return _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                Recursive = true,
+                IncludeItemTypes =
+                [
+                    BaseItemKind.Movie,
+                    BaseItemKind.Series,
+                    BaseItemKind.Season,
+                    BaseItemKind.Episode,
+                    BaseItemKind.Video,
+                    BaseItemKind.MusicVideo
+                ]
+            })
+            .GroupBy(item => item.Id)
+            .Select(group => group.First())
+            .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to list items for JellyTag-Plus badge status index");
+            return [];
+        }
+    }
+
+    private List<BadgeInfo> StoreDetectedBadges(BaseItem item, ImageTypeConfig? imageConfig)
+    {
+        var badges = DetectAllBadgesInternal(item, imageConfig);
+        _badgeCache[GetBadgeCacheKey(item, imageConfig)] = (badges, DateTime.UtcNow);
         return badges;
     }
 
@@ -487,7 +561,7 @@ public class QualityDetectionService : IQualityDetectionService
 
     private static string GetBadgeCacheKey(BaseItem item, ImageTypeConfig? imageConfig)
     {
-        return $"{item.Id:N}:{GetCollectionRulesFingerprint(imageConfig)}";
+        return $"{item.Id:N}:{item.DateModified.Ticks}:{GetCollectionRulesFingerprint(imageConfig)}";
     }
 
     private static string GetCollectionRulesFingerprint(ImageTypeConfig? imageConfig)

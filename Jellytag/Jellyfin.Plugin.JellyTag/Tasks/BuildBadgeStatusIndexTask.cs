@@ -5,31 +5,31 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.JellyTag.Tasks;
 
 /// <summary>
-/// Scheduled task that prebuilds JellyTag-Plus collection membership data.
+/// Scheduled task that prebuilds JellyTag-Plus badge status data.
 /// </summary>
-public class BuildCollectionMembershipIndexTask : IScheduledTask
+public class BuildBadgeStatusIndexTask : IScheduledTask
 {
     private static int _isRunning;
     private readonly IQualityDetectionService _qualityDetectionService;
-    private readonly ILogger<BuildCollectionMembershipIndexTask> _logger;
+    private readonly ILogger<BuildBadgeStatusIndexTask> _logger;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="BuildCollectionMembershipIndexTask"/> class.
+    /// Initializes a new instance of the <see cref="BuildBadgeStatusIndexTask"/> class.
     /// </summary>
-    public BuildCollectionMembershipIndexTask(IQualityDetectionService qualityDetectionService, ILogger<BuildCollectionMembershipIndexTask> logger)
+    public BuildBadgeStatusIndexTask(IQualityDetectionService qualityDetectionService, ILogger<BuildBadgeStatusIndexTask> logger)
     {
         _qualityDetectionService = qualityDetectionService;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public string Name => "JellyTag-Plus Build Collection Membership Index";
+    public string Name => "JellyTag-Plus Build Badge Status Index";
 
     /// <inheritdoc />
-    public string Key => "JellyTagPlusBuildCollectionMembershipIndex";
+    public string Key => "JellyTagPlusBuildBadgeStatusIndex";
 
     /// <inheritdoc />
-    public string Description => "Prebuilds the JellyTag-Plus collection membership index used by collection badge checks.";
+    public string Description => "Prebuilds the JellyTag-Plus badge status index used by image overlay requests.";
 
     /// <inheritdoc />
     public string Category => "JellyTag-Plus";
@@ -54,17 +54,19 @@ public class BuildCollectionMembershipIndexTask : IScheduledTask
         if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
         {
             progress.Report(100);
-            _logger.LogInformation("JellyTag-Plus collection membership index build skipped because another build is already running");
+            _logger.LogInformation("JellyTag-Plus badge status index build skipped because another build is already running");
             return;
         }
 
         try
         {
             progress.Report(1);
-            _logger.LogInformation("Building JellyTag-Plus collection membership index");
-            await _qualityDetectionService.RefreshCollectionMembershipIndexAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Building JellyTag-Plus badge status index");
+            await _qualityDetectionService.RefreshBadgeStatusIndexAsync(
+                percent => progress.Report(Math.Clamp(percent * 100, 1, 99)),
+                cancellationToken).ConfigureAwait(false);
             progress.Report(100);
-            _logger.LogInformation("Finished building JellyTag-Plus collection membership index");
+            _logger.LogInformation("Finished building JellyTag-Plus badge status index");
         }
         finally
         {
