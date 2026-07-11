@@ -25,6 +25,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IScheduledTask, CacheCleanupTask>();
         serviceCollection.AddSingleton<IScheduledTask, CacheWarmTask>();
         serviceCollection.AddSingleton<IScheduledTask, CalculateWarmerProgressTask>();
+        serviceCollection.AddSingleton<IScheduledTask, BuildCollectionMembershipIndexTask>();
         serviceCollection.AddSingleton<IScheduledTask, ClearLearnedClientProfileTask>();
 
         // Register middleware via IStartupFilter to intercept image requests for ALL clients

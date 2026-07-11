@@ -33,4 +33,11 @@ public interface IQualityDetectionService
     /// Clears the in-memory badge detection cache.
     /// </summary>
     void ClearBadgeCache();
+
+    /// <summary>
+    /// Rebuilds the cached Jellyfin collection membership index.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes when the index has been rebuilt.</returns>
+    Task RefreshCollectionMembershipIndexAsync(CancellationToken cancellationToken);
 }

@@ -21,7 +21,9 @@ public class QualityDetectionService : IQualityDetectionService
 {
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<QualityDetectionService> _logger;
-    private readonly ConcurrentDictionary<Guid, (List<BadgeInfo> Badges, DateTime CachedAt)> _badgeCache = new();
+    private readonly ConcurrentDictionary<string, (List<BadgeInfo> Badges, DateTime CachedAt)> _badgeCache = new();
+    private readonly object _collectionIndexLock = new();
+    private CollectionMembershipIndex? _collectionMembershipIndex;
     private static readonly TimeSpan BadgeCacheTtl = TimeSpan.FromMinutes(5);
     private DateTime _lastCacheCleanup = DateTime.UtcNow;
     private static readonly TimeSpan CacheCleanupInterval = TimeSpan.FromMinutes(10);
@@ -99,13 +101,14 @@ public class QualityDetectionService : IQualityDetectionService
     /// <inheritdoc />
     public List<BadgeInfo> DetectAllBadges(BaseItem item, ImageTypeConfig? imageConfig = null)
     {
-        if (_badgeCache.TryGetValue(item.Id, out var cached) && DateTime.UtcNow - cached.CachedAt < BadgeCacheTtl)
+        var cacheKey = GetBadgeCacheKey(item, imageConfig);
+        if (_badgeCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow - cached.CachedAt < BadgeCacheTtl)
         {
             return new List<BadgeInfo>(cached.Badges);
         }
 
-        var badges = DetectAllBadgesInternal(item);
-        _badgeCache[item.Id] = (badges, DateTime.UtcNow);
+        var badges = DetectAllBadgesInternal(item, imageConfig);
+        _badgeCache[cacheKey] = (badges, DateTime.UtcNow);
 
         // Periodically evict expired entries to prevent unbounded memory growth
         if (DateTime.UtcNow - _lastCacheCleanup > CacheCleanupInterval)
@@ -127,6 +130,23 @@ public class QualityDetectionService : IQualityDetectionService
     public void ClearBadgeCache()
     {
         _badgeCache.Clear();
+        lock (_collectionIndexLock)
+        {
+            _collectionMembershipIndex = null;
+        }
+    }
+
+    /// <inheritdoc />
+    public Task RefreshCollectionMembershipIndexAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_collectionIndexLock)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _collectionMembershipIndex = BuildCollectionMembershipIndex();
+        }
+
+        return Task.CompletedTask;
     }
 
     private List<BadgeInfo> DetectAllBadgesInternal(BaseItem item, ImageTypeConfig? imageConfig = null)
@@ -259,24 +279,7 @@ public class QualityDetectionService : IQualityDetectionService
             }
 
             var collectionItems = GetCollectionCandidateItems(item).ToList();
-            var directCollections = _libraryManager.GetItemList(new InternalItemsQuery
-            {
-                IncludeItemTypes = [BaseItemKind.BoxSet],
-                Recursive = true,
-                ForceDirect = true
-            });
-
-            var foundDirectMatch = AddMatchingCollectionBadgesFromCollections(directCollections, collectionItems, compiledRules, addedKeys, badges);
-            if (!foundDirectMatch)
-            {
-                var cachedCollections = _libraryManager.GetItemList(new InternalItemsQuery
-                {
-                    IncludeItemTypes = [BaseItemKind.BoxSet],
-                    Recursive = true
-                });
-
-                AddMatchingCollectionBadgesFromCollections(cachedCollections, collectionItems, compiledRules, addedKeys, badges);
-            }
+            AddMatchingCollectionBadgesFromIndex(GetCollectionMembershipIndex(), collectionItems, compiledRules, addedKeys, badges);
         }
         catch (Exception ex)
         {
@@ -284,25 +287,182 @@ public class QualityDetectionService : IQualityDetectionService
         }
     }
 
-    private static bool AddMatchingCollectionBadgesFromCollections(
-        IEnumerable<BaseItem> collections,
+    private static void AddMatchingCollectionBadgesFromIndex(
+        CollectionMembershipIndex index,
         List<BaseItem> collectionItems,
         List<(CollectionBadgeRule Rule, Regex Regex)> compiledRules,
         HashSet<string> addedKeys,
         List<BadgeInfo> badges)
     {
-        var originalCount = badges.Count;
-        foreach (var collection in collections.OfType<BoxSet>())
+        foreach (var candidate in collectionItems)
         {
-            if (!collectionItems.Any(candidate => CollectionContainsItem(collection, candidate)))
+            var collectionNames = new List<string>();
+            if (index.NamesByItemId.TryGetValue(candidate.Id, out var namesById))
             {
-                continue;
+                collectionNames.AddRange(namesById);
             }
 
-            AddMatchingCollectionBadges(collection.Name ?? string.Empty, compiledRules, addedKeys, badges);
+            if (!string.IsNullOrWhiteSpace(candidate.Path)
+                && index.NamesByPath.TryGetValue(candidate.Path, out var namesByPath))
+            {
+                collectionNames.AddRange(namesByPath);
+            }
+
+            foreach (var collectionName in collectionNames.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                AddMatchingCollectionBadges(collectionName, compiledRules, addedKeys, badges);
+            }
+        }
+    }
+
+    private CollectionMembershipIndex GetCollectionMembershipIndex()
+    {
+        var current = _collectionMembershipIndex;
+        if (current != null)
+        {
+            return current;
         }
 
-        return badges.Count > originalCount;
+        lock (_collectionIndexLock)
+        {
+            current = _collectionMembershipIndex;
+            if (current != null)
+            {
+                return current;
+            }
+
+            current = BuildCollectionMembershipIndex();
+            _collectionMembershipIndex = current;
+            return current;
+        }
+    }
+
+    private CollectionMembershipIndex BuildCollectionMembershipIndex()
+    {
+        var index = new CollectionMembershipIndex(DateTime.UtcNow);
+        var collections = new List<BoxSet>();
+
+        try
+        {
+            collections.AddRange(_libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = [BaseItemKind.BoxSet],
+                Recursive = true,
+                ForceDirect = true
+            }).OfType<BoxSet>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to load direct Jellyfin collections for JellyTag-Plus membership index");
+        }
+
+        try
+        {
+            collections.AddRange(_libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = [BaseItemKind.BoxSet],
+                Recursive = true
+            }).OfType<BoxSet>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to load cached Jellyfin collections for JellyTag-Plus membership index");
+        }
+
+        foreach (var collection in collections.GroupBy(collection => collection.Id).Select(group => group.First()))
+        {
+            AddCollectionToIndex(index, collection);
+        }
+
+        _logger.LogDebug("Built JellyTag-Plus collection membership index with {ItemIdCount} item ids and {PathCount} paths", index.NamesByItemId.Count, index.NamesByPath.Count);
+        return index;
+    }
+
+    private static void AddCollectionToIndex(CollectionMembershipIndex index, BoxSet collection)
+    {
+        var collectionName = collection.Name ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(collectionName))
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var child in collection.GetLinkedChildren())
+            {
+                AddCollectionMembership(index, child.Id, child.Path, collectionName);
+            }
+        }
+        catch
+        {
+            // Fall through to linked child metadata.
+        }
+
+        try
+        {
+            foreach (var info in collection.GetLinkedChildrenInfos())
+            {
+                AddLinkedChildInfoToIndex(index, info, collectionName);
+            }
+        }
+        catch
+        {
+            // Some collection implementations may not have refreshed linked child metadata.
+        }
+    }
+
+    private static void AddLinkedChildInfoToIndex(CollectionMembershipIndex index, object linkedChildInfo, string collectionName)
+    {
+        if (linkedChildInfo is null)
+        {
+            return;
+        }
+
+        var infoType = linkedChildInfo.GetType();
+        var itemValue = infoType.GetProperty("Item2")?.GetValue(linkedChildInfo);
+        if (itemValue is BaseItem linkedItem)
+        {
+            AddCollectionMembership(index, linkedItem.Id, linkedItem.Path, collectionName);
+        }
+
+        var linkedChildValue = infoType.GetProperty("Item1")?.GetValue(linkedChildInfo) ?? linkedChildInfo;
+        var linkedChildType = linkedChildValue.GetType();
+        var itemId = GetGuidValue(linkedChildType.GetProperty("ItemId")?.GetValue(linkedChildValue))
+            ?? GetGuidValue(linkedChildType.GetProperty("LibraryItemId")?.GetValue(linkedChildValue));
+        var path = linkedChildType.GetProperty("Path")?.GetValue(linkedChildValue) as string;
+
+        AddCollectionMembership(index, itemId, path, collectionName);
+    }
+
+    private static void AddCollectionMembership(CollectionMembershipIndex index, Guid? itemId, string? path, string collectionName)
+    {
+        if (itemId.HasValue && itemId.Value != Guid.Empty)
+        {
+            if (!index.NamesByItemId.TryGetValue(itemId.Value, out var names))
+            {
+                names = new List<string>();
+                index.NamesByItemId[itemId.Value] = names;
+            }
+
+            if (!names.Contains(collectionName, StringComparer.OrdinalIgnoreCase))
+            {
+                names.Add(collectionName);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            if (!index.NamesByPath.TryGetValue(path, out var names))
+            {
+                names = new List<string>();
+                index.NamesByPath[path] = names;
+            }
+
+            if (!names.Contains(collectionName, StringComparer.OrdinalIgnoreCase))
+            {
+                names.Add(collectionName);
+            }
+        }
     }
 
     private static IEnumerable<CollectionBadgeRule> GetCollectionRules(PluginConfiguration config, ImageTypeConfig? imageConfig)
@@ -323,6 +483,26 @@ public class QualityDetectionService : IQualityDetectionService
             .Where(r => !string.IsNullOrWhiteSpace(r.Regex))
             .GroupBy(NormalizeCollectionBadgeKey, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First());
+    }
+
+    private static string GetBadgeCacheKey(BaseItem item, ImageTypeConfig? imageConfig)
+    {
+        return $"{item.Id:N}:{GetCollectionRulesFingerprint(imageConfig)}";
+    }
+
+    private static string GetCollectionRulesFingerprint(ImageTypeConfig? imageConfig)
+    {
+        if (imageConfig?.CollectionRules?.Count > 0)
+        {
+            return string.Join(",", imageConfig.CollectionRules
+                .Where(rule => !string.IsNullOrWhiteSpace(rule.Regex))
+                .OrderBy(NormalizeCollectionBadgeKey, StringComparer.OrdinalIgnoreCase)
+                .Select(rule => $"{NormalizeCollectionBadgeKey(rule)}={rule.Regex}={rule.Label}"));
+        }
+
+        return string.IsNullOrWhiteSpace(imageConfig?.CollectionRegex)
+            ? string.Empty
+            : $"collection={imageConfig.CollectionRegex}={imageConfig.CollectionBadgeText}";
     }
 
     private static void AddRules(ImageTypeConfig? imageConfig, List<CollectionBadgeRule> rules)
@@ -474,11 +654,17 @@ public class QualityDetectionService : IQualityDetectionService
 
     private static bool GuidValueMatches(object? value, Guid expected)
     {
+        var parsed = GetGuidValue(value);
+        return parsed.HasValue && parsed.Value == expected;
+    }
+
+    private static Guid? GetGuidValue(object? value)
+    {
         return value switch
         {
-            Guid guid => guid == expected,
-            string idString when Guid.TryParse(idString, out var parsed) => parsed == expected,
-            _ => false
+            Guid guid => guid,
+            string idString when Guid.TryParse(idString, out var parsed) => parsed,
+            _ => null
         };
     }
 
@@ -891,5 +1077,19 @@ public class QualityDetectionService : IQualityDetectionService
             _logger.LogWarning(ex, "Failed to get media sources for video item: {ItemName}", video.Name);
             return VideoQuality.Unknown;
         }
+    }
+
+    private sealed class CollectionMembershipIndex
+    {
+        public CollectionMembershipIndex(DateTime builtAtUtc)
+        {
+            BuiltAtUtc = builtAtUtc;
+        }
+
+        public DateTime BuiltAtUtc { get; }
+
+        public Dictionary<Guid, List<string>> NamesByItemId { get; } = new();
+
+        public Dictionary<string, List<string>> NamesByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }
