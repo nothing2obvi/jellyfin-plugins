@@ -453,7 +453,8 @@ public class ImageCacheService : IImageCacheService
             foreach (var rule in c.CollectionRules)
             {
                 sb.Append(rule.Key).Append('=').Append(rule.Regex).Append('=').Append(rule.Label)
-                    .Append('=').Append(rule.ShowOnPosters).Append(rule.ShowOnSeasonPosters).Append(rule.ShowOnSeriesThumbnails).Append(rule.ShowOnEpisodeThumbnails).Append(',');
+                    .Append('=').Append(rule.ShowOnPosters).Append(rule.ShowOnSeasonPosters).Append(rule.ShowOnSeriesThumbnails).Append(rule.ShowOnEpisodeThumbnails)
+                    .Append(rule.ShowOnVideos).Append(rule.ShowOnOther).Append(',');
             }
         }
         sb.Append('|');
@@ -464,6 +465,8 @@ public class ImageCacheService : IImageCacheService
     private static void AppendPanelFingerprint(StringBuilder sb, Configuration.BadgePanelSettings p)
     {
         sb.Append(p.Enabled).Append((int)p.Position).Append((int)p.ShowMode);
+        sb.Append(p.ShowOnPosters).Append(p.ShowOnSeasonPosters).Append(p.ShowOnSeriesThumbnails).Append(p.ShowOnEpisodeThumbnails);
+        sb.Append(p.ShowOnVideos).Append(p.ShowOnOther);
         sb.Append((int)p.Layout).Append(p.GapPercent).Append(p.SizePercent).Append(p.MarginPercent);
         sb.Append((int)p.Style).Append(p.Order);
         sb.Append(p.TextBgColor).Append(p.TextBgOpacity).Append(p.TextColor).Append(p.TextCornerRadius);

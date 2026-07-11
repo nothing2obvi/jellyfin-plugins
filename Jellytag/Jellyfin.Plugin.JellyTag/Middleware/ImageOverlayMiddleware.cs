@@ -543,6 +543,7 @@ public partial class ImageOverlayMiddleware
 
         var visibleBadges = allBadges
             .Where(b => overlayService.ShouldShowBadge(b, imageConfig))
+            .Where(b => ShouldShowBadgeForImageTarget(b, imageConfig, imageType, item))
             .Where(b => ShouldShowCollectionBadgeForImage(b, imageConfig, imageType, item))
             .Where(b => ShouldShowBadgeForLibrary(b, config, collectionFolders))
             .ToList();
@@ -1134,6 +1135,16 @@ public partial class ImageOverlayMiddleware
             return rule.ShowOnSeasonPosters;
         }
 
+        if (IsVideoTarget(item))
+        {
+            return rule.ShowOnVideos;
+        }
+
+        if (IsOtherTarget(item))
+        {
+            return rule.ShowOnOther;
+        }
+
         var isThumb = IsThumbnailRequest(imageType, item);
         if (!isThumb)
         {
@@ -1141,6 +1152,75 @@ public partial class ImageOverlayMiddleware
         }
 
         return item is Episode ? rule.ShowOnEpisodeThumbnails : rule.ShowOnSeriesThumbnails;
+    }
+
+    private static bool ShouldShowBadgeForImageTarget(BadgeInfo badge, ImageTypeConfig imageConfig, string imageType, BaseItem item)
+    {
+        if (badge.Category == BadgeCategory.Collection)
+        {
+            return true;
+        }
+
+        return IsPanelTargetEnabled(GetPanelForBadgeCategory(badge.Category, imageConfig), imageType, item);
+    }
+
+    private static BadgePanelSettings GetPanelForBadgeCategory(BadgeCategory category, ImageTypeConfig imageConfig)
+    {
+        return category switch
+        {
+            BadgeCategory.Resolution => imageConfig.ResolutionPanel,
+            BadgeCategory.Hdr or BadgeCategory.ThreeD => imageConfig.HdrPanel,
+            BadgeCategory.VideoCodec => imageConfig.CodecPanel,
+            BadgeCategory.Audio => imageConfig.AudioPanel,
+            BadgeCategory.Language or BadgeCategory.Subtitle => imageConfig.LanguagePanel,
+            BadgeCategory.Collection => imageConfig.CollectionPanel,
+            _ => imageConfig.ResolutionPanel
+        };
+    }
+
+    private static bool IsPanelTargetEnabled(BadgePanelSettings panel, string imageType, BaseItem item)
+    {
+        if (!panel.Enabled)
+        {
+            return false;
+        }
+
+        if (item is Season)
+        {
+            return panel.ShowOnSeasonPosters ?? panel.Enabled;
+        }
+
+        if (IsVideoTarget(item))
+        {
+            return panel.ShowOnVideos ?? panel.Enabled;
+        }
+
+        if (IsOtherTarget(item))
+        {
+            return panel.ShowOnOther ?? panel.Enabled;
+        }
+
+        var isThumb = IsThumbnailRequest(imageType, item);
+        if (!isThumb)
+        {
+            return panel.ShowOnPosters ?? panel.Enabled;
+        }
+
+        return item is Episode
+            ? panel.ShowOnEpisodeThumbnails ?? panel.Enabled
+            : panel.ShowOnSeriesThumbnails ?? panel.Enabled;
+    }
+
+    private static bool IsVideoTarget(BaseItem item)
+    {
+        return item is not (Movie or Series or Season or Episode)
+            && (item is MusicVideo || item.GetType() == typeof(Video));
+    }
+
+    private static bool IsOtherTarget(BaseItem item)
+    {
+        return item is not (Movie or Series or Season or Episode or MusicVideo)
+            && item.GetType() != typeof(Video);
     }
 
     private static bool IsThumbnailRequest(string imageType, BaseItem item)
@@ -1234,7 +1314,9 @@ public partial class ImageOverlayMiddleware
                 ShowOnPosters = r.ShowOnPosters,
                 ShowOnSeasonPosters = r.ShowOnSeasonPosters,
                 ShowOnSeriesThumbnails = r.ShowOnSeriesThumbnails,
-                ShowOnEpisodeThumbnails = r.ShowOnEpisodeThumbnails
+                ShowOnEpisodeThumbnails = r.ShowOnEpisodeThumbnails,
+                ShowOnVideos = r.ShowOnVideos,
+                ShowOnOther = r.ShowOnOther
             }).ToList() ?? new List<CollectionBadgeRule>(),
             CollectionRegex = source.CollectionRegex,
             CollectionBadgeText = source.CollectionBadgeText,
@@ -1252,6 +1334,12 @@ public partial class ImageOverlayMiddleware
         return new BadgePanelSettings
         {
             Enabled = panel.Enabled,
+            ShowOnPosters = panel.ShowOnPosters,
+            ShowOnSeasonPosters = panel.ShowOnSeasonPosters,
+            ShowOnSeriesThumbnails = panel.ShowOnSeriesThumbnails,
+            ShowOnEpisodeThumbnails = panel.ShowOnEpisodeThumbnails,
+            ShowOnVideos = panel.ShowOnVideos,
+            ShowOnOther = panel.ShowOnOther,
             Position = panel.Position,
             ShowMode = panel.ShowMode,
             Layout = panel.Layout,

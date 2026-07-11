@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.21.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Runs the recent request completion check after 5 seconds of render activity quiet.",
+        "version": "1.51.22.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds per-target badge controls for posters, season posters, thumbnails, videos, and other image targets, and treats warmer phases with no eligible targeted badge work as complete.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.21.0.zip",
-        "checksum": "98f91de6e9bec10a03b7249090d5c776",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.22.0.zip",
+        "checksum": "525348ba35d8e3ac7308deab09397abb",
         "timestamp": "2026-07-10T00:00:00Z"
       },
       {
-        "version": "1.52.17.0",
-        "changelog": "Run the recent request completion check after 5 seconds of render activity quiet.",
+        "version": "1.52.18.0",
+        "changelog": "Add per-target badge controls for posters, season posters, thumbnails, videos, and other image targets, and treat warmer phases with no eligible targeted badge work as complete.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.17.0-jellyfin12.zip",
-        "checksum": "0392f7ca31759cb0d913e1121638e7f2",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.18.0-jellyfin12.zip",
+        "checksum": "2ff40257d660ce8a16ae83ea1371330f",
         "timestamp": "2026-07-10T00:00:00Z"
       }
     ]

@@ -18,7 +18,7 @@ JellyTag-Plus keeps the original server-side badge overlay idea and adds a lot o
 
 - **Collection badges**: Add one or more collection rules. If an item belongs to a Jellyfin collection whose title matches your regex, it can receive that collection's badge.
 - **Custom collection images**: Each collection badge rule can use its own uploaded image.
-- **Collection targeting**: Collection badges can be enabled separately for posters, season posters, series thumbnails, and episode thumbnails.
+- **Badge targeting**: Badge panels can be enabled separately for posters, season posters, series/movie thumbnails, episode thumbnails, videos, and other supported image targets. Collection badge rules have the same target controls.
 - **Per-library badge controls**: Choose which badge categories each library gets: resolution, HDR, codec, audio, language, and collections.
 - **Expanded language flags**: Added and adjusted language flag assets, including `tgl` and `fil` mapping to `flag-fil.svg`.
 - **Undetermined language fallback**: Missing, unknown, or undetermined languages use `flag-und.svg` instead of falling back to text.
@@ -86,7 +86,7 @@ Some listed clients also have a mix of fixed and variable variants:
 
 When JellyTag-Plus cannot reliably tell whether a learned non-episode, non-video image request came from a home row or a library view, it groups that learned variant under **Home & Libraries**.
 
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Home & Libraries, then Episodes, then Videos, then Other. Within each phase priority it follows the configured client profile order. Progress display folds ambiguous Home & Libraries and Other variants into Home, Libraries, or Home & Libraries so a client does not show overlapping Home/Libraries phase labels.
+Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Home & Libraries, then Episodes, then Videos, then Other. Within each phase priority it follows the configured client profile order. Progress display keeps ambiguous Home & Libraries work separate when a client cannot reliably distinguish home rows from library views.
 
 The **Learned Clients** profile is enabled by default and placed last on new installs. Move it higher if you want to warm the real variants your clients and users have actually requested before fixed client presets. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
 
@@ -125,7 +125,7 @@ This feature is intentionally more invasive than normal rendering. Keep image ba
 
 ## Jellyfin Compatibility
 
-JellyTag-Plus `1.51.21.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+JellyTag-Plus `1.51.22.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
 
 JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
 
@@ -137,7 +137,7 @@ That build uses Jellyfin `12.0.0-rc2` API packages by default. Set `JELLYFIN_PAC
 
 JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
 
-Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.21.0` package on the next plugin update.
+Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.22.0` package on the next plugin update.
 
 ## Installation
 
@@ -202,6 +202,8 @@ Each collection rule can have:
 - Season poster toggle
 - Series thumbnail toggle
 - Episode thumbnail toggle
+- Video toggle
+- Other toggle
 
 ## Custom Badges
 

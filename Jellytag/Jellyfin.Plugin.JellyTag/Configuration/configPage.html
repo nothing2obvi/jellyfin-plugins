@@ -358,6 +358,7 @@
 
         var POS_OPTS = [{v:'TopLeft',l:'Top Left'},{v:'TopCenter',l:'Top Center'},{v:'TopRight',l:'Top Right'},{v:'MiddleLeft',l:'Middle Left'},{v:'MiddleRight',l:'Middle Right'},{v:'BottomLeft',l:'Bottom Left'},{v:'BottomCenter',l:'Bottom Center'},{v:'BottomRight',l:'Bottom Right'}];
         var LAYOUT_OPTS = [{v:'Vertical',l:'Vertical'},{v:'Horizontal',l:'Horizontal'}];
+        var TARGET_CHECKBOX_STYLE = 'style="appearance:auto!important;-webkit-appearance:checkbox!important;position:static!important;opacity:1!important;pointer-events:auto!important;width:14px!important;min-width:14px!important;max-width:14px!important;height:14px!important;min-height:14px!important;max-height:14px!important;margin:0!important;padding:0!important;transform:none!important;"';
 
         function arrowBtns() {
             return '<span class="panel-arrows">' +
@@ -366,12 +367,26 @@
                 '</span>';
         }
 
+        function targetHTML(k) {
+            return '<div class="collection-rule-targets jellytag-targets">' +
+                '<input id="' + k + 'TargetPoster" class="panelTargetPoster collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' /><label for="' + k + 'TargetPoster">Posters</label>' +
+                '<input id="' + k + 'TargetSeasonPoster" class="panelTargetSeasonPoster collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' /><label for="' + k + 'TargetSeasonPoster">Season posters</label>' +
+                '<input id="' + k + 'TargetSeriesThumb" class="panelTargetSeriesThumb collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' /><label for="' + k + 'TargetSeriesThumb">Series/movie thumbnails</label>' +
+                '<input id="' + k + 'TargetEpisodeThumb" class="panelTargetEpisodeThumb collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' /><label for="' + k + 'TargetEpisodeThumb">Episode thumbnails</label>' +
+                '<input id="' + k + 'TargetVideo" class="panelTargetVideo collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' /><label for="' + k + 'TargetVideo">Videos</label>' +
+                '<input id="' + k + 'TargetOther" class="panelTargetOther collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' /><label for="' + k + 'TargetOther">Other</label>' +
+                '</div>';
+        }
+
         function panelHTML(p, panelId) {
             var def = PANEL_DEFS[panelId];
             var k = p + panelId;
             var h = '<details class="jellytag-sub" data-panel-id="' + panelId + '"><summary>' + def.title + arrowBtns() + '</summary><div class="jellytag-sub-body">';
             h += chk(k + 'Enabled', 'Enable');
             h += '<div id="' + k + 'Settings">';
+            if (panelId !== 'Collection') {
+                h += targetHTML(k);
+            }
 
             // Badges
             h += '<div class="jellytag-grid">';
@@ -416,6 +431,7 @@
             var h = '<details class="jellytag-sub" data-panel-id="Lang"><summary>Language Badges' + arrowBtns() + '</summary><div class="jellytag-sub-body">';
             h += chk(k + 'Enabled', 'Enable');
             h += '<div id="' + k + 'Settings">';
+            h += targetHTML(k);
             h += sel(k + 'Position', 'Position', POS_OPTS);
             h += sel(k + 'ShowMode', 'Show', [{v:'All',l:'All'},{v:'Highest',l:'Default Only'}]);
             h += '<div id="' + k + 'LayoutWrap">' + sel(k + 'Layout', 'Layout', LAYOUT_OPTS) + '</div>';
@@ -573,10 +589,11 @@
             var showOnSeasonPosters = rule.ShowOnSeasonPosters !== false && rule.showOnSeasonPosters !== false;
             var showOnSeriesThumbs = rule.ShowOnSeriesThumbnails !== false && rule.showOnSeriesThumbnails !== false;
             var showOnEpisodeThumbs = rule.ShowOnEpisodeThumbnails !== false && rule.showOnEpisodeThumbnails !== false;
+            var showOnVideos = rule.ShowOnVideos !== false && rule.showOnVideos !== false;
+            var showOnOther = rule.ShowOnOther !== false && rule.showOnOther !== false;
             if (!rawKey && label) rawKey = normalizeCollectionKey(label);
             var key = rawKey || ('collection-' + (index + 1));
             var idBase = k + 'Rule' + index;
-            var boxStyle = 'style="appearance:auto!important;-webkit-appearance:checkbox!important;position:static!important;opacity:1!important;pointer-events:auto!important;width:14px!important;min-width:14px!important;max-width:14px!important;height:14px!important;min-height:14px!important;max-height:14px!important;margin:0!important;padding:0!important;transform:none!important;"';
             return '<div class="jellytag-text-box collection-rule" data-rule-index="' + index + '" style="margin-bottom:.75em;">' +
                 '<div class="jellytag-grid">' +
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Badge Key</label><input class="collectionRuleKey" type="text" is="emby-input" value="' + escapeHtml(key) + '" placeholder="marvel" /></div>' +
@@ -584,10 +601,12 @@
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Text Label</label><input class="collectionRuleLabel" type="text" is="emby-input" value="' + escapeHtml(label || key.toUpperCase()) + '" placeholder="MCU" /></div>' +
                 '</div>' +
                 '<div class="collection-rule-targets">' +
-                '<input id="' + idBase + 'Poster" class="collectionRulePoster collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnPosters ? 'checked' : '') + ' /><label for="' + idBase + 'Poster">Posters</label>' +
-                '<input id="' + idBase + 'SeasonPoster" class="collectionRuleSeasonPoster collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnSeasonPosters ? 'checked' : '') + ' /><label for="' + idBase + 'SeasonPoster">Season posters</label>' +
-                '<input id="' + idBase + 'SeriesThumb" class="collectionRuleSeriesThumb collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnSeriesThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'SeriesThumb">Series/movie thumbnails</label>' +
-                '<input id="' + idBase + 'EpisodeThumb" class="collectionRuleEpisodeThumb collection-target-checkbox" type="checkbox" ' + boxStyle + ' ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'EpisodeThumb">Episode thumbnails</label>' +
+                '<input id="' + idBase + 'Poster" class="collectionRulePoster collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnPosters ? 'checked' : '') + ' /><label for="' + idBase + 'Poster">Posters</label>' +
+                '<input id="' + idBase + 'SeasonPoster" class="collectionRuleSeasonPoster collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnSeasonPosters ? 'checked' : '') + ' /><label for="' + idBase + 'SeasonPoster">Season posters</label>' +
+                '<input id="' + idBase + 'SeriesThumb" class="collectionRuleSeriesThumb collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnSeriesThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'SeriesThumb">Series/movie thumbnails</label>' +
+                '<input id="' + idBase + 'EpisodeThumb" class="collectionRuleEpisodeThumb collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnEpisodeThumbs ? 'checked' : '') + ' /><label for="' + idBase + 'EpisodeThumb">Episode thumbnails</label>' +
+                '<input id="' + idBase + 'Video" class="collectionRuleVideo collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnVideos ? 'checked' : '') + ' /><label for="' + idBase + 'Video">Videos</label>' +
+                '<input id="' + idBase + 'Other" class="collectionRuleOther collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnOther ? 'checked' : '') + ' /><label for="' + idBase + 'Other">Other</label>' +
                 '</div>' +
                 '<div class="collection-rule-preview"><img class="missing" alt="Collection badge preview" /><span>Image preview: none uploaded</span></div>' +
                 '<button type="button" is="emby-button" class="collectionRuleUpload raised"><span>Upload Image</span></button>' +
@@ -651,7 +670,7 @@
             container.innerHTML = '';
             var rules = itc.CollectionRules || itc.collectionRules || [];
             if ((!rules || rules.length === 0) && itc.CollectionRegex) {
-                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION', ShowOnPosters: true, ShowOnSeasonPosters: true, ShowOnSeriesThumbnails: true, ShowOnEpisodeThumbnails: true }];
+                rules = [{ Key: 'collection', Regex: itc.CollectionRegex, Label: itc.CollectionBadgeText || 'COLLECTION', ShowOnPosters: true, ShowOnSeasonPosters: true, ShowOnSeriesThumbnails: true, ShowOnEpisodeThumbnails: true, ShowOnVideos: true, ShowOnOther: true }];
             }
             rules.forEach(function(rule) { addCollectionRule(k, rule); });
         }
@@ -676,7 +695,9 @@
                     ShowOnPosters: row.querySelector('.collectionRulePoster').checked,
                     ShowOnSeasonPosters: row.querySelector('.collectionRuleSeasonPoster').checked,
                     ShowOnSeriesThumbnails: row.querySelector('.collectionRuleSeriesThumb').checked,
-                    ShowOnEpisodeThumbnails: row.querySelector('.collectionRuleEpisodeThumb').checked
+                    ShowOnEpisodeThumbnails: row.querySelector('.collectionRuleEpisodeThumb').checked,
+                    ShowOnVideos: row.querySelector('.collectionRuleVideo').checked,
+                    ShowOnOther: row.querySelector('.collectionRuleOther').checked
                 });
             });
             return rules;
@@ -790,10 +811,43 @@
         // ===== Config loading =====
         function q(id) { return document.querySelector('#' + id); }
 
+        function targetDefault(pc) {
+            return pc && pc.Enabled !== false;
+        }
+
+        function setTargetChecked(id, value, fallback) {
+            var el = q(id);
+            if (el) el.checked = value !== false && fallback !== false;
+        }
+
+        function loadPanelTargets(k, pc) {
+            var fallback = targetDefault(pc);
+            setTargetChecked(k + 'TargetPoster', pc.ShowOnPosters, fallback);
+            setTargetChecked(k + 'TargetSeasonPoster', pc.ShowOnSeasonPosters, fallback);
+            setTargetChecked(k + 'TargetSeriesThumb', pc.ShowOnSeriesThumbnails, fallback);
+            setTargetChecked(k + 'TargetEpisodeThumb', pc.ShowOnEpisodeThumbnails, fallback);
+            setTargetChecked(k + 'TargetVideo', pc.ShowOnVideos, fallback);
+            setTargetChecked(k + 'TargetOther', pc.ShowOnOther, fallback);
+        }
+
+        function collectPanelTargets(k) {
+            return {
+                ShowOnPosters: q(k + 'TargetPoster') ? q(k + 'TargetPoster').checked : true,
+                ShowOnSeasonPosters: q(k + 'TargetSeasonPoster') ? q(k + 'TargetSeasonPoster').checked : true,
+                ShowOnSeriesThumbnails: q(k + 'TargetSeriesThumb') ? q(k + 'TargetSeriesThumb').checked : true,
+                ShowOnEpisodeThumbnails: q(k + 'TargetEpisodeThumb') ? q(k + 'TargetEpisodeThumb').checked : true,
+                ShowOnVideos: q(k + 'TargetVideo') ? q(k + 'TargetVideo').checked : true,
+                ShowOnOther: q(k + 'TargetOther') ? q(k + 'TargetOther').checked : true
+            };
+        }
+
         function loadPanelConfig(prefix, panelId, pc) {
             if (!pc) return;
             var k = prefix + panelId;
             q(k + 'Enabled').checked = pc.Enabled !== false;
+            if (panelId !== 'Collection') {
+                loadPanelTargets(k, pc);
+            }
             q(k + 'Position').value = pc.Position || 'TopLeft';
             if (pc.ShowMode && q(k + 'ShowMode')) q(k + 'ShowMode').value = pc.ShowMode;
             q(k + 'Layout').value = pc.Layout || 'Vertical';
@@ -841,6 +895,7 @@
             if (!lc) return;
             var k = prefix + 'Lang';
             q(k + 'Enabled').checked = lc.Enabled !== false;
+            loadPanelTargets(k, lc);
             q(k + 'Position').value = lc.Position || 'TopLeft';
             q(k + 'ShowMode').value = lc.ShowMode || 'All';
             q(k + 'Layout').value = lc.Layout || 'Vertical';
@@ -903,7 +958,7 @@
         function collectPanelConfig(prefix, panelId, order) {
             var k = prefix + panelId;
             var ov = collectOverrides(k);
-            return {
+            var config = {
                 Enabled: q(k + 'Enabled').checked,
                 Position: q(k + 'Position').value,
                 ShowMode: q(k + 'ShowMode') ? q(k + 'ShowMode').value : 'Highest',
@@ -920,13 +975,17 @@
                 EnabledBadges: collectPanelBadges(prefix, panelId),
                 BadgeTypeOverrides: ov.overrides
             };
+            if (panelId !== 'Collection') {
+                Object.assign(config, collectPanelTargets(k));
+            }
+            return config;
         }
 
         function collectLangConfig(prefix) {
             var k = prefix + 'Lang';
             var container = document.getElementById(prefix + 'Panels');
             var order = container ? getPanelOrder(container) : {Lang:4};
-            return {
+            return Object.assign({
                 Enabled: q(k + 'Enabled').checked,
                 Position: q(k + 'Position').value,
                 ShowMode: q(k + 'ShowMode').value,
@@ -942,7 +1001,7 @@
                 TextCornerRadius: parseInt(q(k + 'CornerRadius').value, 10) || 0,
                 EnabledBadges: [],
                 BadgeTypeOverrides: []
-            };
+            }, collectPanelTargets(k));
         }
 
         function collectImageTypeConfig(prefix) {

@@ -71,6 +71,12 @@ public class BadgeTypeStyleOverride
 public class BadgePanelSettings
 {
     public bool Enabled { get; set; } = true;
+    public bool? ShowOnPosters { get; set; }
+    public bool? ShowOnSeasonPosters { get; set; }
+    public bool? ShowOnSeriesThumbnails { get; set; }
+    public bool? ShowOnEpisodeThumbnails { get; set; }
+    public bool? ShowOnVideos { get; set; }
+    public bool? ShowOnOther { get; set; }
     public BadgePosition Position { get; set; } = BadgePosition.TopLeft;
     public BadgeDisplayMode ShowMode { get; set; } = BadgeDisplayMode.Highest;
     public BadgeLayout Layout { get; set; } = BadgeLayout.Vertical;
@@ -116,6 +122,8 @@ public class CollectionBadgeRule
     public bool ShowOnSeasonPosters { get; set; } = true;
     public bool ShowOnSeriesThumbnails { get; set; } = true;
     public bool ShowOnEpisodeThumbnails { get; set; } = true;
+    public bool ShowOnVideos { get; set; } = true;
+    public bool ShowOnOther { get; set; } = true;
 }
 
 public class ImageTypeConfig

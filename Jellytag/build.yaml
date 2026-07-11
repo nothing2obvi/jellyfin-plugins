@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.52.17.0"
+version: "1.52.18.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "nothing2obvi"
@@ -19,6 +19,15 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.52.18.0
+  - Add per-target badge controls for posters, season posters, thumbnails, videos, and other image targets
+  - Treat warmer phases with no eligible targeted badge work as complete in progress estimates
+
+  ## v1.51.22.0
+  - Final Jellyfin 10.11-supported release
+  - Add per-target badge controls for posters, season posters, thumbnails, videos, and other image targets
+  - Treat warmer phases with no eligible targeted badge work as complete in progress estimates
+
   ## v1.52.17.0
   - Run the recent request completion check after 5 seconds of render activity quiet
 

@@ -6,6 +6,7 @@ using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Services;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -529,7 +530,8 @@ public class CacheWarmTask : IScheduledTask
             var completed = completedKeys.Count;
             var total = requests.Count;
             var percent = total == 0 ? 100 : Math.Round(completed * 100.0 / total, 1);
-            var phases = GetDisplayPhaseProgress(requests, completedKeys, state, warmerStateMaxAgeHours);
+            var profilePhases = GetProfilePhases(profile, items);
+            var phases = GetDisplayPhaseProgress(requests, completedKeys, state, warmerStateMaxAgeHours, profilePhases);
 
             progress.Add(new WarmerClientProgress(profile.Key, profile.Name, enabledKeys.Contains(profile.Key), completed, total, percent, phases));
             SetCachedProgress(progressCacheKey, progress, completed: false);
@@ -706,26 +708,55 @@ public class CacheWarmTask : IScheduledTask
         return completedKeys;
     }
 
-    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, HashSet<string> completedKeys, WarmupStateStore state, int? maxAgeHours)
+    private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, HashSet<string> completedKeys, WarmupStateStore state, int? maxAgeHours, IReadOnlyList<WarmupPhase> profilePhases)
     {
-        var hasHome = requests.Any(request => string.Equals(request.Phase.Key, HomePhaseKey, StringComparison.OrdinalIgnoreCase));
-        var hasLibraries = requests.Any(request => string.Equals(request.Phase.Key, LibrariesPhaseKey, StringComparison.OrdinalIgnoreCase));
+        var hasHome = profilePhases.Any(phase => string.Equals(phase.Key, HomePhaseKey, StringComparison.OrdinalIgnoreCase));
+        var hasLibraries = profilePhases.Any(phase => string.Equals(phase.Key, LibrariesPhaseKey, StringComparison.OrdinalIgnoreCase));
         var groups = requests
             .GroupBy(request => GetDisplayPhase(request.Phase, hasHome, hasLibraries).Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
+        var displayPhases = profilePhases
+            .Select(phase => GetDisplayPhase(phase, hasHome, hasLibraries))
+            .GroupBy(phase => phase.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(phase => phase.Order)
+            .ToList();
 
-        return WarmupPhases
-            .Where(phase => !string.Equals(phase.Key, OtherPhaseKey, StringComparison.OrdinalIgnoreCase))
-            .Where(phase => groups.ContainsKey(phase.Key))
+        return displayPhases
             .Select(phase =>
             {
-                var phaseRequests = groups[phase.Key];
+                if (!groups.TryGetValue(phase.Key, out var phaseRequests))
+                {
+                    return new WarmerPhaseProgress(phase.Key, phase.Name, 0, 0, 100, null);
+                }
+
                 var phaseCompleted = phaseRequests.Count(request => completedKeys.Contains(request.CompletionKey));
                 var phaseTotal = phaseRequests.Count;
                 var phasePercent = phaseTotal == 0 ? 100 : Math.Round(phaseCompleted * 100.0 / phaseTotal, 1);
                 var etaText = GetPhaseEtaText(phaseRequests, state, maxAgeHours, phaseCompleted, phaseTotal);
                 return new WarmerPhaseProgress(phase.Key, phase.Name, phaseCompleted, phaseTotal, phasePercent, etaText);
             })
+            .ToList();
+    }
+
+    private static IReadOnlyList<WarmupPhase> GetProfilePhases(ClientWarmupProfile profile, IReadOnlyList<BaseItem> items)
+    {
+        var phases = profile.PrimaryVariants.Concat(profile.ThumbVariants).Select(variant => variant.Phase).ToList();
+
+        if (items.Any(item => item is Episode && (profile.PrimaryVariants.Count > 0 || profile.ThumbVariants.Count > 0)))
+        {
+            phases.Add(GetPhase(EpisodesPhaseKey));
+        }
+
+        if (items.Any(IsVideoTarget) && (profile.PrimaryVariants.Count > 0 || profile.ThumbVariants.Count > 0))
+        {
+            phases.Add(GetPhase(VideosPhaseKey));
+        }
+
+        return phases
+            .GroupBy(phase => phase.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(phase => phase.Order)
             .ToList();
     }
 
@@ -1023,13 +1054,128 @@ public class CacheWarmTask : IScheduledTask
 
     private static bool ShouldRequestPrimary(BaseItem item, PluginConfiguration config)
     {
-        if (item is Episode) return config.ThumbnailSameAsPoster ? config.PosterConfig.Enabled : config.ThumbnailConfig.Enabled;
-        return config.PosterConfig.Enabled;
+        var imageConfig = GetWarmupImageConfig(item, "Primary", config);
+        return imageConfig.Enabled && HasAnyBadgeTargetForItem(imageConfig, "Primary", item);
     }
 
     private static bool ShouldRequestThumb(BaseItem item, PluginConfiguration config)
     {
-        return config.ThumbnailSameAsPoster ? config.PosterConfig.Enabled : config.ThumbnailConfig.Enabled;
+        var imageConfig = GetWarmupImageConfig(item, "Thumb", config);
+        return imageConfig.Enabled && HasAnyBadgeTargetForItem(imageConfig, "Thumb", item);
+    }
+
+    private static ImageTypeConfig GetWarmupImageConfig(BaseItem item, string imageType, PluginConfiguration config)
+    {
+        var isThumb = string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase) || item is Episode;
+        if (isThumb && config.ThumbnailSameAsPoster)
+        {
+            return config.PosterConfig;
+        }
+
+        return isThumb ? config.ThumbnailConfig : config.PosterConfig;
+    }
+
+    private static bool HasAnyBadgeTargetForItem(ImageTypeConfig imageConfig, string imageType, BaseItem item)
+    {
+        return IsPanelTargetEnabled(imageConfig.ResolutionPanel, imageType, item)
+            || IsPanelTargetEnabled(imageConfig.HdrPanel, imageType, item)
+            || IsPanelTargetEnabled(imageConfig.CodecPanel, imageType, item)
+            || IsPanelTargetEnabled(imageConfig.AudioPanel, imageType, item)
+            || IsPanelTargetEnabled(imageConfig.LanguagePanel, imageType, item)
+            || HasAnyCollectionTargetForItem(imageConfig, imageType, item);
+    }
+
+    private static bool HasAnyCollectionTargetForItem(ImageTypeConfig imageConfig, string imageType, BaseItem item)
+    {
+        if (!imageConfig.CollectionPanel.Enabled)
+        {
+            return false;
+        }
+
+        if (imageConfig.CollectionRules?.Count > 0)
+        {
+            return imageConfig.CollectionRules.Any(rule => IsCollectionRuleTargetEnabled(rule, imageType, item));
+        }
+
+        return !string.IsNullOrWhiteSpace(imageConfig.CollectionRegex)
+            && IsPanelTargetEnabled(imageConfig.CollectionPanel, imageType, item);
+    }
+
+    private static bool IsCollectionRuleTargetEnabled(CollectionBadgeRule rule, string imageType, BaseItem item)
+    {
+        if (item is Season)
+        {
+            return rule.ShowOnSeasonPosters;
+        }
+
+        if (IsVideoTarget(item))
+        {
+            return rule.ShowOnVideos;
+        }
+
+        if (IsOtherTarget(item))
+        {
+            return rule.ShowOnOther;
+        }
+
+        var isThumb = IsThumbnailRequest(imageType, item);
+        if (!isThumb)
+        {
+            return rule.ShowOnPosters;
+        }
+
+        return item is Episode ? rule.ShowOnEpisodeThumbnails : rule.ShowOnSeriesThumbnails;
+    }
+
+    private static bool IsPanelTargetEnabled(BadgePanelSettings panel, string imageType, BaseItem item)
+    {
+        if (!panel.Enabled)
+        {
+            return false;
+        }
+
+        if (item is Season)
+        {
+            return panel.ShowOnSeasonPosters ?? panel.Enabled;
+        }
+
+        if (IsVideoTarget(item))
+        {
+            return panel.ShowOnVideos ?? panel.Enabled;
+        }
+
+        if (IsOtherTarget(item))
+        {
+            return panel.ShowOnOther ?? panel.Enabled;
+        }
+
+        var isThumb = IsThumbnailRequest(imageType, item);
+        if (!isThumb)
+        {
+            return panel.ShowOnPosters ?? panel.Enabled;
+        }
+
+        return item is Episode
+            ? panel.ShowOnEpisodeThumbnails ?? panel.Enabled
+            : panel.ShowOnSeriesThumbnails ?? panel.Enabled;
+    }
+
+    private static bool IsThumbnailRequest(string imageType, BaseItem item)
+    {
+        return string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(imageType, "Primary", StringComparison.OrdinalIgnoreCase) && item is Episode);
+    }
+
+    private static bool IsVideoTarget(BaseItem item)
+    {
+        return item is not (Movie or Series or Season or Episode)
+            && (item is MusicVideo || item.GetType() == typeof(Video));
+    }
+
+    private static bool IsOtherTarget(BaseItem item)
+    {
+        return item is not (Movie or Series or Season or Episode or MusicVideo)
+            && item.GetType() != typeof(Video);
     }
 
     private static ClientWarmupProfile CreateFindroidProfile()
