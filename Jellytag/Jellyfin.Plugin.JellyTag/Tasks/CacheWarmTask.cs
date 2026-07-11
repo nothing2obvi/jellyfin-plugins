@@ -691,7 +691,8 @@ public class CacheWarmTask : IScheduledTask
                 continue;
             }
 
-            var requestCacheKey = cacheService.CreateRequestCacheKey(request.ItemId, request.ImageType, request.ImageVersion, request.Variant.CacheKey, request.ItemModifiedTicks);
+            var targetConfigFingerprint = cacheService.CreateTargetConfigFingerprint(request.ImageType, request.TargetKey);
+            var requestCacheKey = cacheService.CreateRequestCacheKey(request.ItemId, request.ImageType, request.ImageVersion, request.Variant.CacheKey, request.ItemModifiedTicks, targetConfigFingerprint);
             if (await cacheService.GetCachedImageFileForRequestAsync(request.ItemId, requestCacheKey).ConfigureAwait(false) != null)
             {
                 completedKeys.Add(request.CompletionKey);
@@ -927,10 +928,11 @@ public class CacheWarmTask : IScheduledTask
     {
         var imageVersion = GetImageVersion(item, imageType);
         var itemModifiedTicks = item.DateModified.Ticks;
+        var targetKey = GetImageTargetKey(imageType, item);
         foreach (var variant in profile.GetVariants(imageType))
         {
             var phase = GetRequestPhase(item, variant);
-            yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, profile.Key, profile.Name, profileOrder, phase, variant);
+            yield return new WarmupRequest(item.Id, imageType, imageVersion, itemModifiedTicks, targetKey, profile.Key, profile.Name, profileOrder, phase, variant);
         }
     }
 
@@ -1164,6 +1166,31 @@ public class CacheWarmTask : IScheduledTask
     {
         return string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase)
             || (string.Equals(imageType, "Primary", StringComparison.OrdinalIgnoreCase) && item is Episode);
+    }
+
+    private static string GetImageTargetKey(string imageType, BaseItem item)
+    {
+        if (item is Season)
+        {
+            return "season-poster";
+        }
+
+        if (IsVideoTarget(item))
+        {
+            return "video";
+        }
+
+        if (IsOtherTarget(item))
+        {
+            return "other";
+        }
+
+        if (!IsThumbnailRequest(imageType, item))
+        {
+            return "poster";
+        }
+
+        return item is Episode ? "episode-thumbnail" : "series-thumbnail";
     }
 
     private static bool IsVideoTarget(BaseItem item)
@@ -1639,7 +1666,7 @@ public class CacheWarmTask : IScheduledTask
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)))[..16];
     }
 
-    private sealed record WarmupRequest(Guid ItemId, string ImageType, string ImageVersion, long ItemModifiedTicks, string ClientProfileKey, string ClientProfile, int ClientProfileOrder, WarmupPhase Phase, ImageVariant Variant)
+    private sealed record WarmupRequest(Guid ItemId, string ImageType, string ImageVersion, long ItemModifiedTicks, string TargetKey, string ClientProfileKey, string ClientProfile, int ClientProfileOrder, WarmupPhase Phase, ImageVariant Variant)
     {
         public string CacheKey => $"{ItemId:N}:{ImageType}:{Variant.CacheKey}";
         public string CompletionKey => $"{ItemId:N}:{ImageType}:{ImageVersion}:{ItemModifiedTicks}:{Variant.CacheKey}";

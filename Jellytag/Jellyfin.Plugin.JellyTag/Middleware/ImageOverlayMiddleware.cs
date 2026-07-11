@@ -176,9 +176,11 @@ public partial class ImageOverlayMiddleware
 
         var query = GetCacheRelevantQuery(context.Request.Query);
         var imageVersion = GetImageVersion(item, imageType);
-        var requestCacheKey = cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, query, item.DateModified.Ticks);
-        var compatibleRequestCacheLookupKeys = GetCompatibleRequestCacheLookupKeys(cacheService, itemId, imageType, imageVersion, context.Request.Query, item.DateModified.Ticks).ToList();
-        var compatibleRequestCacheLearnKeys = GetCompatibleRequestCacheLearnKeys(cacheService, itemId, imageType, imageVersion, context.Request.Query, item.DateModified.Ticks).ToList();
+        var targetKey = GetImageTargetKey(imageType, item);
+        var targetConfigFingerprint = cacheService.CreateTargetConfigFingerprint(imageType, targetKey);
+        var requestCacheKey = cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, query, item.DateModified.Ticks, targetConfigFingerprint);
+        var compatibleRequestCacheLookupKeys = GetCompatibleRequestCacheLookupKeys(cacheService, itemId, imageType, imageVersion, context.Request.Query, item.DateModified.Ticks, targetConfigFingerprint).ToList();
+        var compatibleRequestCacheLearnKeys = GetCompatibleRequestCacheLearnKeys(cacheService, itemId, imageType, imageVersion, context.Request.Query, item.DateModified.Ticks, targetConfigFingerprint).ToList();
         var requestCachedFile = await cacheService.GetCachedImageFileForRequestAsync(itemId, requestCacheKey).ConfigureAwait(false);
         if (requestCachedFile != null)
         {
@@ -218,12 +220,22 @@ public partial class ImageOverlayMiddleware
         var badgeKey = string.Join("_", visibleBadges.Select(b => b.BadgeKey));
         _logger.LogInformation("Applying {Count} badges to {Item}: {BadgeKey}", visibleBadges.Count, item.Name, badgeKey);
 
-        var imageTag = $"{imageVersion}_{imageType}_{query}_{badgeState}";
+        var legacyImageTag = $"{imageVersion}_{imageType}_{query}_{badgeState}";
+        var imageTag = $"{legacyImageTag}_{targetConfigFingerprint}";
 
         var cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, imageTag, badgeState).ConfigureAwait(false);
         if (cachedFile != null)
         {
             cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
+            SetWarmupResult(context, WarmupResultCacheHit);
+            await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
+            return;
+        }
+
+        cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, legacyImageTag, badgeState).ConfigureAwait(false);
+        if (cachedFile != null)
+        {
+            cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, legacyImageTag, badgeState);
             SetWarmupResult(context, WarmupResultCacheHit);
             await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
             return;
@@ -255,6 +267,15 @@ public partial class ImageOverlayMiddleware
             if (cachedFile != null)
             {
                 cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
+                SetWarmupResult(context, WarmupResultCacheHit);
+                await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
+                return;
+            }
+
+            cachedFile = await cacheService.GetCachedImageFileAsync(itemId, badgeKey, legacyImageTag, badgeState).ConfigureAwait(false);
+            if (cachedFile != null)
+            {
+                cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, legacyImageTag, badgeState);
                 SetWarmupResult(context, WarmupResultCacheHit);
                 await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
                 return;
@@ -612,11 +633,12 @@ public partial class ImageOverlayMiddleware
         string imageType,
         string imageVersion,
         IQueryCollection query,
-        long itemModifiedTicks)
+        long itemModifiedTicks,
+        string targetConfigFingerprint)
     {
         foreach (var compatibleQuery in GetCompatibleCacheRelevantQueries(query))
         {
-            yield return cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, compatibleQuery, itemModifiedTicks);
+            yield return cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, compatibleQuery, itemModifiedTicks, targetConfigFingerprint);
         }
     }
 
@@ -626,9 +648,10 @@ public partial class ImageOverlayMiddleware
         string imageType,
         string imageVersion,
         IQueryCollection query,
-        long itemModifiedTicks)
+        long itemModifiedTicks,
+        string targetConfigFingerprint)
     {
-        yield return cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, GetCompatibleCacheRelevantQuery(query), itemModifiedTicks);
+        yield return cacheService.CreateRequestCacheKey(itemId, imageType, imageVersion, GetCompatibleCacheRelevantQuery(query), itemModifiedTicks, targetConfigFingerprint);
     }
 
     private static string GetCompatibleCacheRelevantQuery(IQueryCollection query)
@@ -1209,6 +1232,31 @@ public partial class ImageOverlayMiddleware
         return item is Episode
             ? panel.ShowOnEpisodeThumbnails ?? panel.Enabled
             : panel.ShowOnSeriesThumbnails ?? panel.Enabled;
+    }
+
+    private static string GetImageTargetKey(string imageType, BaseItem item)
+    {
+        if (item is Season)
+        {
+            return "season-poster";
+        }
+
+        if (IsVideoTarget(item))
+        {
+            return "video";
+        }
+
+        if (IsOtherTarget(item))
+        {
+            return "other";
+        }
+
+        if (!IsThumbnailRequest(imageType, item))
+        {
+            return "poster";
+        }
+
+        return item is Episode ? "episode-thumbnail" : "series-thumbnail";
     }
 
     private static bool IsVideoTarget(BaseItem item)

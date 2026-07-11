@@ -30,13 +30,18 @@ public class ImageCacheService : IImageCacheService
     }
 
     /// <inheritdoc />
-    public string CreateRequestCacheKey(Guid itemId, string imageType, string imageVersion, string query, long itemModifiedTicks)
+    public string CreateRequestCacheKey(Guid itemId, string imageType, string imageVersion, string query, long itemModifiedTicks, string targetConfigFingerprint)
     {
-        var config = Plugin.Instance?.Configuration;
-        var configFingerprint = config != null ? ComputeConfigFingerprint(config) : string.Empty;
-        var input = $"{itemId:N}_{imageType}_{imageVersion}_{itemModifiedTicks}_{query}_{configFingerprint}";
+        var input = $"{itemId:N}_{imageType}_{imageVersion}_{itemModifiedTicks}_{query}_{targetConfigFingerprint}";
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return $"{itemId:N}_{Convert.ToHexString(hashBytes)[..16]}";
+    }
+
+    /// <inheritdoc />
+    public string CreateTargetConfigFingerprint(string imageType, string targetKey)
+    {
+        var config = Plugin.Instance?.Configuration;
+        return config != null ? ComputeConfigFingerprint(config, imageType, targetKey) : string.Empty;
     }
 
     /// <inheritdoc />
@@ -119,6 +124,20 @@ public class ImageCacheService : IImageCacheService
     private CachedImageFile? TryGetCachedFile(Guid itemId, string badgeKey, string imageTag, string badgeState, bool allowExpiredValidation)
     {
         var cacheKey = GenerateCacheKey(itemId, badgeKey, imageTag);
+        var cachedFile = TryGetCachedFileForKey(itemId, cacheKey, badgeState, allowExpiredValidation);
+        if (cachedFile != null)
+        {
+            return cachedFile;
+        }
+
+        var legacyCacheKey = GenerateLegacyCacheKey(itemId, badgeKey, imageTag);
+        return string.Equals(legacyCacheKey, cacheKey, StringComparison.Ordinal)
+            ? null
+            : TryGetCachedFileForKey(itemId, legacyCacheKey, badgeState, allowExpiredValidation);
+    }
+
+    private CachedImageFile? TryGetCachedFileForKey(Guid itemId, string cacheKey, string badgeState, bool allowExpiredValidation)
+    {
         var indexedPath = GetIndexedCachePath(cacheKey);
         if (!string.IsNullOrWhiteSpace(indexedPath))
         {
@@ -397,6 +416,16 @@ public class ImageCacheService : IImageCacheService
 
     private string GenerateCacheKey(Guid itemId, string badgeKey, string imageTag)
     {
+        var input = $"{itemId}_{badgeKey}_{imageTag}";
+
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        var hash = Convert.ToHexString(hashBytes)[..16];
+
+        return $"{itemId}_{hash}";
+    }
+
+    private string GenerateLegacyCacheKey(Guid itemId, string badgeKey, string imageTag)
+    {
         var config = Plugin.Instance?.Configuration;
         var configFingerprint = config != null ? ComputeConfigFingerprint(config) : string.Empty;
         var input = $"{itemId}_{badgeKey}_{imageTag}_{configFingerprint}";
@@ -407,7 +436,7 @@ public class ImageCacheService : IImageCacheService
         return $"{itemId}_{hash}";
     }
 
-    private static string ComputeConfigFingerprint(Configuration.PluginConfiguration config)
+    private static string ComputeConfigFingerprint(Configuration.PluginConfiguration config, string? imageType = null, string? targetKey = null)
     {
         var sb = new StringBuilder(256);
         sb.Append(config.Enabled).Append('|');
@@ -424,8 +453,20 @@ public class ImageCacheService : IImageCacheService
             }
         }
         sb.Append('|');
-        AppendImageTypeFingerprint(sb, config.PosterConfig);
-        AppendImageTypeFingerprint(sb, config.ThumbnailConfig);
+        if (string.IsNullOrWhiteSpace(imageType))
+        {
+            AppendImageTypeFingerprint(sb, config.PosterConfig, targetKey);
+            AppendImageTypeFingerprint(sb, config.ThumbnailConfig, targetKey);
+        }
+        else if (ShouldUseThumbnailConfig(imageType, targetKey))
+        {
+            AppendImageTypeFingerprint(sb, config.ThumbnailSameAsPoster ? config.PosterConfig : config.ThumbnailConfig, targetKey);
+        }
+        else
+        {
+            AppendImageTypeFingerprint(sb, config.PosterConfig, targetKey);
+        }
+
         if (config.CustomBadgeTexts != null)
         {
             foreach (var cbt in config.CustomBadgeTexts.OrderBy(cbt => cbt.Key, StringComparer.OrdinalIgnoreCase))
@@ -438,23 +479,30 @@ public class ImageCacheService : IImageCacheService
         return Convert.ToHexString(hashBytes)[..16];
     }
 
-    private static void AppendImageTypeFingerprint(StringBuilder sb, Configuration.ImageTypeConfig c)
+    private static bool ShouldUseThumbnailConfig(string imageType, string? targetKey)
+    {
+        return string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(targetKey, "episode-thumbnail", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AppendImageTypeFingerprint(StringBuilder sb, Configuration.ImageTypeConfig c, string? targetKey = null)
     {
         sb.Append(c.Enabled).Append('|');
-        AppendPanelFingerprint(sb, c.ResolutionPanel);
-        AppendPanelFingerprint(sb, c.HdrPanel);
-        AppendPanelFingerprint(sb, c.CodecPanel);
-        AppendPanelFingerprint(sb, c.AudioPanel);
-        AppendPanelFingerprint(sb, c.LanguagePanel);
-        AppendPanelFingerprint(sb, c.CollectionPanel);
+        AppendPanelFingerprint(sb, c.ResolutionPanel, targetKey);
+        AppendPanelFingerprint(sb, c.HdrPanel, targetKey);
+        AppendPanelFingerprint(sb, c.CodecPanel, targetKey);
+        AppendPanelFingerprint(sb, c.AudioPanel, targetKey);
+        AppendPanelFingerprint(sb, c.LanguagePanel, targetKey);
+        AppendPanelFingerprint(sb, c.CollectionPanel, targetKey);
         sb.Append(c.CollectionRegex ?? "n").Append(c.CollectionBadgeText ?? "n").Append('|');
         if (c.CollectionRules != null)
         {
             foreach (var rule in c.CollectionRules)
             {
                 sb.Append(rule.Key).Append('=').Append(rule.Regex).Append('=').Append(rule.Label)
-                    .Append('=').Append(rule.ShowOnPosters).Append(rule.ShowOnSeasonPosters).Append(rule.ShowOnSeriesThumbnails).Append(rule.ShowOnEpisodeThumbnails)
-                    .Append(rule.ShowOnVideos).Append(rule.ShowOnOther).Append(',');
+                    .Append('=');
+                AppendTargetValue(sb, targetKey, rule.ShowOnPosters, rule.ShowOnSeasonPosters, rule.ShowOnSeriesThumbnails, rule.ShowOnEpisodeThumbnails, rule.ShowOnVideos, rule.ShowOnOther);
+                sb.Append(',');
             }
         }
         sb.Append('|');
@@ -462,11 +510,10 @@ public class ImageCacheService : IImageCacheService
         sb.Append(c.VostBgOpacity).Append(c.VostCornerRadius).Append('|');
     }
 
-    private static void AppendPanelFingerprint(StringBuilder sb, Configuration.BadgePanelSettings p)
+    private static void AppendPanelFingerprint(StringBuilder sb, Configuration.BadgePanelSettings p, string? targetKey = null)
     {
         sb.Append(p.Enabled).Append((int)p.Position).Append((int)p.ShowMode);
-        sb.Append(p.ShowOnPosters).Append(p.ShowOnSeasonPosters).Append(p.ShowOnSeriesThumbnails).Append(p.ShowOnEpisodeThumbnails);
-        sb.Append(p.ShowOnVideos).Append(p.ShowOnOther);
+        AppendTargetValue(sb, targetKey, p.ShowOnPosters, p.ShowOnSeasonPosters, p.ShowOnSeriesThumbnails, p.ShowOnEpisodeThumbnails, p.ShowOnVideos, p.ShowOnOther);
         sb.Append((int)p.Layout).Append(p.GapPercent).Append(p.SizePercent).Append(p.MarginPercent);
         sb.Append((int)p.Style).Append(p.Order);
         sb.Append(p.TextBgColor).Append(p.TextBgOpacity).Append(p.TextColor).Append(p.TextCornerRadius);
@@ -535,6 +582,34 @@ public class ImageCacheService : IImageCacheService
         {
             _logger.LogDebug(ex, "Failed to validate expired JellyTag-Plus cache file: {Path}", cacheFilePath);
             return false;
+        }
+    }
+
+    private static void AppendTargetValue(StringBuilder sb, string? targetKey, bool? posters, bool? seasonPosters, bool? seriesThumbnails, bool? episodeThumbnails, bool? videos, bool? other)
+    {
+        switch (targetKey)
+        {
+            case "poster":
+                sb.Append(posters);
+                break;
+            case "season-poster":
+                sb.Append(seasonPosters);
+                break;
+            case "series-thumbnail":
+                sb.Append(seriesThumbnails);
+                break;
+            case "episode-thumbnail":
+                sb.Append(episodeThumbnails);
+                break;
+            case "video":
+                sb.Append(videos);
+                break;
+            case "other":
+                sb.Append(other);
+                break;
+            default:
+                sb.Append(posters).Append(seasonPosters).Append(seriesThumbnails).Append(episodeThumbnails).Append(videos).Append(other);
+                break;
         }
     }
 

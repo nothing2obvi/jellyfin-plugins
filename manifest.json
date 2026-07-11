@@ -28,19 +28,19 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.22.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds per-target badge controls for posters, season posters, thumbnails, videos, and other image targets, and treats warmer phases with no eligible targeted badge work as complete.",
+        "version": "1.51.23.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Makes image cache keys target-aware so changing episode-thumbnail targeting does not invalidate poster caches.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.22.0.zip",
-        "checksum": "525348ba35d8e3ac7308deab09397abb",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.23.0.zip",
+        "checksum": "99bf85f201cc759fa197c34635739652",
         "timestamp": "2026-07-10T00:00:00Z"
       },
       {
-        "version": "1.52.18.0",
-        "changelog": "Add per-target badge controls for posters, season posters, thumbnails, videos, and other image targets, and treat warmer phases with no eligible targeted badge work as complete.",
+        "version": "1.52.19.0",
+        "changelog": "Make image cache keys target-aware so changing episode-thumbnail targeting does not invalidate poster caches.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.18.0-jellyfin12.zip",
-        "checksum": "2ff40257d660ce8a16ae83ea1371330f",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.19.0-jellyfin12.zip",
+        "checksum": "f6bc52d8124377afb88200eecb5616cb",
         "timestamp": "2026-07-10T00:00:00Z"
       }
     ]

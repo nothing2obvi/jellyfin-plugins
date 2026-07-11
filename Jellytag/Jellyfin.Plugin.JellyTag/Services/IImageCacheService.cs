@@ -13,8 +13,17 @@ public interface IImageCacheService
     /// <param name="imageVersion">The source image version.</param>
     /// <param name="query">The cache-relevant request query string.</param>
     /// <param name="itemModifiedTicks">The item modified ticks.</param>
+    /// <param name="targetConfigFingerprint">The target-aware configuration fingerprint.</param>
     /// <returns>A request-level cache key.</returns>
-    string CreateRequestCacheKey(Guid itemId, string imageType, string imageVersion, string query, long itemModifiedTicks);
+    string CreateRequestCacheKey(Guid itemId, string imageType, string imageVersion, string query, long itemModifiedTicks, string targetConfigFingerprint);
+
+    /// <summary>
+    /// Creates a cache fingerprint for only the badge settings that can affect the current image target.
+    /// </summary>
+    /// <param name="imageType">The Jellyfin image type.</param>
+    /// <param name="targetKey">The JellyTag-Plus target key.</param>
+    /// <returns>A target-aware configuration fingerprint.</returns>
+    string CreateTargetConfigFingerprint(string imageType, string targetKey);
 
     /// <summary>
     /// Gets a cached image file for a previously learned request-level cache key.
