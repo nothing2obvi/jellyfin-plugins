@@ -1359,6 +1359,8 @@ public partial class ImageOverlayMiddleware
                 Key = r.Key,
                 Regex = r.Regex,
                 Label = r.Label,
+                Position = r.Position,
+                Layout = r.Layout,
                 ShowOnPosters = r.ShowOnPosters,
                 ShowOnSeasonPosters = r.ShowOnSeasonPosters,
                 ShowOnSeriesThumbnails = r.ShowOnSeriesThumbnails,

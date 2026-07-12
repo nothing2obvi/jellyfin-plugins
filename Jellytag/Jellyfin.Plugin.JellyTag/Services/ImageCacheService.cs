@@ -500,6 +500,8 @@ public class ImageCacheService : IImageCacheService
             foreach (var rule in c.CollectionRules)
             {
                 sb.Append(rule.Key).Append('=').Append(rule.Regex).Append('=').Append(rule.Label)
+                    .Append('=').Append(rule.Position?.ToString() ?? "default")
+                    .Append('=').Append(rule.Layout?.ToString() ?? "default")
                     .Append('=');
                 AppendTargetValue(sb, targetKey, rule.ShowOnPosters, rule.ShowOnSeasonPosters, rule.ShowOnSeriesThumbnails, rule.ShowOnEpisodeThumbnails, rule.ShowOnVideos, rule.ShowOnOther);
                 sb.Append(',');

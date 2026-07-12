@@ -165,6 +165,12 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                 var panelBadges = badges.Where(b => GetPanelForCategory(b.Category, imageConfig) == panel).ToList();
                 if (panelBadges.Count == 0) continue;
 
+                if (category == "Collections")
+                {
+                    await AddCollectionRenderGroups(panel, panelBadges, imageConfig, image.Width, allPanelGroups, allOwnedBitmaps).ConfigureAwait(false);
+                    continue;
+                }
+
                 // Apply ShowMode filter: Highest = keep only the first (highest priority) badge
                 if (panel.ShowMode == BadgeDisplayMode.Highest && panelBadges.Count > 1)
                 {
@@ -221,7 +227,8 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                 var gap = group.Sizes.Count > 0 ? (int)(group.Sizes.Average(s => s.Height) * gapPercent / 100f) : 0;
 
                 // Reverse order if needed
-                if (ShouldReverseOrder(panel.Layout, panel.Position))
+                if (ShouldReverseOrder(panel.Layout, panel.Position)
+                    || (group.ReverseBottomStack && panel.Layout == BadgeLayout.Vertical && IsBottomPosition(panel.Position)))
                 {
                     group.Filtered.Reverse();
                     group.Sizes.Reverse();
@@ -278,6 +285,141 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
         public List<SKBitmap> SourceBitmaps { get; set; } = new();
         public List<SKPointI> Positions { get; set; } = new();
         public ImageTypeConfig ImageConfig { get; set; } = null!;
+        public bool ReverseBottomStack { get; set; }
+    }
+
+    private async Task AddCollectionRenderGroups(
+        BadgePanelSettings panel,
+        List<BadgeInfo> panelBadges,
+        ImageTypeConfig imageConfig,
+        int imageWidth,
+        List<PanelRenderGroup> allPanelGroups,
+        List<SKBitmap> allOwnedBitmaps)
+    {
+        foreach (var group in GetCollectionRuleGroups(panel, panelBadges, imageConfig))
+        {
+            var sizePercent = Math.Clamp(group.Panel.SizePercent, MinBadgeSizePercent, MaxBadgeSizePercent);
+            var useText = group.Panel.Style == BadgeStyle.Text;
+
+            var sizes = new List<SKSizeI>();
+            var sourceBitmaps = new List<SKBitmap>();
+            var filtered = new List<BadgeInfo>();
+            var ownedBitmaps = new List<SKBitmap>();
+
+            await PrepareBadgeGroup(group.Badges, sizePercent, imageWidth, useText, sizes, sourceBitmaps, filtered, ownedBitmaps).ConfigureAwait(false);
+            allOwnedBitmaps.AddRange(ownedBitmaps);
+
+            if (filtered.Count == 0)
+            {
+                continue;
+            }
+
+            allPanelGroups.Add(new PanelRenderGroup
+            {
+                Panel = group.Panel,
+                Filtered = filtered,
+                Sizes = sizes,
+                SourceBitmaps = sourceBitmaps,
+                ImageConfig = imageConfig,
+                ReverseBottomStack = true
+            });
+        }
+    }
+
+    private static List<(BadgePanelSettings Panel, List<BadgeInfo> Badges)> GetCollectionRuleGroups(
+        BadgePanelSettings panel,
+        List<BadgeInfo> panelBadges,
+        ImageTypeConfig imageConfig)
+    {
+        var groups = new List<(BadgePanelSettings Panel, List<BadgeInfo> Badges)>();
+
+        foreach (var badge in panelBadges)
+        {
+            var rule = FindCollectionRule(imageConfig, badge.BadgeKey);
+            var effectivePanel = CreateCollectionRulePanel(panel, rule);
+            var existingIndex = groups.FindIndex(group =>
+                group.Panel.Position == effectivePanel.Position
+                && group.Panel.Layout == effectivePanel.Layout
+                && group.Panel.Style == effectivePanel.Style
+                && group.Panel.SizePercent == effectivePanel.SizePercent
+                && Math.Abs(group.Panel.MarginPercent - effectivePanel.MarginPercent) < 0.001f
+                && Math.Abs(group.Panel.GapPercent - effectivePanel.GapPercent) < 0.001f);
+
+            if (existingIndex >= 0)
+            {
+                groups[existingIndex].Badges.Add(badge);
+            }
+            else
+            {
+                groups.Add((effectivePanel, new List<BadgeInfo> { badge }));
+            }
+        }
+
+        return groups;
+    }
+
+    private static BadgePanelSettings CreateCollectionRulePanel(BadgePanelSettings source, CollectionBadgeRule? rule)
+    {
+        var panel = new BadgePanelSettings
+        {
+            Enabled = source.Enabled,
+            ShowOnPosters = source.ShowOnPosters,
+            ShowOnSeasonPosters = source.ShowOnSeasonPosters,
+            ShowOnSeriesThumbnails = source.ShowOnSeriesThumbnails,
+            ShowOnEpisodeThumbnails = source.ShowOnEpisodeThumbnails,
+            ShowOnVideos = source.ShowOnVideos,
+            ShowOnOther = source.ShowOnOther,
+            Position = rule?.Position ?? source.Position,
+            ShowMode = source.ShowMode,
+            Layout = rule?.Layout ?? (rule?.Position == null ? source.Layout : GetDefaultCollectionRuleLayout(rule.Position.Value)),
+            GapPercent = source.GapPercent,
+            SizePercent = source.SizePercent,
+            MarginPercent = source.MarginPercent,
+            Style = source.Style,
+            Order = source.Order,
+            TextBgColor = source.TextBgColor,
+            TextBgOpacity = source.TextBgOpacity,
+            TextColor = source.TextColor,
+            TextCornerRadius = source.TextCornerRadius,
+            BadgeTypeOverrides = source.BadgeTypeOverrides,
+            EnabledBadges = source.EnabledBadges
+        };
+
+        return panel;
+    }
+
+    private static BadgeLayout GetDefaultCollectionRuleLayout(BadgePosition position)
+    {
+        return position is BadgePosition.MiddleLeft or BadgePosition.MiddleRight
+            ? BadgeLayout.Horizontal
+            : BadgeLayout.Vertical;
+    }
+
+    private static CollectionBadgeRule? FindCollectionRule(ImageTypeConfig imageConfig, string badgeKey)
+    {
+        if (imageConfig.CollectionRules == null)
+        {
+            return null;
+        }
+
+        foreach (var rule in imageConfig.CollectionRules)
+        {
+            if (string.Equals(NormalizeCollectionBadgeKey(rule), badgeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return rule;
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizeCollectionBadgeKey(CollectionBadgeRule rule)
+    {
+        var source = !string.IsNullOrWhiteSpace(rule.Key)
+            ? rule.Key
+            : (!string.IsNullOrWhiteSpace(rule.Label) ? rule.Label : "collection");
+        var normalized = System.Text.RegularExpressions.Regex.Replace(source.Trim().ToLowerInvariant(), @"[^a-z0-9._-]+", "-").Trim('-', '.', '_');
+        return string.IsNullOrWhiteSpace(normalized) ? "collection" : normalized;
     }
 
     private static List<(BadgePanelSettings Panel, string Name)> GetOrderedPanels(ImageTypeConfig imageConfig)
@@ -715,6 +857,9 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
     private static bool ShouldReverseOrder(BadgeLayout layout, BadgePosition position) =>
         layout == BadgeLayout.Horizontal &&
         (position == BadgePosition.TopRight || position == BadgePosition.MiddleRight || position == BadgePosition.BottomRight);
+
+    private static bool IsBottomPosition(BadgePosition position) =>
+        position is BadgePosition.BottomLeft or BadgePosition.BottomCenter or BadgePosition.BottomRight;
 
     private static List<SKPointI> CalculateStackedPositions(
         int imageWidth, int imageHeight,

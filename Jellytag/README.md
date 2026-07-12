@@ -200,12 +200,16 @@ Each collection rule can have:
 - Collection regex
 - Text label
 - Uploaded custom image
+- Optional position/layout override
+- Up/down ordering for stacks when multiple collection rules match
 - Poster toggle
 - Season poster toggle
 - Series thumbnail toggle
 - Episode thumbnail toggle
 - Video toggle
 - Other toggle
+
+Collection rules use the shared Collection Badges style by default. If a rule has no custom position or layout, existing badge placement is preserved. When multiple collection rules match an item at the same position, JellyTag-Plus stacks them by the rule order shown in the configuration page. Left/top placements read in normal order. Right-aligned horizontal stacks keep the outside edge anchored, so the visual order is reversed toward the right edge. Bottom-aligned vertical stacks keep the bottom edge anchored, so matching badges grow upward from the bottom.
 
 ## Custom Badges
 

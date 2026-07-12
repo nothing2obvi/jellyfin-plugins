@@ -118,6 +118,8 @@ public class CollectionBadgeRule
     public string Key { get; set; } = string.Empty;
     public string Regex { get; set; } = string.Empty;
     public string Label { get; set; } = "COLLECTION";
+    public BadgePosition? Position { get; set; }
+    public BadgeLayout? Layout { get; set; }
     public bool ShowOnPosters { get; set; } = true;
     public bool ShowOnSeasonPosters { get; set; } = true;
     public bool ShowOnSeriesThumbnails { get; set; } = true;

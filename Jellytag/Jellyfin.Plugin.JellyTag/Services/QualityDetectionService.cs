@@ -570,8 +570,7 @@ public class QualityDetectionService : IQualityDetectionService
         {
             return string.Join(",", imageConfig.CollectionRules
                 .Where(rule => !string.IsNullOrWhiteSpace(rule.Regex))
-                .OrderBy(NormalizeCollectionBadgeKey, StringComparer.OrdinalIgnoreCase)
-                .Select(rule => $"{NormalizeCollectionBadgeKey(rule)}={rule.Regex}={rule.Label}"));
+                .Select((rule, index) => $"{index}:{NormalizeCollectionBadgeKey(rule)}={rule.Regex}={rule.Label}={rule.Position?.ToString() ?? "default"}={rule.Layout?.ToString() ?? "default"}"));
         }
 
         return string.IsNullOrWhiteSpace(imageConfig?.CollectionRegex)

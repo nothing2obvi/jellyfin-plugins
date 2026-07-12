@@ -43,6 +43,7 @@
             .collection-rule-preview img { display: block; width: 64px; height: 40px; object-fit: contain; border: 1px solid rgba(255,255,255,.15); border-radius: .25em; background: rgba(0,0,0,.2); padding: .2em; }
             .collection-rule-preview img.missing { visibility: hidden; }
             .collection-rule-preview span { font-size: .85em; color: #aaa; }
+            .collection-rule-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5em; }
             .warmer-profile-button { background: #555 !important; color: #fff !important; border: 0 !important; min-width: 72px; }
             .warmer-profile-button:hover:not(:disabled) { background: #666 !important; }
             .warmer-profile-button:disabled { background: #555 !important; color: rgba(255,255,255,.75) !important; opacity: 1 !important; cursor: default; }
@@ -581,10 +582,40 @@
             return key || 'collection';
         }
 
+        function collectionRulePositionOptions(selected) {
+            var options = [
+                ['', 'Use collection default'],
+                ['TopLeft', 'Top left'],
+                ['TopCenter', 'Top center'],
+                ['TopRight', 'Top right'],
+                ['MiddleLeft', 'Middle left'],
+                ['MiddleRight', 'Middle right'],
+                ['BottomLeft', 'Bottom left'],
+                ['BottomCenter', 'Bottom center'],
+                ['BottomRight', 'Bottom right']
+            ];
+            return options.map(function(opt) {
+                return '<option value="' + opt[0] + '"' + (selected === opt[0] ? ' selected' : '') + '>' + opt[1] + '</option>';
+            }).join('');
+        }
+
+        function collectionRuleLayoutOptions(selected) {
+            var options = [
+                ['', 'Use collection default'],
+                ['Horizontal', 'Horizontal'],
+                ['Vertical', 'Vertical']
+            ];
+            return options.map(function(opt) {
+                return '<option value="' + opt[0] + '"' + (selected === opt[0] ? ' selected' : '') + '>' + opt[1] + '</option>';
+            }).join('');
+        }
+
         function collectionRuleHTML(k, rule, index) {
             var rawKey = rule.Key || rule.key || '';
             var label = rule.Label || rule.label || '';
             var regex = rule.Regex || rule.regex || '';
+            var position = rule.Position || rule.position || '';
+            var layout = rule.Layout || rule.layout || '';
             var showOnPosters = rule.ShowOnPosters !== false && rule.showOnPosters !== false;
             var showOnSeasonPosters = rule.ShowOnSeasonPosters !== false && rule.showOnSeasonPosters !== false;
             var showOnSeriesThumbs = rule.ShowOnSeriesThumbnails !== false && rule.showOnSeriesThumbnails !== false;
@@ -600,6 +631,10 @@
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Collection Regex</label><input class="collectionRuleRegex" type="text" is="emby-input" value="' + escapeHtml(regex) + '" placeholder="Marvel|MCU" /></div>' +
                 '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Text Label</label><input class="collectionRuleLabel" type="text" is="emby-input" value="' + escapeHtml(label || key.toUpperCase()) + '" placeholder="MCU" /></div>' +
                 '</div>' +
+                '<div class="jellytag-grid">' +
+                '<div class="selectContainer"><label class="selectLabel">Position</label><select class="collectionRulePosition" is="emby-select">' + collectionRulePositionOptions(position) + '</select></div>' +
+                '<div class="selectContainer"><label class="selectLabel">Layout</label><select class="collectionRuleLayout" is="emby-select">' + collectionRuleLayoutOptions(layout) + '</select></div>' +
+                '</div>' +
                 '<div class="collection-rule-targets">' +
                 '<input id="' + idBase + 'Poster" class="collectionRulePoster collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnPosters ? 'checked' : '') + ' /><label for="' + idBase + 'Poster">Posters</label>' +
                 '<input id="' + idBase + 'SeasonPoster" class="collectionRuleSeasonPoster collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnSeasonPosters ? 'checked' : '') + ' /><label for="' + idBase + 'SeasonPoster">Season posters</label>' +
@@ -609,8 +644,12 @@
                 '<input id="' + idBase + 'Other" class="collectionRuleOther collection-target-checkbox" type="checkbox" ' + TARGET_CHECKBOX_STYLE + ' ' + (showOnOther ? 'checked' : '') + ' /><label for="' + idBase + 'Other">Other</label>' +
                 '</div>' +
                 '<div class="collection-rule-preview"><img class="missing" alt="Collection badge preview" /><span>Image preview: none uploaded</span></div>' +
+                '<div class="collection-rule-actions">' +
+                '<button type="button" is="emby-button" class="collectionRuleUp raised"><span>Up</span></button>' +
+                '<button type="button" is="emby-button" class="collectionRuleDown raised"><span>Down</span></button>' +
                 '<button type="button" is="emby-button" class="collectionRuleUpload raised"><span>Upload Image</span></button>' +
-                '<button type="button" is="emby-button" class="collectionRuleRemove raised button-warning" style="margin-left:.5em;"><span>Remove</span></button>' +
+                '<button type="button" is="emby-button" class="collectionRuleRemove raised button-warning"><span>Remove</span></button>' +
+                '</div>' +
                 '</div>';
         }
 
@@ -627,7 +666,7 @@
             if (!keyInput || !img || !label) return;
             var key = normalizeCollectionKey(keyInput.value);
             var token = ApiClient.accessToken();
-            var url = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + key) + '?t=' + Date.now() + (token ? '&api_key=' + token : '');
+            var url = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + encodeURIComponent(key)) + '?t=' + Date.now() + (token ? '&api_key=' + encodeURIComponent(token) : '');
             img.onload = function() { img.classList.remove('missing'); label.textContent = 'Image preview'; };
             img.onerror = function() { img.classList.add('missing'); label.textContent = 'Image preview: none uploaded'; };
             img.src = url;
@@ -647,6 +686,14 @@
             container.appendChild(el);
             var keyInput = el.querySelector('.collectionRuleKey');
             var labelInput = el.querySelector('.collectionRuleLabel');
+            el.querySelector('.collectionRuleUp').addEventListener('click', function() {
+                var prev = el.previousElementSibling;
+                if (prev) el.parentNode.insertBefore(el, prev);
+            });
+            el.querySelector('.collectionRuleDown').addEventListener('click', function() {
+                var next = el.nextElementSibling;
+                if (next) el.parentNode.insertBefore(next, el);
+            });
             el.querySelector('.collectionRuleUpload').addEventListener('click', function() {
                 keyInput.value = normalizeCollectionKey(keyInput.value || labelInput.value);
                 updateCollectionRulePreview(el);
@@ -692,6 +739,8 @@
                     Key: key,
                     Regex: regex,
                     Label: label || key.toUpperCase(),
+                    Position: row.querySelector('.collectionRulePosition').value || null,
+                    Layout: row.querySelector('.collectionRuleLayout').value || null,
                     ShowOnPosters: row.querySelector('.collectionRulePoster').checked,
                     ShowOnSeasonPosters: row.querySelector('.collectionRuleSeasonPoster').checked,
                     ShowOnSeriesThumbnails: row.querySelector('.collectionRuleSeriesThumb').checked,

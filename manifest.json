@@ -28,20 +28,20 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
-        "version": "1.51.25.0",
-        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Replaces the collection membership task with a low-impact badge status index task for faster image request badge detection.",
+        "version": "1.51.26.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds per-rule collection badge position/layout controls, rule ordering, stacked rendering for multiple matching collection badges, and fixes collection badge image previews.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.25.0.zip",
-        "checksum": "bf79470e42157a18ff677e15808071cf",
-        "timestamp": "2026-07-11T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.26.0.zip",
+        "checksum": "cbbdf4694228b63e7e350c5763b3eb3c",
+        "timestamp": "2026-07-12T00:00:00Z"
       },
       {
-        "version": "1.52.21.0",
-        "changelog": "Replace the collection membership task with a low-impact badge status index task for faster image request badge detection.",
+        "version": "1.52.22.0",
+        "changelog": "Add per-rule collection badge position/layout controls, rule ordering, stacked rendering for multiple matching collection badges, and fix collection badge image previews.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.21.0-jellyfin12.zip",
-        "checksum": "cf0b042cc616608040592acb917e28d3",
-        "timestamp": "2026-07-11T00:00:00Z"
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.22.0-jellyfin12.zip",
+        "checksum": "d78d81e966e4728794b023947364b5e4",
+        "timestamp": "2026-07-12T00:00:00Z"
       }
     ]
   }
