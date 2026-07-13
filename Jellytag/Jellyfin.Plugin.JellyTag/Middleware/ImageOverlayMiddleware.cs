@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.JellyTag.Configuration;
 using Jellyfin.Plugin.JellyTag.Services;
+using Jellyfin.Plugin.JellyTag.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
@@ -186,6 +187,7 @@ public partial class ImageOverlayMiddleware
         {
             await TryForceImageRefreshAsync(item, imageType, requestCachedFile.BadgeState, true, providerManager, context.RequestAborted).ConfigureAwait(false);
             SetWarmupResult(context, WarmupResultCacheHit);
+            MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
             await ServeCachedImageFileAsync(context, requestCachedFile).ConfigureAwait(false);
             return;
         }
@@ -197,6 +199,7 @@ public partial class ImageOverlayMiddleware
             {
                 await TryForceImageRefreshAsync(item, imageType, requestCachedFile.BadgeState, true, providerManager, context.RequestAborted).ConfigureAwait(false);
                 SetWarmupResult(context, WarmupResultCacheHit);
+                MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
                 await ServeCachedImageFileAsync(context, requestCachedFile).ConfigureAwait(false);
                 return;
             }
@@ -213,6 +216,7 @@ public partial class ImageOverlayMiddleware
         if (visibleBadges.Count == 0)
         {
             SetWarmupResult(context, WarmupResultNoVisibleBadges);
+            MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
             await _next(context).ConfigureAwait(false);
             return;
         }
@@ -228,6 +232,7 @@ public partial class ImageOverlayMiddleware
         {
             cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
             SetWarmupResult(context, WarmupResultCacheHit);
+            MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
             await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
             return;
         }
@@ -237,6 +242,7 @@ public partial class ImageOverlayMiddleware
         {
             cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, legacyImageTag, badgeState);
             SetWarmupResult(context, WarmupResultCacheHit);
+            MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
             await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
             return;
         }
@@ -268,6 +274,7 @@ public partial class ImageOverlayMiddleware
             {
                 cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
                 SetWarmupResult(context, WarmupResultCacheHit);
+                MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
                 await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
                 return;
             }
@@ -277,6 +284,7 @@ public partial class ImageOverlayMiddleware
             {
                 cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, legacyImageTag, badgeState);
                 SetWarmupResult(context, WarmupResultCacheHit);
+                MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
                 await ServeCachedImageFileAsync(context, cachedFile).ConfigureAwait(false);
                 return;
             }
@@ -323,6 +331,7 @@ public partial class ImageOverlayMiddleware
                 if (cached)
                 {
                     cacheService.SetRequestCacheEntries(GetRequestCacheKeysToLearn(requestCacheKey, compatibleRequestCacheLearnKeys), itemId, badgeKey, imageTag, badgeState);
+                    MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
                 }
 
                 SetWarmupResult(context, cached ? WarmupResultCacheWritten : WarmupResultCacheWriteFailed);
@@ -625,6 +634,23 @@ public partial class ImageOverlayMiddleware
         {
             yield return key;
         }
+    }
+
+    private void MarkWarmerProgressFromRealClientRequest(
+        bool isRealClientImageRequest,
+        BaseItem item,
+        string imageType,
+        HttpContext context,
+        PluginConfiguration config,
+        ILearnedClientProfileService learnedClientProfileService)
+    {
+        if (!isRealClientImageRequest)
+        {
+            return;
+        }
+
+        // Revert candidate: this lets normal browsing advance warmer progress for matching variants.
+        CacheWarmTask.MarkCompletedForSuccessfulClientRequest(item, imageType, context.Request.Query, config, learnedClientProfileService, _logger);
     }
 
     private static IEnumerable<string> GetCompatibleRequestCacheLookupKeys(

@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.52.22.0"
+version: "1.52.23.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "nothing2obvi"
@@ -19,6 +19,15 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.52.23.0
+  - Count matching normal client image requests toward warmer progress when they complete successfully
+  - Merge warmer progress ledger writes to avoid losing completions during concurrent warmer and browsing activity
+
+  ## v1.51.27.0
+  - Final Jellyfin 10.11-supported release
+  - Count matching normal client image requests toward warmer progress when they complete successfully
+  - Merge warmer progress ledger writes to avoid losing completions during concurrent warmer and browsing activity
+
   ## v1.52.22.0
   - Add per-rule collection badge position/layout controls, rule ordering, and stacked rendering for multiple matching collection badges
   - Fix collection badge image previews in the configuration page

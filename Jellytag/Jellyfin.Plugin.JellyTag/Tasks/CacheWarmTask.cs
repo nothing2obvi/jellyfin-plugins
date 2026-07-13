@@ -11,6 +11,7 @@ using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.JellyTag.Tasks;
@@ -1017,6 +1018,135 @@ public class CacheWarmTask : IScheduledTask
             .Any(variant => string.Equals(CreateNormalizedVariantCacheKey(variant.Query), cacheKey, StringComparison.Ordinal));
     }
 
+    public static void MarkCompletedForSuccessfulClientRequest(
+        BaseItem item,
+        string imageType,
+        IQueryCollection query,
+        PluginConfiguration config,
+        ILearnedClientProfileService learnedClientProfileService,
+        ILogger logger)
+    {
+        try
+        {
+            if (!string.Equals(imageType, "Primary", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (string.Equals(imageType, "Primary", StringComparison.OrdinalIgnoreCase) && !ShouldRequestPrimary(item, config))
+            {
+                return;
+            }
+
+            if (string.Equals(imageType, "Thumb", StringComparison.OrdinalIgnoreCase) && !ShouldRequestThumb(item, config))
+            {
+                return;
+            }
+
+            var profiles = GetEnabledClientWarmupProfiles(config, learnedClientProfileService).ToList();
+            if (profiles.Count == 0)
+            {
+                return;
+            }
+
+            var imageVersion = GetImageVersion(item, imageType);
+            var itemModifiedTicks = item.DateModified.Ticks;
+            var state = WarmupStateStore.Load(CreateWarmupScope(config), logger);
+            var maxAgeHours = GetWarmerStateMaxAgeHours(config);
+
+            foreach (var profile in profiles)
+            {
+                foreach (var variant in profile.GetVariants(imageType))
+                {
+                    if (!VariantMatchesRequest(variant, query))
+                    {
+                        continue;
+                    }
+
+                    var completionKey = $"{item.Id:N}:{imageType}:{imageVersion}:{itemModifiedTicks}:{variant.CacheKey}";
+                    state.MarkCompletedIfMissing(completionKey, maxAgeHours);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to mark JellyTag-Plus warmer progress from real client image request");
+        }
+    }
+
+    private static bool VariantMatchesRequest(ImageVariant variant, IQueryCollection query)
+    {
+        var requestParts = GetComparableVariantQuery(query);
+        var variantParts = GetComparableVariantQuery(variant.Query);
+
+        if (requestParts.Count != variantParts.Count)
+        {
+            return false;
+        }
+
+        foreach (var (key, variantValue) in variantParts)
+        {
+            if (!requestParts.TryGetValue(key, out var requestValue))
+            {
+                return false;
+            }
+
+            if (DimensionQueryKeys.Contains(key))
+            {
+                if (!int.TryParse(requestValue, out var requestNumber)
+                    || !int.TryParse(variantValue, out var variantNumber)
+                    || Math.Abs(requestNumber - variantNumber) > 10)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!string.Equals(requestValue, variantValue, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Dictionary<string, string> GetComparableVariantQuery(IQueryCollection query)
+    {
+        return GetComparableVariantQuery(query
+            .SelectMany(kvp => kvp.Value.Select(value => new KeyValuePair<string, string>(kvp.Key, value ?? string.Empty)))
+            .ToList());
+    }
+
+    private static Dictionary<string, string> GetComparableVariantQuery(IReadOnlyList<KeyValuePair<string, string>> query)
+    {
+        var hasDimension = query.Any(kvp => DimensionQueryKeys.Contains(kvp.Key));
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kvp in query)
+        {
+            if (IsIgnoredVariantMatchQueryKey(kvp.Key, hasDimension))
+            {
+                continue;
+            }
+
+            result[kvp.Key] = kvp.Value;
+        }
+
+        return result;
+    }
+
+    private static bool IsIgnoredVariantMatchQueryKey(string key, bool hasDimension)
+    {
+        return string.Equals(key, "tag", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "api_key", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "jellytagwarm", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, "jellytagcompletioncheck", StringComparison.OrdinalIgnoreCase)
+            || (hasDimension && string.Equals(key, "quality", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string CreateNormalizedVariantCacheKey(IReadOnlyList<KeyValuePair<string, string>> query)
     {
         return ImageVariant.CreateCacheKey(query
@@ -1693,12 +1823,13 @@ public class CacheWarmTask : IScheduledTask
     private sealed class WarmupStateStore
     {
         private const string StateFileName = "cache-warmer-state.json";
+        private static readonly object StateFileLock = new();
         private readonly string _statePath;
-        private readonly ILogger<CacheWarmTask> _logger;
+        private readonly ILogger _logger;
         private readonly object _lock = new();
         private readonly WarmupState _state;
 
-        private WarmupStateStore(string scope, string statePath, WarmupState state, ILogger<CacheWarmTask> logger, bool allowStoredScope)
+        private WarmupStateStore(string scope, string statePath, WarmupState state, ILogger logger, bool allowStoredScope)
         {
             _statePath = statePath;
             _logger = logger;
@@ -1706,18 +1837,21 @@ public class CacheWarmTask : IScheduledTask
             _state.CompletedKeys = new Dictionary<string, long>(_state.CompletedKeys ?? [], StringComparer.Ordinal);
         }
 
-        public static WarmupStateStore Load(string scope, ILogger<CacheWarmTask> logger, bool allowStoredScope = false)
+        public static WarmupStateStore Load(string scope, ILogger logger, bool allowStoredScope = false)
         {
             var statePath = GetStatePath();
             CleanTemporaryStateFiles(statePath, logger);
 
             try
             {
-                if (File.Exists(statePath))
+                lock (StateFileLock)
                 {
-                    var json = File.ReadAllText(statePath);
-                    var state = JsonSerializer.Deserialize<WarmupState>(json) ?? new WarmupState { Scope = scope };
-                    return new WarmupStateStore(scope, statePath, state, logger, allowStoredScope);
+                    if (File.Exists(statePath))
+                    {
+                        var json = File.ReadAllText(statePath);
+                        var state = JsonSerializer.Deserialize<WarmupState>(json) ?? new WarmupState { Scope = scope };
+                        return new WarmupStateStore(scope, statePath, state, logger, allowStoredScope);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1785,6 +1919,23 @@ public class CacheWarmTask : IScheduledTask
             }
         }
 
+        public void MarkCompletedIfMissing(string key, int? maxAgeHours)
+        {
+            lock (_lock)
+            {
+                if (_state.CompletedKeys.TryGetValue(key, out var completedTicks))
+                {
+                    if (!maxAgeHours.HasValue || (DateTime.UtcNow - new DateTime(completedTicks, DateTimeKind.Utc)).TotalHours <= maxAgeHours.Value)
+                    {
+                        return;
+                    }
+                }
+
+                _state.CompletedKeys[key] = DateTime.UtcNow.Ticks;
+                SaveLocked();
+            }
+        }
+
         private void PruneExpiredLocked(int maxAgeHours)
         {
             foreach (var key in _state.CompletedKeys
@@ -1827,14 +1978,48 @@ public class CacheWarmTask : IScheduledTask
             var tempPath = $"{_statePath}.{Guid.NewGuid():N}.tmp";
             try
             {
-                var json = JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(tempPath, json);
-                File.Move(tempPath, _statePath, overwrite: true);
+                lock (StateFileLock)
+                {
+                    MergeExistingStateLocked();
+                    var json = JsonSerializer.Serialize(_state, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(tempPath, json);
+                    File.Move(tempPath, _statePath, overwrite: true);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to write JellyTag-Plus cache warmer state");
                 TryDelete(tempPath);
+            }
+        }
+
+        private void MergeExistingStateLocked()
+        {
+            try
+            {
+                if (!File.Exists(_statePath))
+                {
+                    return;
+                }
+
+                var existing = JsonSerializer.Deserialize<WarmupState>(File.ReadAllText(_statePath));
+                if (existing?.CompletedKeys == null
+                    || (!string.Equals(existing.Scope, _state.Scope, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(existing.Scope)))
+                {
+                    return;
+                }
+
+                foreach (var entry in existing.CompletedKeys)
+                {
+                    if (!_state.CompletedKeys.TryGetValue(entry.Key, out var currentTicks) || entry.Value > currentTicks)
+                    {
+                        _state.CompletedKeys[entry.Key] = entry.Value;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to merge existing JellyTag-Plus cache warmer state before saving");
             }
         }
 
@@ -1844,7 +2029,7 @@ public class CacheWarmTask : IScheduledTask
             return Path.Combine(cachePath, StateFileName);
         }
 
-        private static void CleanTemporaryStateFiles(string statePath, ILogger<CacheWarmTask> logger)
+        private static void CleanTemporaryStateFiles(string statePath, ILogger logger)
         {
             try
             {
