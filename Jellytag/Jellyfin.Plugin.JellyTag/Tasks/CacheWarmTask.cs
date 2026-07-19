@@ -81,14 +81,22 @@ public class CacheWarmTask : IScheduledTask
     private readonly IServerApplicationHost _applicationHost;
     private readonly IImageTrafficCoordinator _trafficCoordinator;
     private readonly ILearnedClientProfileService _learnedClientProfileService;
+    private readonly IImageCacheService _cacheService;
     private readonly ILogger<CacheWarmTask> _logger;
 
-    public CacheWarmTask(ILibraryManager libraryManager, IServerApplicationHost applicationHost, IImageTrafficCoordinator trafficCoordinator, ILearnedClientProfileService learnedClientProfileService, ILogger<CacheWarmTask> logger)
+    public CacheWarmTask(
+        ILibraryManager libraryManager,
+        IServerApplicationHost applicationHost,
+        IImageTrafficCoordinator trafficCoordinator,
+        ILearnedClientProfileService learnedClientProfileService,
+        IImageCacheService cacheService,
+        ILogger<CacheWarmTask> logger)
     {
         _libraryManager = libraryManager;
         _applicationHost = applicationHost;
         _trafficCoordinator = trafficCoordinator;
         _learnedClientProfileService = learnedClientProfileService;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
@@ -170,6 +178,24 @@ public class CacheWarmTask : IScheduledTask
                 skippedAlreadyWarmed += skippedForClient;
                 completedOrSkipped += skippedForClient;
                 ReportClientBucketProgress(skippedForClient, clientPhaseRequests.Count);
+
+                var cachePrepassCompleted = await MarkAlreadyCachedWarmupRequestsCompletedAsync(
+                    clientPhaseRequests,
+                    state,
+                    warmerStateMaxAgeHours,
+                    _cacheService,
+                    cancellationToken,
+                    progress,
+                    () => completedClientBuckets,
+                    totalClientBuckets,
+                    clientPhaseRequests.Count).ConfigureAwait(false);
+                if (cachePrepassCompleted > 0)
+                {
+                    completedOrSkipped += cachePrepassCompleted;
+                    skippedAlreadyWarmed += cachePrepassCompleted;
+                    ReportClientBucketProgress(clientPhaseRequests.Count(request => state.Contains(request.CompletionKey, warmerStateMaxAgeHours)), clientPhaseRequests.Count);
+                    _logger.LogInformation("JellyTag-Plus cache warmer pre-pass marked {Count} already-cached requests complete for {Phase} phase / {ClientProfile}", cachePrepassCompleted, bucket.Name, profile.Name);
+                }
 
                 var clientName = profile.Name;
                 var clientPass = 0;
@@ -708,6 +734,46 @@ public class CacheWarmTask : IScheduledTask
 
         reportProgress?.Invoke(1);
         return completedKeys;
+    }
+
+    private static async Task<int> MarkAlreadyCachedWarmupRequestsCompletedAsync(
+        IReadOnlyList<WarmupRequest> requests,
+        WarmupStateStore state,
+        int? maxAgeHours,
+        IImageCacheService cacheService,
+        CancellationToken cancellationToken,
+        IProgress<double> progress,
+        Func<int> getCompletedClientBuckets,
+        int totalClientBuckets,
+        int totalInBucket)
+    {
+        var completedKeys = new List<string>();
+        var candidates = requests
+            .Where(request => !state.Contains(request.CompletionKey, maxAgeHours))
+            .ToList();
+        var initiallyCompleted = requests.Count - candidates.Count;
+
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var request = candidates[index];
+            var targetConfigFingerprint = cacheService.CreateTargetConfigFingerprint(request.ImageType, request.TargetKey);
+            var requestCacheKey = cacheService.CreateRequestCacheKey(request.ItemId, request.ImageType, request.ImageVersion, request.Variant.CacheKey, request.ItemModifiedTicks, targetConfigFingerprint);
+            if (await cacheService.GetCachedImageFileForRequestAsync(request.ItemId, requestCacheKey).ConfigureAwait(false) != null)
+            {
+                completedKeys.Add(request.CompletionKey);
+            }
+
+            if ((index + 1) % ProgressCalculationYieldEvery == 0)
+            {
+                var completedInBucket = initiallyCompleted + completedKeys.Count;
+                ReportWarmupProgress(progress, getCompletedClientBuckets(), totalClientBuckets, completedInBucket, totalInBucket);
+                await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        state.MarkCompletedIfMissing(completedKeys, maxAgeHours);
+        return completedKeys.Count;
     }
 
     private static IReadOnlyList<WarmerPhaseProgress> GetDisplayPhaseProgress(IReadOnlyList<WarmupRequest> requests, HashSet<string> completedKeys, WarmupStateStore state, int? maxAgeHours, IReadOnlyList<WarmupPhase> profilePhases)
@@ -1933,6 +1999,34 @@ public class CacheWarmTask : IScheduledTask
 
                 _state.CompletedKeys[key] = DateTime.UtcNow.Ticks;
                 SaveLocked();
+            }
+        }
+
+        public void MarkCompletedIfMissing(IEnumerable<string> keys, int? maxAgeHours)
+        {
+            lock (_lock)
+            {
+                var changed = false;
+                var nowTicks = DateTime.UtcNow.Ticks;
+
+                foreach (var key in keys)
+                {
+                    if (_state.CompletedKeys.TryGetValue(key, out var completedTicks))
+                    {
+                        if (!maxAgeHours.HasValue || (DateTime.UtcNow - new DateTime(completedTicks, DateTimeKind.Utc)).TotalHours <= maxAgeHours.Value)
+                        {
+                            continue;
+                        }
+                    }
+
+                    _state.CompletedKeys[key] = nowTicks;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    SaveLocked();
+                }
             }
         }
 

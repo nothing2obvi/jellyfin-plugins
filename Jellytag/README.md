@@ -96,6 +96,8 @@ A scheduled task named **JellyTag-Plus Clear Learned Client Profile** clears lea
 
 Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
 
+When a warmer run starts a client/phase bucket, JellyTag-Plus first performs a lightweight cache pre-pass for variants that are not already in the warmer ledger. If an image was previously rendered by normal browsing and the cache shortcut still matches, the warmer marks that variant complete before making a warmup request. This helps older client-rendered caches get counted without re-rendering them.
+
 Warmer throttling is configurable:
 
 | Option | Description | Default |

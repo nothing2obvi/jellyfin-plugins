@@ -3,8 +3,8 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-VERSION="1.52.23.0"
-LEGACY_10_11_VERSION="1.51.27.0"
+VERSION="1.52.24.0"
+LEGACY_10_11_VERSION="1.51.28.0"
 TARGET="${1:-12}"
 
 case "$TARGET" in
@@ -70,7 +70,7 @@ cat > "$OUTPUT_DIR/meta.json" <<'JSON'
   "category": "General",
   "version": "__VERSION__",
   "targetAbi": "__TARGET_ABI__",
-  "timestamp": "2026-07-13T00:00:00Z"
+  "timestamp": "2026-07-19T00:00:00Z"
 }
 JSON
 sed -i.bak "s/__VERSION__/$PACKAGE_VERSION/g; s/__TARGET_ABI__/$TARGET_ABI/g" "$OUTPUT_DIR/meta.json"
