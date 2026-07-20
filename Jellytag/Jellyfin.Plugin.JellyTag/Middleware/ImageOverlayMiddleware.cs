@@ -307,20 +307,20 @@ public partial class ImageOverlayMiddleware
                 return;
             }
 
-            capturedBody.Position = 0;
+            var originalBytes = capturedBody.ToArray();
 
             (Stream resultStream, string contentType) result;
             try
             {
                 context.RequestAborted.ThrowIfCancellationRequested();
-                result = await overlayService.AddBadgeOverlaysAsync(capturedBody, visibleBadges, imageConfig).ConfigureAwait(false);
+                await using var overlayInput = new MemoryStream(originalBytes, writable: false);
+                result = await overlayService.AddBadgeOverlaysAsync(overlayInput, visibleBadges, imageConfig).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to add badge overlay, serving original image");
                 SetWarmupResult(context, WarmupResultOverlayError);
-                capturedBody.Position = 0;
-                await capturedBody.CopyToAsync(originalBody).ConfigureAwait(false);
+                await originalBody.WriteAsync(originalBytes, context.RequestAborted).ConfigureAwait(false);
                 return;
             }
 

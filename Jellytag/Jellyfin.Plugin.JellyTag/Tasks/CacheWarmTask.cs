@@ -35,6 +35,7 @@ public class CacheWarmTask : IScheduledTask
     private static readonly TimeSpan PhaseRetryDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ProgressCacheDuration = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan EtaSampleWindow = TimeSpan.FromMinutes(15);
+    private const int MaxWarmupFailuresPerRequest = 3;
     private const int ProgressCalculationYieldEvery = 100;
     private const int CacheStatsYieldEvery = 500;
     private static readonly SemaphoreSlim ProgressCalculationGate = new(1, 1);
@@ -199,6 +200,7 @@ public class CacheWarmTask : IScheduledTask
 
                 var clientName = profile.Name;
                 var clientPass = 0;
+                var failureCounts = new Dictionary<string, int>(StringComparer.Ordinal);
                 while (true)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -258,8 +260,15 @@ public class CacheWarmTask : IScheduledTask
                                 }
                                 else
                                 {
+                                    var failureCount = IncrementWarmupFailure(failureCounts, request.CompletionKey);
                                     Interlocked.Increment(ref failed);
                                     _logger.LogDebug("JellyTag-Plus cache warmer got {StatusCode} with warmup result {WarmupResult} for {Url}", response.StatusCode, warmupResult ?? "none", url);
+                                    if (failureCount >= MaxWarmupFailuresPerRequest)
+                                    {
+                                        state.MarkCompleted(request.CompletionKey);
+                                        Interlocked.Increment(ref completedOrSkipped);
+                                        _logger.LogWarning("JellyTag-Plus cache warmer skipped {ItemId} {ImageType} for {ClientProfile} after {FailureCount} failed attempts; it will be retried if the image version or badge state changes", request.ItemId, request.ImageType, request.ClientProfile, failureCount);
+                                    }
                                 }
 
                                 if (delayMs > 0)
@@ -269,8 +278,15 @@ public class CacheWarmTask : IScheduledTask
                             }
                             catch (Exception ex)
                             {
+                                var failureCount = IncrementWarmupFailure(failureCounts, request.CompletionKey);
                                 Interlocked.Increment(ref failed);
                                 _logger.LogDebug(ex, "JellyTag-Plus cache warmer failed for {ItemId} {ImageType} using {ClientProfile}", request.ItemId, request.ImageType, request.ClientProfile);
+                                if (failureCount >= MaxWarmupFailuresPerRequest)
+                                {
+                                    state.MarkCompleted(request.CompletionKey);
+                                    Interlocked.Increment(ref completedOrSkipped);
+                                    _logger.LogWarning(ex, "JellyTag-Plus cache warmer skipped {ItemId} {ImageType} for {ClientProfile} after {FailureCount} failed attempts; it will be retried if the image version or badge state changes", request.ItemId, request.ImageType, request.ClientProfile, failureCount);
+                                }
                             }
                             finally
                             {
@@ -309,6 +325,17 @@ public class CacheWarmTask : IScheduledTask
         return string.Equals(warmupResult, WarmupResultCacheWritten, StringComparison.OrdinalIgnoreCase)
             || string.Equals(warmupResult, WarmupResultCacheHit, StringComparison.OrdinalIgnoreCase)
             || string.Equals(warmupResult, WarmupResultNoVisibleBadges, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int IncrementWarmupFailure(Dictionary<string, int> failureCounts, string completionKey)
+    {
+        lock (failureCounts)
+        {
+            failureCounts.TryGetValue(completionKey, out var current);
+            var next = current + 1;
+            failureCounts[completionKey] = next;
+            return next;
+        }
     }
 
     private async Task WaitForClientQuietPeriodWithProgressAsync(
