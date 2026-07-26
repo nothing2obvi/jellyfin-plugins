@@ -32,7 +32,15 @@ Jellyfin does not always know how long a future task will run. When a scheduled 
 
 ## Installation
 
-See the [main repository README](../README.md) for installation via Jellyfin plugin repository once a release has been published.
+1. Open Jellyfin and go to **Administration -> Dashboard -> Plugins -> Repositories**
+2. Click **Add** and enter:
+   - **Name:** `nothing2obvi Plugins`
+   - **URL:** `https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json`
+3. Click **Save**
+4. Go to **Catalog** and install **Task Grid**
+5. Restart Jellyfin
+
+Task Grid is available from the same plugin repository manifest as the other plugins in this repo.
 
 ## Building from Source
 
