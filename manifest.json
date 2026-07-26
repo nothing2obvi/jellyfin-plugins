@@ -55,27 +55,27 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/TaskGrid/TaskGrid-banner.png",
     "versions": [
       {
-        "version": "1.1.4.0",
-        "changelog": "Show Task Grid in Jellyfin's custom sidebar Extensions section, add native Jellyfin task scheduler links, and add recently used color shortcuts beside each task color selector.",
+        "version": "1.1.7.0",
+        "changelog": "Stack overlapping task blocks into lanes, scroll from a clicked grid block to its scheduler link, replace Other Triggers with trigger summaries, add hiding for no-trigger tasks, and size historically short tasks by last runtime rounded up to the nearest 15 minutes.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.1.4.0.zip",
-        "checksum": "BD72949B1DB55D7916FCD272FA7C5BA1",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.1.7.0.zip",
+        "checksum": "2D67FE766E831BDCD4953B73D9B0F0CC",
         "timestamp": "2026-07-26T00:00:00Z"
       },
       {
-        "version": "1.2.4.0",
-        "changelog": "Show Task Grid in Jellyfin's custom sidebar Extensions section, add native Jellyfin task scheduler links, and add recently used color shortcuts beside each task color selector.",
+        "version": "1.2.7.0",
+        "changelog": "Stack overlapping task blocks into lanes, scroll from a clicked grid block to its scheduler link, replace Other Triggers with trigger summaries, add hiding for no-trigger tasks, and size historically short tasks by last runtime rounded up to the nearest 15 minutes.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.2.4.0-jellyfin12-rc2.zip",
-        "checksum": "C028DB1F8CA7018D2DF08A0DFCA79BEA",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.2.7.0-jellyfin12-rc2.zip",
+        "checksum": "AE42C2A6FFDA2688A9C07FA06FC1C386",
         "timestamp": "2026-07-26T00:00:00Z"
       },
       {
-        "version": "1.3.4.0",
-        "changelog": "Show Task Grid in Jellyfin's custom sidebar Extensions section, add native Jellyfin task scheduler links, and add recently used color shortcuts beside each task color selector.",
+        "version": "1.3.7.0",
+        "changelog": "Stack overlapping task blocks into lanes, scroll from a clicked grid block to its scheduler link, replace Other Triggers with trigger summaries, add hiding for no-trigger tasks, and size historically short tasks by last runtime rounded up to the nearest 15 minutes.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.3.4.0-jellyfin12-rc3.zip",
-        "checksum": "084F1E75C3EE73167CF31F1414E9813C",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.3.7.0-jellyfin12-rc3.zip",
+        "checksum": "CE97017AEF07995D0DA674A1F7820FC7",
         "timestamp": "2026-07-26T00:00:00Z"
       }
     ]

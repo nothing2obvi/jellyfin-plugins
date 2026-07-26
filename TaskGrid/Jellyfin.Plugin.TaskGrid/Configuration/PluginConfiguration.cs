@@ -39,7 +39,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ShowHiddenTasks { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether tasks without daily or weekly triggers should appear below the grid.
+    /// Gets or sets a value indicating whether tasks with no triggers should appear in the scheduler links.
     /// </summary>
     public bool ShowUnscheduledTasks { get; set; } = true;
 

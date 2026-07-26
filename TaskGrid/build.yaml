@@ -1,6 +1,6 @@
 name: "Task Grid"
 guid: "a56a1707-aaeb-4ed5-bd95-1543ff817b9e"
-version: "1.3.4.0"
+version: "1.3.7.0"
 targetAbi: "10.11.0.0, 12.0.0.0-rc2, 12.0.0.0-rc3"
 framework: "net9.0, net10.0"
 owner: "nothing2obvi"
@@ -13,6 +13,17 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.TaskGrid.dll"
 changelog: |
+  ## v1.3.7.0
+  - Display tasks with previous runtimes using the last runtime rounded up to the nearest 15 minutes, capped by max runtime
+
+  ## v1.3.6.0
+  - Replace the confusing Other Triggers section with trigger summaries in Task Scheduler Links
+  - Add an option to hide tasks with no triggers from the scheduler-link list
+
+  ## v1.3.5.0
+  - Stack overlapping task blocks into lanes with longer blocks above shorter overlaps
+  - Scroll from a clicked grid block to its scheduler link
+
   ## v1.3.4.0
   - Add recently used color buttons beside each task color selector
 

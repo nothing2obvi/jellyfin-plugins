@@ -17,7 +17,8 @@ Task Grid is a Jellyfin plugin that shows scheduled tasks on a Monday-first week
 - Monday-through-Sunday task grid, with Monday on top
 - 24 hour columns for each day
 - Task blocks sized by maximum runtime when Jellyfin exposes one
-- Fallback sizing from the last completed runtime, or a short estimate when no duration is available
+- Sizing from the last completed runtime rounded up to the nearest 15 minutes, capped by maximum runtime when available
+- Short estimate when no runtime or duration limit is available
 - Red warning treatment when the most recent task result says it was aborted by shutdown
 - Refresh button for recently changed schedules
 - Per-task color coding
@@ -25,7 +26,9 @@ Task Grid is a Jellyfin plugin that shows scheduled tasks on a Monday-first week
 - Heavy-task flags with overlap warnings
 - Custom sidebar access from Jellyfin's Extensions section
 - Native Jellyfin task scheduler links for each task
-- Optional display of hidden tasks and non-daily/non-weekly trigger tasks
+- Overlapping task blocks stack into lanes, with longer windows above shorter overlaps
+- Trigger summaries in the scheduler-link list
+- Optional display of tasks with no triggers in the scheduler-link list
 
 ## Notes
 
@@ -54,9 +57,9 @@ cd TaskGrid
 
 By default, this builds both supported targets:
 
-- Jellyfin 10.11: `task-grid-1.1.4.0.zip`
-- Jellyfin v12-rc2: `task-grid-1.2.4.0-jellyfin12-rc2.zip`
-- Jellyfin v12-rc3: `task-grid-1.3.4.0-jellyfin12-rc3.zip`
+- Jellyfin 10.11: `task-grid-1.1.7.0.zip`
+- Jellyfin v12-rc2: `task-grid-1.2.7.0-jellyfin12-rc2.zip`
+- Jellyfin v12-rc3: `task-grid-1.3.7.0-jellyfin12-rc3.zip`
 
 To build only one target:
 

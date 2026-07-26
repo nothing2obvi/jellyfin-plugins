@@ -23,7 +23,7 @@
                         </label>
                         <label class="emby-checkbox-label taskGridToggle">
                             <input type="checkbox" id="TaskGridShowUnscheduled" is="emby-checkbox" />
-                            <span>Show tasks without daily or weekly triggers</span>
+                            <span>Show tasks with no triggers in links</span>
                         </label>
                     </div>
                     <div id="TaskGridStatus" class="fieldDescription"></div>
@@ -43,11 +43,6 @@
                     <button is="emby-button" type="button" id="TaskGridSave" class="raised button-submit taskGridSaveButton">
                         <span>Save Display Preferences</span>
                     </button>
-                </div>
-
-                <div id="TaskGridUnscheduledSection" class="verticalSection" hidden>
-                    <h3 class="sectionTitle">Other Triggers</h3>
-                    <div id="TaskGridUnscheduledList" class="taskGridUnscheduledList"></div>
                 </div>
 
                 <div class="verticalSection">
@@ -173,12 +168,14 @@
                 margin: 0.45rem 0.22rem;
                 padding: 0.35rem 0.45rem;
                 min-width: 0;
+                min-height: 2.1rem;
                 overflow: hidden;
                 border-radius: 6px;
                 color: #fff;
                 box-shadow: 0 2px 7px rgba(0, 0, 0, 0.28);
                 z-index: 1;
                 align-self: start;
+                cursor: pointer;
             }
 
             .taskGridBlockWarning {
@@ -294,11 +291,6 @@
                 margin: 0;
             }
 
-            .taskGridUnscheduledList {
-                display: grid;
-                gap: 0.5rem;
-            }
-
             .taskGridSchedulerLinks {
                 display: grid;
                 gap: 0.5rem;
@@ -306,7 +298,7 @@
 
             .taskGridSchedulerLink {
                 display: grid;
-                grid-template-columns: minmax(12rem, 1fr) auto;
+                grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1.25fr) auto;
                 gap: 0.75rem;
                 align-items: center;
                 padding: 0.55rem 0.75rem;
@@ -323,19 +315,26 @@
                 white-space: nowrap;
             }
 
+            .taskGridSchedulerSummary {
+                opacity: 0.72;
+            }
+
             .taskGridSchedulerLink em {
                 font-style: normal;
                 opacity: 0.72;
             }
 
-            .taskGridOtherTask {
-                padding: 0.55rem 0.75rem;
-                border-left: 4px solid currentColor;
-                background: rgba(255, 255, 255, 0.06);
+            .taskGridSchedulerLinkFocus {
+                outline: 2px solid #00d5ff;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 213, 255, 0.72);
             }
 
             @media (max-width: 720px) {
                 .taskGridStyleRow {
+                    grid-template-columns: 1fr;
+                }
+
+                .taskGridSchedulerLink {
                     grid-template-columns: 1fr;
                 }
             }
@@ -461,24 +460,21 @@
                     });
 
                     const blocks = [];
-                    const otherTasks = [];
                     tasks.forEach(function (task, taskIndex) {
                         const taskBlocks = buildBlocks(task, taskIndex);
-                        if (taskBlocks.length === 0) {
-                            otherTasks.push(task);
-                        } else {
+                        if (taskBlocks.length > 0) {
                             blocks.push.apply(blocks, taskBlocks);
                         }
                     });
 
-                    const displayBlocks = mergeRetryBlocks(blocks);
+                    const displayBlocks = assignBlockLanes(mergeRetryBlocks(blocks));
+                    updateCalendarRowHeight(calendar, displayBlocks);
                     displayBlocks.forEach(function (block) {
                         calendar.appendChild(createTaskBlock(block));
                     });
 
                     appendNowLine(calendar);
                     renderWarnings(displayBlocks);
-                    renderUnscheduled(otherTasks);
                 }
 
                 function appendCell(parent, className, row, column, text) {
@@ -584,6 +580,40 @@
                     return merged;
                 }
 
+                function assignBlockLanes(blocks) {
+                    const lanesByDay = new Map();
+                    const ordered = blocks.slice().sort(function (a, b) {
+                        const durationDelta = b.duration - a.duration;
+                        return durationDelta || a.start - b.start || String(a.task.Name || '').localeCompare(String(b.task.Name || ''));
+                    });
+
+                    ordered.forEach(function (block) {
+                        const dayLanes = lanesByDay.get(block.day) || [];
+                        let laneIndex = 0;
+                        while (dayLanes[laneIndex] && dayLanes[laneIndex].some(function (laneBlock) { return blocksOverlap(block, laneBlock); })) {
+                            laneIndex++;
+                        }
+
+                        if (!dayLanes[laneIndex]) {
+                            dayLanes[laneIndex] = [];
+                        }
+
+                        dayLanes[laneIndex].push(block);
+                        block.lane = laneIndex;
+                        lanesByDay.set(block.day, dayLanes);
+                    });
+
+                    return blocks;
+                }
+
+                function updateCalendarRowHeight(calendar, blocks) {
+                    const maxLane = blocks.reduce(function (highest, block) {
+                        return Math.max(highest, block.lane || 0);
+                    }, 0);
+                    const rowHeight = Math.max(5.8, ((maxLane + 1) * 2.85) + 0.8);
+                    calendar.style.gridTemplateRows = '2.4rem repeat(7, ' + rowHeight + 'rem)';
+                }
+
                 function copyBlock(block) {
                     return {
                         task: block.task,
@@ -624,7 +654,20 @@
                     element.style.gridRow = String(block.dayIndex + 2);
                     element.style.gridColumn = block.startColumn + ' / ' + block.endColumn;
                     element.style.background = block.color;
+                    element.style.marginTop = ((block.lane || 0) * 2.85 + 0.45) + 'rem';
                     element.title = block.task.Name + ' | ' + block.day + ' ' + block.label + retryTooltip(block) + tooltipStatus(block.task, block.trigger);
+                    element.tabIndex = 0;
+                    element.setAttribute('role', 'button');
+                    element.setAttribute('aria-label', 'Show scheduler link for ' + (block.task.Name || 'scheduled task'));
+                    element.addEventListener('click', function () {
+                        scrollToSchedulerLink(block.task);
+                    });
+                    element.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            scrollToSchedulerLink(block.task);
+                        }
+                    });
 
                     const title = document.createElement('span');
                     title.className = 'taskGridBlockTitle';
@@ -688,24 +731,6 @@
                     warningContainer.innerHTML = messages.map(function (message) {
                         return '<div class="taskGridWarningItem">' + escapeHtml(message) + '</div>';
                     }).join('');
-                }
-
-                function renderUnscheduled(tasks) {
-                    const section = document.querySelector('#TaskGridUnscheduledSection');
-                    const list = document.querySelector('#TaskGridUnscheduledList');
-                    section.hidden = !currentConfig.ShowUnscheduledTasks || tasks.length === 0;
-                    list.innerHTML = '';
-                    if (section.hidden) {
-                        return;
-                    }
-
-                    tasks.forEach(function (task, index) {
-                        const item = document.createElement('div');
-                        item.className = 'taskGridOtherTask';
-                        item.style.color = getTaskColor(task, index);
-                        item.textContent = (task.Name || 'Scheduled task') + ': ' + describeTriggers(task.Triggers || []);
-                        list.appendChild(item);
-                    });
                 }
 
                 function renderStyleList(tasks) {
@@ -800,26 +825,53 @@
                 function renderSchedulerLinks(tasks) {
                     const container = document.querySelector('#TaskGridSchedulerLinks');
                     container.innerHTML = '';
-                    tasks.forEach(function (task, index) {
+                    tasks.filter(function (task) {
+                        return currentConfig.ShowUnscheduledTasks !== false || (task.Triggers || []).length > 0;
+                    }).forEach(function (task, index) {
                         const id = task.Id || '';
                         const item = document.createElement('a');
                         item.className = 'taskGridSchedulerLink';
                         item.href = taskSchedulerUrl(id);
                         item.style.color = getTaskColor(task, index);
+                        item.dataset.taskKey = taskKey(task);
 
                         const name = document.createElement('span');
                         name.textContent = task.Name || 'Scheduled task';
+
+                        const summary = document.createElement('span');
+                        summary.className = 'taskGridSchedulerSummary';
+                        summary.textContent = describeTriggers(task.Triggers || []);
 
                         const action = document.createElement('em');
                         action.textContent = id ? 'Open scheduler' : 'No task id';
 
                         item.appendChild(name);
+                        item.appendChild(summary);
                         item.appendChild(action);
                         if (!id) {
                             item.removeAttribute('href');
                         }
                         container.appendChild(item);
                     });
+                }
+
+                function scrollToSchedulerLink(task) {
+                    const key = taskKey(task);
+                    const link = Array.from(document.querySelectorAll('.taskGridSchedulerLink')).find(function (candidate) {
+                        return candidate.dataset.taskKey === key;
+                    });
+                    if (!link) {
+                        return;
+                    }
+
+                    document.querySelectorAll('.taskGridSchedulerLinkFocus').forEach(function (candidate) {
+                        candidate.classList.remove('taskGridSchedulerLinkFocus');
+                    });
+                    link.classList.add('taskGridSchedulerLinkFocus');
+                    link.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    window.setTimeout(function () {
+                        link.classList.remove('taskGridSchedulerLinkFocus');
+                    }, 2400);
                 }
 
                 function findHeavyOverlaps(blocks) {
@@ -842,31 +894,51 @@
                     return warnings;
                 }
 
+                function blocksOverlap(first, second) {
+                    return first.start < second.start + second.duration && second.start < first.start + first.duration;
+                }
+
                 function durationHours(task, trigger) {
-                    if (trigger.MaxRuntimeTicks) {
-                        return Math.max(ticksToHours(trigger.MaxRuntimeTicks), 1 / 12);
+                    const lastRuntime = lastRuntimeHours(task);
+                    if (lastRuntime > 0) {
+                        const roundedRuntime = roundUpToQuarterHour(lastRuntime);
+                        if (trigger.MaxRuntimeTicks) {
+                            return Math.max(Math.min(roundedRuntime, ticksToHours(trigger.MaxRuntimeTicks)), 1 / 12);
+                        }
+
+                        return Math.max(roundedRuntime, 1 / 12);
                     }
 
-                    const result = task.LastExecutionResult;
-                    if (result && result.StartTimeUtc && result.EndTimeUtc) {
-                        const start = new Date(result.StartTimeUtc).getTime();
-                        const end = new Date(result.EndTimeUtc).getTime();
-                        if (end > start) {
-                            return Math.max((end - start) / 3600000, 1 / 12);
-                        }
+                    if (trigger.MaxRuntimeTicks) {
+                        return Math.max(ticksToHours(trigger.MaxRuntimeTicks), 1 / 12);
                     }
 
                     return 0.5;
                 }
 
-                function durationLabel(task, trigger) {
-                    if (trigger.MaxRuntimeTicks) {
-                        return ' | max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks));
-                    }
-
+                function lastRuntimeHours(task) {
                     const result = task.LastExecutionResult;
                     if (result && result.StartTimeUtc && result.EndTimeUtc) {
-                        return ' | last ' + formatDuration(durationHours(task, trigger));
+                        const start = new Date(result.StartTimeUtc).getTime();
+                        const end = new Date(result.EndTimeUtc).getTime();
+                        if (end > start) {
+                            return (end - start) / 3600000;
+                        }
+                    }
+
+                    return 0;
+                }
+
+                function durationLabel(task, trigger) {
+                    const lastRuntime = lastRuntimeHours(task);
+                    if (lastRuntime > 0) {
+                        const roundedRuntime = durationHours(task, trigger);
+                        const maxRuntime = trigger.MaxRuntimeTicks ? ' / max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks)) : '';
+                        return ' | last ' + formatDuration(lastRuntime) + ', shown ' + formatDuration(roundedRuntime) + maxRuntime;
+                    }
+
+                    if (trigger.MaxRuntimeTicks) {
+                        return ' | max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks));
                     }
 
                     return ' | estimated 30m';
@@ -910,11 +982,22 @@
                         return 'No triggers';
                     }
                     return triggers.map(function (trigger) {
-                        const type = trigger.Type || 'Unknown trigger';
-                        if (trigger.IntervalTicks) {
-                            return type + ' every ' + formatDuration(ticksToHours(trigger.IntervalTicks));
+                        const type = String(trigger.Type || 'Unknown trigger').toLowerCase();
+                        const maxRuntime = trigger.MaxRuntimeTicks ? ', max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks)) : '';
+                        if (type === 'dailytrigger') {
+                            return 'Daily at ' + formatTime(ticksToHours(trigger.TimeOfDayTicks || 0)) + maxRuntime;
                         }
-                        return type;
+                        if (type === 'weeklytrigger') {
+                            const day = normalizeDay(trigger.DayOfWeek) || 'selected day';
+                            return day + ' at ' + formatTime(ticksToHours(trigger.TimeOfDayTicks || 0)) + maxRuntime;
+                        }
+                        if (trigger.IntervalTicks) {
+                            return 'Every ' + formatDuration(ticksToHours(trigger.IntervalTicks)) + maxRuntime;
+                        }
+                        if (type === 'startuptrigger') {
+                            return 'At server startup' + maxRuntime;
+                        }
+                        return trigger.Type || 'Unknown trigger';
                     }).join(', ');
                 }
 
@@ -1001,6 +1084,10 @@
                         return wholeHours + 'h';
                     }
                     return remainingMinutes + 'm';
+                }
+
+                function roundUpToQuarterHour(hours) {
+                    return Math.ceil(Math.max(hours, 1 / 60) * 4) / 4;
                 }
 
                 function uniqueBy(items, keySelector) {
