@@ -49,6 +49,11 @@
                     <h3 class="sectionTitle">Other Triggers</h3>
                     <div id="TaskGridUnscheduledList" class="taskGridUnscheduledList"></div>
                 </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Task Scheduler Links</h3>
+                    <div id="TaskGridSchedulerLinks" class="taskGridSchedulerLinks"></div>
+                </div>
             </div>
         </div>
 
@@ -231,7 +236,7 @@
 
             .taskGridStyleRow {
                 display: grid;
-                grid-template-columns: minmax(12rem, 1fr) 5rem 8rem 7rem;
+                grid-template-columns: minmax(12rem, 1fr) 5rem 8rem minmax(12rem, 18rem) 7rem;
                 gap: 0.75rem;
                 align-items: center;
                 padding: 0.6rem 0;
@@ -265,6 +270,23 @@
                 text-transform: uppercase;
             }
 
+            .taskGridRecentColors {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                align-items: center;
+            }
+
+            .taskGridRecentColor {
+                width: 1.6rem;
+                height: 1.6rem;
+                border: 1px solid rgba(255, 255, 255, 0.72);
+                border-radius: 4px;
+                background: var(--task-grid-recent-color);
+                cursor: pointer;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+            }
+
             .taskGridHeavyLabel {
                 display: flex;
                 align-items: center;
@@ -275,6 +297,35 @@
             .taskGridUnscheduledList {
                 display: grid;
                 gap: 0.5rem;
+            }
+
+            .taskGridSchedulerLinks {
+                display: grid;
+                gap: 0.5rem;
+            }
+
+            .taskGridSchedulerLink {
+                display: grid;
+                grid-template-columns: minmax(12rem, 1fr) auto;
+                gap: 0.75rem;
+                align-items: center;
+                padding: 0.55rem 0.75rem;
+                border-left: 4px solid currentColor;
+                background: rgba(255, 255, 255, 0.06);
+                color: inherit;
+                text-decoration: none;
+            }
+
+            .taskGridSchedulerLink span {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .taskGridSchedulerLink em {
+                font-style: normal;
+                opacity: 0.72;
             }
 
             .taskGridOtherTask {
@@ -317,6 +368,7 @@
                     try {
                         currentConfig = await ApiClient.getPluginConfiguration(pluginId);
                         currentConfig.TaskStyles = currentConfig.TaskStyles || [];
+                        currentConfig.RecentColors = currentConfig.RecentColors || [];
                         document.querySelector('#TaskGridShowHidden').checked = !!currentConfig.ShowHiddenTasks;
                         document.querySelector('#TaskGridShowUnscheduled').checked = currentConfig.ShowUnscheduledTasks !== false;
                         await refreshTasks(false);
@@ -356,14 +408,17 @@
 
                         document.querySelectorAll('.taskGridStyleRow').forEach(function (row) {
                             const key = row.dataset.taskKey;
+                            const color = normalizeHexColor(row.querySelector('.taskGridHexInput').value, row.querySelector('.taskGridColorInput').value);
                             stylesByKey.set(key, {
                                 TaskKey: key,
-                                Color: normalizeHexColor(row.querySelector('.taskGridHexInput').value, row.querySelector('.taskGridColorInput').value),
+                                Color: color,
                                 Heavy: row.querySelector('.taskGridHeavyInput').checked
                             });
+                            rememberColor(color);
                         });
 
                         currentConfig.TaskStyles = Array.from(stylesByKey.values());
+                        currentConfig.RecentColors = normalizeRecentColors(currentConfig.RecentColors);
                         currentConfig.ShowHiddenTasks = document.querySelector('#TaskGridShowHidden').checked;
                         currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
                         await ApiClient.updatePluginConfiguration(pluginId, currentConfig);
@@ -383,6 +438,7 @@
 
                     renderCalendar(tasks);
                     renderStyleList(tasks);
+                    renderSchedulerLinks(tasks);
                 }
 
                 function renderCalendar(tasks) {
@@ -677,19 +733,28 @@
                         hex.value = color.value.toUpperCase();
                         color.addEventListener('input', function () {
                             hex.value = color.value.toUpperCase();
+                            rememberColor(color.value);
+                            updateRecentColorButtons();
                         });
                         hex.addEventListener('input', function () {
                             const normalized = normalizeHexColor(hex.value, '');
                             if (normalized) {
                                 color.value = normalized;
                                 hex.value = normalized.toUpperCase();
+                                rememberColor(normalized);
+                                updateRecentColorButtons();
                             }
                         });
                         hex.addEventListener('blur', function () {
                             const normalized = normalizeHexColor(hex.value, color.value);
                             color.value = normalized;
                             hex.value = normalized.toUpperCase();
+                            rememberColor(normalized);
+                            updateRecentColorButtons();
                         });
+
+                        const recent = document.createElement('div');
+                        recent.className = 'taskGridRecentColors';
 
                         const heavyLabel = document.createElement('label');
                         heavyLabel.className = 'taskGridHeavyLabel';
@@ -698,8 +763,62 @@
                         row.appendChild(name);
                         row.appendChild(color);
                         row.appendChild(hex);
+                        row.appendChild(recent);
                         row.appendChild(heavyLabel);
                         container.appendChild(row);
+                    });
+                    updateRecentColorButtons();
+                }
+
+                function updateRecentColorButtons() {
+                    const colors = normalizeRecentColors(currentConfig.RecentColors || []);
+                    document.querySelectorAll('.taskGridStyleRow').forEach(function (row) {
+                        const container = row.querySelector('.taskGridRecentColors');
+                        if (!container) {
+                            return;
+                        }
+
+                        container.innerHTML = '';
+                        colors.forEach(function (recentColor) {
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.className = 'taskGridRecentColor';
+                            button.style.setProperty('--task-grid-recent-color', recentColor);
+                            button.title = recentColor.toUpperCase();
+                            button.setAttribute('aria-label', 'Use color ' + recentColor.toUpperCase());
+                            button.addEventListener('click', function () {
+                                row.querySelector('.taskGridColorInput').value = recentColor;
+                                row.querySelector('.taskGridHexInput').value = recentColor.toUpperCase();
+                                rememberColor(recentColor);
+                                updateRecentColorButtons();
+                            });
+                            container.appendChild(button);
+                        });
+                    });
+                }
+
+                function renderSchedulerLinks(tasks) {
+                    const container = document.querySelector('#TaskGridSchedulerLinks');
+                    container.innerHTML = '';
+                    tasks.forEach(function (task, index) {
+                        const id = task.Id || '';
+                        const item = document.createElement('a');
+                        item.className = 'taskGridSchedulerLink';
+                        item.href = taskSchedulerUrl(id);
+                        item.style.color = getTaskColor(task, index);
+
+                        const name = document.createElement('span');
+                        name.textContent = task.Name || 'Scheduled task';
+
+                        const action = document.createElement('em');
+                        action.textContent = id ? 'Open scheduler' : 'No task id';
+
+                        item.appendChild(name);
+                        item.appendChild(action);
+                        if (!id) {
+                            item.removeAttribute('href');
+                        }
+                        container.appendChild(item);
                     });
                 }
 
@@ -803,6 +922,24 @@
                     return task.Key || task.Id || task.Name || '';
                 }
 
+                function taskSchedulerUrl(id) {
+                    if (!id) {
+                        return '#';
+                    }
+
+                    return webBaseUrl() + '#/dashboard/tasks/' + encodeURIComponent(String(id).replace(/-/g, ''));
+                }
+
+                function webBaseUrl() {
+                    const path = window.location.pathname || '/web/';
+                    const webIndex = path.toLowerCase().indexOf('/web/');
+                    if (webIndex >= 0) {
+                        return window.location.origin + path.substring(0, webIndex + 5);
+                    }
+
+                    return window.location.origin + '/web/';
+                }
+
                 function getStyle(task) {
                     const key = taskKey(task);
                     return (currentConfig.TaskStyles || []).find(function (style) {
@@ -892,6 +1029,29 @@
                     }
 
                     return fallback || '';
+                }
+
+                function rememberColor(value) {
+                    const color = normalizeHexColor(value, '');
+                    if (!color) {
+                        return;
+                    }
+
+                    const existing = currentConfig.RecentColors || [];
+                    currentConfig.RecentColors = [color].concat(existing.filter(function (existingColor) {
+                        return normalizeHexColor(existingColor, '') !== color;
+                    })).slice(0, 12);
+                }
+
+                function normalizeRecentColors(colors) {
+                    const normalized = [];
+                    (colors || []).forEach(function (color) {
+                        const value = normalizeHexColor(color, '');
+                        if (value && normalized.indexOf(value) === -1) {
+                            normalized.push(value);
+                        }
+                    });
+                    return normalized.slice(0, 12);
                 }
 
                 function escapeHtml(value) {

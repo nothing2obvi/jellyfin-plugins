@@ -42,4 +42,9 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether tasks without daily or weekly triggers should appear below the grid.
     /// </summary>
     public bool ShowUnscheduledTasks { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets recently used task colors.
+    /// </summary>
+    public List<string> RecentColors { get; set; } = new();
 }
