@@ -187,7 +187,7 @@
                 margin: 0.45rem 0.22rem;
                 padding: 0.35rem 0.45rem;
                 min-width: 0;
-                min-height: 2.1rem;
+                height: 2.35rem;
                 overflow: hidden;
                 border-radius: 6px;
                 color: #fff;
@@ -209,6 +209,7 @@
 
             .taskGridBlockHeavy {
                 border-top: 3px solid rgba(255, 255, 255, 0.85);
+                padding-top: 0.25rem;
             }
 
             .taskGridBlockTitle {
@@ -356,6 +357,8 @@
                 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
                 const dayIndexes = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
                 const defaultColors = ['#00a4dc', '#27ae60', '#f39c12', '#8e5ad7', '#16a085', '#d35400', '#607d8b', '#c0392b'];
+                const lanePitchRem = 3.35;
+                const laneTopOffsetRem = 0.45;
 
                 let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true, ShowConflictHighlights: false, GridZoomPercent: 100 };
                 let scheduledTasks = [];
@@ -450,12 +453,16 @@
                 }
 
                 function render() {
-                    const tasks = scheduledTasks
-                        .filter(function (task) { return !task.IsHidden; })
-                        .sort(function (a, b) { return (a.Name || '').localeCompare(b.Name || ''); });
+                    const tasks = visibleTasks();
 
                     renderCalendar(tasks);
                     renderStyleList(tasks);
+                }
+
+                function visibleTasks() {
+                    return scheduledTasks
+                        .filter(function (task) { return !task.IsHidden; })
+                        .sort(function (a, b) { return (a.Name || '').localeCompare(b.Name || ''); });
                 }
 
                 function renderCalendar(tasks) {
@@ -643,7 +650,7 @@
                     const maxLane = blocks.reduce(function (highest, block) {
                         return Math.max(highest, block.lane || 0);
                     }, 0);
-                    const rowHeight = Math.max(5.8, ((maxLane + 1) * 2.85) + 0.8);
+                    const rowHeight = Math.max(5.8, ((maxLane + 1) * lanePitchRem) + 0.95);
                     calendar.style.gridTemplateRows = '2.4rem repeat(7, ' + rowHeight + 'rem)';
                 }
 
@@ -692,7 +699,7 @@
                     element.style.gridRow = String(block.dayIndex + 2);
                     element.style.gridColumn = block.startColumn + ' / ' + block.endColumn;
                     element.style.background = block.color;
-                    element.style.marginTop = ((block.lane || 0) * 2.85 + 0.45) + 'rem';
+                    element.style.marginTop = ((block.lane || 0) * lanePitchRem + laneTopOffsetRem) + 'rem';
                     element.title = block.task.Name + ' | ' + block.day + ' ' + block.label + retryTooltip(block) + tooltipStatus(block.task, block.trigger);
                     element.tabIndex = 0;
                     element.setAttribute('role', 'button');
@@ -756,7 +763,6 @@
                     const warningContainer = document.querySelector('#TaskGridWarnings');
                     const shutdownWarnings = uniqueBy(blocks.filter(function (block) { return block.warning; }), function (block) { return taskKey(block.task); });
                     const heavyOverlaps = findHeavyOverlaps(blocks);
-                    const conflicts = currentConfig.ShowConflictHighlights ? findScheduleConflicts(blocks) : [];
                     const messages = [];
 
                     shutdownWarnings.forEach(function (block) {
@@ -765,10 +771,6 @@
                     heavyOverlaps.forEach(function (warning) {
                         messages.push('Heavy tasks overlap on ' + warning.day + ': ' + warning.names + '.');
                     });
-                    conflicts.forEach(function (warning) {
-                        messages.push('Schedule conflict on ' + warning.day + ': ' + warning.names + '.');
-                    });
-
                     warningContainer.hidden = messages.length === 0;
                     warningContainer.innerHTML = messages.map(function (message) {
                         return '<div class="taskGridWarningItem">' + escapeHtml(message) + '</div>';
@@ -807,6 +809,9 @@
                         color.addEventListener('input', function () {
                             hex.value = color.value.toUpperCase();
                             rememberColor(color.value);
+                            updateStyleFromRow(row);
+                            scheduler.style.color = color.value;
+                            renderCalendar(visibleTasks());
                             updateRecentColorButtons();
                         });
                         hex.addEventListener('input', function () {
@@ -815,6 +820,9 @@
                                 color.value = normalized;
                                 hex.value = normalized.toUpperCase();
                                 rememberColor(normalized);
+                                updateStyleFromRow(row);
+                                scheduler.style.color = normalized;
+                                renderCalendar(visibleTasks());
                                 updateRecentColorButtons();
                             }
                         });
@@ -823,6 +831,9 @@
                             color.value = normalized;
                             hex.value = normalized.toUpperCase();
                             rememberColor(normalized);
+                            updateStyleFromRow(row);
+                            scheduler.style.color = normalized;
+                            renderCalendar(visibleTasks());
                             updateRecentColorButtons();
                         });
 
@@ -832,10 +843,18 @@
                         const heavyLabel = document.createElement('label');
                         heavyLabel.className = 'taskGridHeavyLabel';
                         heavyLabel.innerHTML = '<input type="checkbox" class="taskGridHeavyInput" is="emby-checkbox" ' + (isTaskHeavy(task) ? 'checked' : '') + ' /><span>Heavy</span>';
+                        heavyLabel.querySelector('.taskGridHeavyInput').addEventListener('change', function () {
+                            updateStyleFromRow(row);
+                            renderCalendar(visibleTasks());
+                        });
 
                         const ignoreConflictsLabel = document.createElement('label');
                         ignoreConflictsLabel.className = 'taskGridIgnoreConflictsLabel';
                         ignoreConflictsLabel.innerHTML = '<input type="checkbox" class="taskGridIgnoreConflictsInput" is="emby-checkbox" ' + (isTaskIgnoredForConflicts(task) ? 'checked' : '') + ' /><span>Ignore conflicts</span>';
+                        ignoreConflictsLabel.querySelector('.taskGridIgnoreConflictsInput').addEventListener('change', function () {
+                            updateStyleFromRow(row);
+                            renderCalendar(visibleTasks());
+                        });
 
                         const scheduler = document.createElement('a');
                         scheduler.className = 'taskGridSchedulerAction';
@@ -878,11 +897,32 @@
                                 row.querySelector('.taskGridColorInput').value = recentColor;
                                 row.querySelector('.taskGridHexInput').value = recentColor.toUpperCase();
                                 rememberColor(recentColor);
+                                updateStyleFromRow(row);
+                                const scheduler = row.querySelector('.taskGridSchedulerAction');
+                                if (scheduler) {
+                                    scheduler.style.color = recentColor;
+                                }
+                                renderCalendar(visibleTasks());
                                 updateRecentColorButtons();
                             });
                             container.appendChild(button);
                         });
                     });
+                }
+
+                function updateStyleFromRow(row) {
+                    const key = row.dataset.taskKey;
+                    const color = normalizeHexColor(row.querySelector('.taskGridHexInput').value, row.querySelector('.taskGridColorInput').value);
+                    const stylesByKey = new Map((currentConfig.TaskStyles || []).map(function (style) {
+                        return [style.TaskKey, style];
+                    }));
+                    stylesByKey.set(key, {
+                        TaskKey: key,
+                        Color: color,
+                        Heavy: row.querySelector('.taskGridHeavyInput').checked,
+                        IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked
+                    });
+                    currentConfig.TaskStyles = Array.from(stylesByKey.values());
                 }
 
                 function scrollToSchedulerLink(task) {
