@@ -62,7 +62,7 @@ JellyTag-Plus overlays quality, language, and collection badges on Jellyfin post
 ### Task Grid
 
 <p align="center">
-    <img src="TaskGrid/TaskGrid.png" alt="Task Grid" width="60%" />
+    <img src="TaskGrid/TaskGrid-banner.png" alt="Task Grid" width="60%" />
 </p>
 
 Task Grid shows Jellyfin scheduled tasks on a Monday-first weekly grid, with days as rows and hours as columns. It includes per-task colors, heavy-task overlap warnings, a refresh button for recent schedule changes, and red warnings for tasks whose most recent result was aborted by server shutdown.
