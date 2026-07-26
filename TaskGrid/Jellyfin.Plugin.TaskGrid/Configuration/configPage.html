@@ -31,7 +31,7 @@
                         </label>
                         <label class="taskGridZoomControl">
                             <span>Grid zoom</span>
-                            <input type="range" id="TaskGridZoom" min="100" max="260" step="20" value="100" />
+                            <input type="range" id="TaskGridZoom" min="100" max="500" step="20" value="100" />
                             <strong id="TaskGridZoomValue">100%</strong>
                         </label>
                     </div>
@@ -1263,7 +1263,7 @@
                         return 100;
                     }
 
-                    return Math.max(100, Math.min(260, Math.round(zoom / 20) * 20));
+                    return Math.max(100, Math.min(500, Math.round(zoom / 20) * 20));
                 }
 
                 function uniqueBy(items, keySelector) {
