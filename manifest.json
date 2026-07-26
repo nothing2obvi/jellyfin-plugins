@@ -55,27 +55,27 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/TaskGrid/TaskGrid-banner.png",
     "versions": [
       {
-        "version": "1.1.12.0",
-        "changelog": "Add draggable per-task Visual Length with 15-minute snapping, keep Visual Length at least 15 minutes and at least the last successful runtime, add a dotted last-runtime marker inside blocks, show recent colors as swatches, and allow grid zoom up to 1000%.",
+        "version": "1.1.13.0",
+        "changelog": "Save resized visual block lengths immediately when dragging finishes, persist grid zoom while navigating away and back to Task Grid, and add a synced top horizontal scrollbar above the grid.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.1.12.0.zip",
-        "checksum": "B3091ED27857E8B6C19434D6CDAF8359",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.1.13.0.zip",
+        "checksum": "3BFAECFD4BD06BD75FFB2615C04A2A88",
         "timestamp": "2026-07-26T00:00:00Z"
       },
       {
-        "version": "1.2.12.0",
-        "changelog": "Add draggable per-task Visual Length with 15-minute snapping, keep Visual Length at least 15 minutes and at least the last successful runtime, add a dotted last-runtime marker inside blocks, show recent colors as swatches, and allow grid zoom up to 1000%.",
+        "version": "1.2.13.0",
+        "changelog": "Save resized visual block lengths immediately when dragging finishes, persist grid zoom while navigating away and back to Task Grid, and add a synced top horizontal scrollbar above the grid.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.2.12.0-jellyfin12-rc2.zip",
-        "checksum": "CEFB61BEF65CD1A0D25DDB6D971AFDC3",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.2.13.0-jellyfin12-rc2.zip",
+        "checksum": "70A9141B8BA78482D1898DF53FAB0F8E",
         "timestamp": "2026-07-26T00:00:00Z"
       },
       {
-        "version": "1.3.12.0",
-        "changelog": "Add draggable per-task Visual Length with 15-minute snapping, keep Visual Length at least 15 minutes and at least the last successful runtime, add a dotted last-runtime marker inside blocks, show recent colors as swatches, and allow grid zoom up to 1000%.",
+        "version": "1.3.13.0",
+        "changelog": "Save resized visual block lengths immediately when dragging finishes, persist grid zoom while navigating away and back to Task Grid, and add a synced top horizontal scrollbar above the grid.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.3.12.0-jellyfin12-rc3.zip",
-        "checksum": "EEB7D0FB334BC5B9CBBB0FF2B47A52F2",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.3.13.0-jellyfin12-rc3.zip",
+        "checksum": "1F22D36AE0B6165EAAA767B8F9B35CBF",
         "timestamp": "2026-07-26T00:00:00Z"
       }
     ]

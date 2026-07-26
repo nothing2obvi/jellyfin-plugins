@@ -41,6 +41,9 @@
                 <div id="TaskGridWarnings" class="taskGridWarnings" hidden></div>
 
                 <div class="verticalSection">
+                    <div id="TaskGridTopScroll" class="taskGridTopScroll" aria-hidden="true">
+                        <div id="TaskGridTopScrollSpacer" class="taskGridTopScrollSpacer"></div>
+                    </div>
                     <div class="taskGridScroll">
                         <div id="TaskGridCalendar" class="taskGridCalendar" aria-label="Weekly scheduled task grid"></div>
                     </div>
@@ -105,6 +108,21 @@
 
             .taskGridWarningItem {
                 margin: 0.35rem 0;
+            }
+
+            .taskGridTopScroll {
+                overflow-x: auto;
+                overflow-y: hidden;
+                height: 1rem;
+                margin-bottom: 0.35rem;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.14);
+            }
+
+            .taskGridTopScrollSpacer {
+                height: 1px;
+                min-width: 1180px;
             }
 
             .taskGridScroll {
@@ -443,13 +461,16 @@
                 const lanePitchRem = 3.35;
                 const laneTopOffsetRem = 0.45;
                 const minimumVisualHours = 0.25;
+                const zoomStorageKey = 'TaskGrid.GridZoomPercent';
 
                 let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true, ShowConflictHighlights: false, ShowFailureHighlights: false, GridZoomPercent: 100 };
                 let scheduledTasks = [];
+                let autosaveTimer = null;
 
                 document.querySelector('#TaskGridConfigPage').addEventListener('pageshow', loadPage);
                 document.querySelector('#TaskGridRefresh').addEventListener('click', refreshTasks);
                 document.querySelector('#TaskGridSave').addEventListener('click', savePreferences);
+                syncGridScrollbars();
                 document.querySelector('#TaskGridShowUnscheduled').addEventListener('change', function () {
                     currentConfig.ShowUnscheduledTasks = this.checked;
                     render();
@@ -465,6 +486,14 @@
                 document.querySelector('#TaskGridZoom').addEventListener('input', function () {
                     currentConfig.GridZoomPercent = normalizeGridZoom(this.value);
                     updateGridZoom();
+                    saveZoomLocally();
+                    scheduleSilentSave();
+                });
+                document.querySelector('#TaskGridZoom').addEventListener('change', function () {
+                    currentConfig.GridZoomPercent = normalizeGridZoom(this.value);
+                    updateGridZoom();
+                    saveZoomLocally();
+                    persistPreferences(false, false);
                 });
                 document.addEventListener('click', function (event) {
                     if (!event.target.closest('.taskGridRecentColors')) {
@@ -483,7 +512,7 @@
                         document.querySelector('#TaskGridShowConflicts').checked = currentConfig.ShowConflictHighlights;
                         currentConfig.ShowFailureHighlights = currentConfig.ShowFailureHighlights === true;
                         document.querySelector('#TaskGridShowFailures').checked = currentConfig.ShowFailureHighlights;
-                        currentConfig.GridZoomPercent = normalizeGridZoom(currentConfig.GridZoomPercent);
+                        currentConfig.GridZoomPercent = normalizeGridZoom(readStoredZoom() || currentConfig.GridZoomPercent);
                         document.querySelector('#TaskGridZoom').value = currentConfig.GridZoomPercent;
                         updateGridZoom();
                         await refreshTasks(false);
@@ -515,39 +544,72 @@
                 }
 
                 async function savePreferences() {
-                    Dashboard.showLoadingMsg();
+                    await persistPreferences(true, true);
+                }
+
+                async function persistPreferences(showLoading, showResult) {
+                    if (autosaveTimer) {
+                        clearTimeout(autosaveTimer);
+                        autosaveTimer = null;
+                    }
+
+                    if (showLoading) {
+                        Dashboard.showLoadingMsg();
+                    }
+
                     try {
-                        const stylesByKey = new Map((currentConfig.TaskStyles || []).map(function (style) {
-                            return [style.TaskKey, style];
-                        }));
-
-                        document.querySelectorAll('.taskGridStyleRow').forEach(function (row) {
-                            const key = row.dataset.taskKey;
-                            const color = normalizeHexColor(row.querySelector('.taskGridHexInput').value, row.querySelector('.taskGridColorInput').value);
-                            stylesByKey.set(key, {
-                                TaskKey: key,
-                                Color: color,
-                                Heavy: row.querySelector('.taskGridHeavyInput').checked,
-                                IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked,
-                                VisualLengthHours: Number(row.dataset.visualLengthHours || 0)
-                            });
-                            rememberColor(color);
-                        });
-
-                        currentConfig.TaskStyles = Array.from(stylesByKey.values());
-                        currentConfig.RecentColors = normalizeRecentColors(currentConfig.RecentColors);
-                        currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
-                        currentConfig.ShowConflictHighlights = document.querySelector('#TaskGridShowConflicts').checked;
-                        currentConfig.ShowFailureHighlights = document.querySelector('#TaskGridShowFailures').checked;
-                        currentConfig.GridZoomPercent = normalizeGridZoom(document.querySelector('#TaskGridZoom').value);
+                        collectPreferencesFromPage();
                         await ApiClient.updatePluginConfiguration(pluginId, currentConfig);
-                        Dashboard.processPluginConfigurationUpdateResult();
+                        saveZoomLocally();
+                        if (showResult) {
+                            Dashboard.processPluginConfigurationUpdateResult();
+                        }
                     } catch (error) {
                         console.error('Error saving Task Grid preferences:', error);
-                        Dashboard.alert('Error saving Task Grid preferences');
+                        if (showLoading || showResult) {
+                            Dashboard.alert('Error saving Task Grid preferences');
+                        }
                     } finally {
-                        Dashboard.hideLoadingMsg();
+                        if (showLoading) {
+                            Dashboard.hideLoadingMsg();
+                        }
                     }
+                }
+
+                function collectPreferencesFromPage() {
+                    const stylesByKey = new Map((currentConfig.TaskStyles || []).map(function (style) {
+                        return [style.TaskKey, style];
+                    }));
+
+                    document.querySelectorAll('.taskGridStyleRow').forEach(function (row) {
+                        const key = row.dataset.taskKey;
+                        const color = normalizeHexColor(row.querySelector('.taskGridHexInput').value, row.querySelector('.taskGridColorInput').value);
+                        stylesByKey.set(key, {
+                            TaskKey: key,
+                            Color: color,
+                            Heavy: row.querySelector('.taskGridHeavyInput').checked,
+                            IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked,
+                            VisualLengthHours: Number(row.dataset.visualLengthHours || 0)
+                        });
+                        rememberColor(color);
+                    });
+
+                    currentConfig.TaskStyles = Array.from(stylesByKey.values());
+                    currentConfig.RecentColors = normalizeRecentColors(currentConfig.RecentColors);
+                    currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
+                    currentConfig.ShowConflictHighlights = document.querySelector('#TaskGridShowConflicts').checked;
+                    currentConfig.ShowFailureHighlights = document.querySelector('#TaskGridShowFailures').checked;
+                    currentConfig.GridZoomPercent = normalizeGridZoom(document.querySelector('#TaskGridZoom').value);
+                }
+
+                function scheduleSilentSave() {
+                    if (autosaveTimer) {
+                        clearTimeout(autosaveTimer);
+                    }
+
+                    autosaveTimer = setTimeout(function () {
+                        persistPreferences(false, false);
+                    }, 500);
                 }
 
                 function render() {
@@ -613,10 +675,37 @@
 
                 function updateGridZoom() {
                     const zoom = normalizeGridZoom(currentConfig.GridZoomPercent);
+                    const width = Math.round(1180 * zoom / 100);
                     currentConfig.GridZoomPercent = zoom;
                     document.querySelector('#TaskGridZoom').value = zoom;
                     document.querySelector('#TaskGridZoomValue').textContent = zoom + '%';
-                    document.querySelector('#TaskGridCalendar').style.minWidth = Math.round(1180 * zoom / 100) + 'px';
+                    document.querySelector('#TaskGridCalendar').style.minWidth = width + 'px';
+                    document.querySelector('#TaskGridTopScrollSpacer').style.minWidth = width + 'px';
+                }
+
+                function syncGridScrollbars() {
+                    const topScroll = document.querySelector('#TaskGridTopScroll');
+                    const gridScroll = document.querySelector('.taskGridScroll');
+                    let syncing = false;
+
+                    function sync(source, target) {
+                        if (syncing) {
+                            return;
+                        }
+
+                        syncing = true;
+                        target.scrollLeft = source.scrollLeft;
+                        window.requestAnimationFrame(function () {
+                            syncing = false;
+                        });
+                    }
+
+                    topScroll.addEventListener('scroll', function () {
+                        sync(topScroll, gridScroll);
+                    });
+                    gridScroll.addEventListener('scroll', function () {
+                        sync(gridScroll, topScroll);
+                    });
                 }
 
                 function buildBlocks(task, taskIndex) {
@@ -912,6 +1001,7 @@
                     const hourLeft = firstHour.getBoundingClientRect().left;
                     const hourWidth = firstHour.getBoundingClientRect().width;
                     const minLength = minimumLengthHours(block.task);
+                    let resized = false;
 
                     function resize(moveEvent) {
                         const endHour = (moveEvent.clientX - hourLeft) / hourWidth;
@@ -919,12 +1009,16 @@
                         const visualLength = Math.max(minLength, requestedLength);
                         setTaskVisualLength(block.task, visualLength);
                         renderCalendar(visibleTasks());
+                        resized = true;
                     }
 
                     function finish() {
                         document.removeEventListener('pointermove', resize);
                         document.removeEventListener('pointerup', finish);
                         document.removeEventListener('pointercancel', finish);
+                        if (resized) {
+                            persistPreferences(false, false);
+                        }
                     }
 
                     document.addEventListener('pointermove', resize);
@@ -1490,6 +1584,23 @@
                     }
 
                     return Math.max(100, Math.min(1000, Math.round(zoom / 50) * 50));
+                }
+
+                function readStoredZoom() {
+                    try {
+                        const value = window.localStorage.getItem(zoomStorageKey);
+                        return value === null ? 0 : normalizeGridZoom(value);
+                    } catch (error) {
+                        return 0;
+                    }
+                }
+
+                function saveZoomLocally() {
+                    try {
+                        window.localStorage.setItem(zoomStorageKey, String(normalizeGridZoom(currentConfig.GridZoomPercent)));
+                    } catch (error) {
+                        // Local storage can be unavailable in private or restricted browser contexts.
+                    }
                 }
 
                 function uniqueBy(items, keySelector) {
