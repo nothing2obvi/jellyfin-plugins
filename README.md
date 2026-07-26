@@ -59,6 +59,20 @@ JellyTag-Plus overlays quality, language, and collection badges on Jellyfin post
 
 ---
 
+### Task Grid
+
+<p align="center">
+    <img src="TaskGrid/TaskGrid.png" alt="Task Grid" width="60%" />
+</p>
+
+Task Grid shows Jellyfin scheduled tasks on a Monday-first weekly grid, with days as rows and hours as columns. It includes per-task colors, heavy-task overlap warnings, a refresh button for recent schedule changes, and red warnings for tasks whose most recent result was aborted by server shutdown.
+
+**Fork status:** Task Grid is not a fork of [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins). It is a new plugin added in this repository.
+
+[More details](TaskGrid/README.md)
+
+---
+
 ## Requirements
 
 - Jellyfin 10.11.0 or higher

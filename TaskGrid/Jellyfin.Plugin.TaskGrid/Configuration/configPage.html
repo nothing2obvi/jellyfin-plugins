@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Task Grid</title>
+</head>
+<body>
+    <div id="TaskGridConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+        data-require="emby-button,emby-checkbox,emby-input">
+        <div data-role="content">
+            <div class="content-primary taskGridPage">
+                <div class="sectionTitleContainer flex align-items-center taskGridHeader">
+                    <h2 class="sectionTitle">Task Grid</h2>
+                    <button is="emby-button" type="button" id="TaskGridRefresh" class="raised taskGridRefreshButton">
+                        <span>Refresh</span>
+                    </button>
+                </div>
+
+                <div class="verticalSection">
+                    <div class="taskGridToolbar">
+                        <label class="emby-checkbox-label taskGridToggle">
+                            <input type="checkbox" id="TaskGridShowHidden" is="emby-checkbox" />
+                            <span>Show hidden tasks</span>
+                        </label>
+                        <label class="emby-checkbox-label taskGridToggle">
+                            <input type="checkbox" id="TaskGridShowUnscheduled" is="emby-checkbox" />
+                            <span>Show tasks without daily or weekly triggers</span>
+                        </label>
+                    </div>
+                    <div id="TaskGridStatus" class="fieldDescription"></div>
+                </div>
+
+                <div id="TaskGridWarnings" class="taskGridWarnings" hidden></div>
+
+                <div class="verticalSection">
+                    <div class="taskGridScroll">
+                        <div id="TaskGridCalendar" class="taskGridCalendar" aria-label="Weekly scheduled task grid"></div>
+                    </div>
+                </div>
+
+                <div class="verticalSection">
+                    <h3 class="sectionTitle">Task Colors</h3>
+                    <div id="TaskGridStyleList" class="taskGridStyleList"></div>
+                    <button is="emby-button" type="button" id="TaskGridSave" class="raised button-submit taskGridSaveButton">
+                        <span>Save Display Preferences</span>
+                    </button>
+                </div>
+
+                <div id="TaskGridUnscheduledSection" class="verticalSection" hidden>
+                    <h3 class="sectionTitle">Other Triggers</h3>
+                    <div id="TaskGridUnscheduledList" class="taskGridUnscheduledList"></div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .taskGridHeader {
+                gap: 1rem;
+                justify-content: space-between;
+            }
+
+            .taskGridRefreshButton,
+            .taskGridSaveButton {
+                width: auto;
+            }
+
+            .taskGridToolbar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1rem 2rem;
+                align-items: center;
+            }
+
+            .taskGridToggle {
+                margin: 0;
+            }
+
+            .taskGridWarnings {
+                border-left: 4px solid #d64045;
+                background: rgba(214, 64, 69, 0.12);
+                padding: 0.75rem 1rem;
+                margin: 1rem 0;
+            }
+
+            .taskGridWarningItem {
+                margin: 0.35rem 0;
+            }
+
+            .taskGridScroll {
+                overflow-x: auto;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.14);
+            }
+
+            .taskGridCalendar {
+                min-width: 1180px;
+                display: grid;
+                grid-template-columns: 8rem repeat(24, minmax(2.6rem, 1fr));
+                grid-template-rows: 2.4rem repeat(7, 5.8rem);
+                position: relative;
+            }
+
+            .taskGridCorner,
+            .taskGridHour,
+            .taskGridDay,
+            .taskGridCell {
+                border-right: 1px solid rgba(255, 255, 255, 0.10);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+                box-sizing: border-box;
+            }
+
+            .taskGridCorner,
+            .taskGridHour {
+                position: sticky;
+                top: 0;
+                z-index: 4;
+                background: rgb(28, 32, 37);
+            }
+
+            .taskGridCorner,
+            .taskGridDay {
+                position: sticky;
+                left: 0;
+                z-index: 3;
+                background: rgb(28, 32, 37);
+            }
+
+            .taskGridCorner {
+                z-index: 5;
+            }
+
+            .taskGridHour {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.75rem;
+                opacity: 0.78;
+            }
+
+            .taskGridDay {
+                display: flex;
+                align-items: center;
+                padding: 0 0.75rem;
+                font-weight: 600;
+            }
+
+            .taskGridDayToday {
+                box-shadow: inset 4px 0 0 #00a4dc;
+            }
+
+            .taskGridCell {
+                background: rgba(255, 255, 255, 0.025);
+            }
+
+            .taskGridNowLine {
+                position: absolute;
+                top: 2.4rem;
+                bottom: 0;
+                width: 2px;
+                background: #f25f5c;
+                box-shadow: 0 0 8px rgba(242, 95, 92, 0.75);
+                pointer-events: none;
+                z-index: 2;
+            }
+
+            .taskGridBlock {
+                position: relative;
+                margin: 0.45rem 0.22rem;
+                padding: 0.35rem 0.45rem;
+                min-width: 0;
+                overflow: hidden;
+                border-radius: 6px;
+                color: #fff;
+                box-shadow: 0 2px 7px rgba(0, 0, 0, 0.28);
+                z-index: 1;
+                align-self: start;
+            }
+
+            .taskGridBlockWarning {
+                outline: 2px solid #ff5c5c;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px rgba(255, 92, 92, 0.72);
+            }
+
+            .taskGridBlockHeavy {
+                border-top: 3px solid rgba(255, 255, 255, 0.85);
+            }
+
+            .taskGridBlockTitle {
+                display: block;
+                font-size: 0.78rem;
+                font-weight: 700;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .taskGridBlockMeta {
+                display: block;
+                margin-top: 0.2rem;
+                font-size: 0.68rem;
+                opacity: 0.92;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .taskGridStyleList {
+                display: grid;
+                gap: 0.6rem;
+            }
+
+            .taskGridStyleRow {
+                display: grid;
+                grid-template-columns: minmax(12rem, 1fr) 7rem 7rem;
+                gap: 0.75rem;
+                align-items: center;
+                padding: 0.6rem 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            }
+
+            .taskGridTaskName {
+                min-width: 0;
+            }
+
+            .taskGridTaskName strong,
+            .taskGridTaskName span {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .taskGridTaskName span {
+                font-size: 0.78rem;
+                opacity: 0.72;
+            }
+
+            .taskGridColorInput {
+                width: 5rem;
+                min-height: 2.4rem;
+            }
+
+            .taskGridHeavyLabel {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                margin: 0;
+            }
+
+            .taskGridUnscheduledList {
+                display: grid;
+                gap: 0.5rem;
+            }
+
+            .taskGridOtherTask {
+                padding: 0.55rem 0.75rem;
+                border-left: 4px solid currentColor;
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            @media (max-width: 720px) {
+                .taskGridStyleRow {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+
+        <script type="text/javascript">
+            (function () {
+                const pluginId = 'a56a1707-aaeb-4ed5-bd95-1543ff817b9e';
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const dayIndexes = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
+                const defaultColors = ['#00a4dc', '#27ae60', '#f39c12', '#8e5ad7', '#16a085', '#d35400', '#607d8b', '#c0392b'];
+
+                let currentConfig = { TaskStyles: [], ShowHiddenTasks: false, ShowUnscheduledTasks: true };
+                let scheduledTasks = [];
+
+                document.querySelector('#TaskGridConfigPage').addEventListener('pageshow', loadPage);
+                document.querySelector('#TaskGridRefresh').addEventListener('click', refreshTasks);
+                document.querySelector('#TaskGridSave').addEventListener('click', savePreferences);
+                document.querySelector('#TaskGridShowHidden').addEventListener('change', function () {
+                    currentConfig.ShowHiddenTasks = this.checked;
+                    render();
+                });
+                document.querySelector('#TaskGridShowUnscheduled').addEventListener('change', function () {
+                    currentConfig.ShowUnscheduledTasks = this.checked;
+                    render();
+                });
+
+                async function loadPage() {
+                    Dashboard.showLoadingMsg();
+                    try {
+                        currentConfig = await ApiClient.getPluginConfiguration(pluginId);
+                        currentConfig.TaskStyles = currentConfig.TaskStyles || [];
+                        document.querySelector('#TaskGridShowHidden').checked = !!currentConfig.ShowHiddenTasks;
+                        document.querySelector('#TaskGridShowUnscheduled').checked = currentConfig.ShowUnscheduledTasks !== false;
+                        await refreshTasks(false);
+                    } catch (error) {
+                        console.error('Error loading Task Grid:', error);
+                        Dashboard.alert('Error loading Task Grid');
+                    } finally {
+                        Dashboard.hideLoadingMsg();
+                    }
+                }
+
+                async function refreshTasks(showLoading) {
+                    if (showLoading !== false) {
+                        Dashboard.showLoadingMsg();
+                    }
+
+                    try {
+                        scheduledTasks = await ApiClient.getScheduledTasks();
+                        render();
+                        document.querySelector('#TaskGridStatus').textContent = 'Last refreshed ' + new Date().toLocaleString();
+                    } catch (error) {
+                        console.error('Error refreshing scheduled tasks:', error);
+                        Dashboard.alert('Error refreshing scheduled tasks');
+                    } finally {
+                        if (showLoading !== false) {
+                            Dashboard.hideLoadingMsg();
+                        }
+                    }
+                }
+
+                async function savePreferences() {
+                    Dashboard.showLoadingMsg();
+                    try {
+                        const stylesByKey = new Map((currentConfig.TaskStyles || []).map(function (style) {
+                            return [style.TaskKey, style];
+                        }));
+
+                        document.querySelectorAll('.taskGridStyleRow').forEach(function (row) {
+                            const key = row.dataset.taskKey;
+                            stylesByKey.set(key, {
+                                TaskKey: key,
+                                Color: row.querySelector('.taskGridColorInput').value,
+                                Heavy: row.querySelector('.taskGridHeavyInput').checked
+                            });
+                        });
+
+                        currentConfig.TaskStyles = Array.from(stylesByKey.values());
+                        currentConfig.ShowHiddenTasks = document.querySelector('#TaskGridShowHidden').checked;
+                        currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
+                        await ApiClient.updatePluginConfiguration(pluginId, currentConfig);
+                        Dashboard.processPluginConfigurationUpdateResult();
+                    } catch (error) {
+                        console.error('Error saving Task Grid preferences:', error);
+                        Dashboard.alert('Error saving Task Grid preferences');
+                    } finally {
+                        Dashboard.hideLoadingMsg();
+                    }
+                }
+
+                function render() {
+                    const tasks = scheduledTasks
+                        .filter(function (task) { return currentConfig.ShowHiddenTasks || !task.IsHidden; })
+                        .sort(function (a, b) { return (a.Name || '').localeCompare(b.Name || ''); });
+
+                    renderCalendar(tasks);
+                    renderStyleList(tasks);
+                }
+
+                function renderCalendar(tasks) {
+                    const calendar = document.querySelector('#TaskGridCalendar');
+                    calendar.innerHTML = '';
+
+                    appendCell(calendar, 'taskGridCorner', 1, 1, '');
+                    for (let hour = 0; hour < 24; hour++) {
+                        appendCell(calendar, 'taskGridHour', 1, hour + 2, String(hour).padStart(2, '0') + ':00');
+                    }
+
+                    const todayIndex = (new Date().getDay() + 6) % 7;
+                    days.forEach(function (day, index) {
+                        const dayCell = appendCell(calendar, 'taskGridDay' + (index === todayIndex ? ' taskGridDayToday' : ''), index + 2, 1, day);
+                        dayCell.setAttribute('aria-label', day);
+
+                        for (let hour = 0; hour < 24; hour++) {
+                            appendCell(calendar, 'taskGridCell', index + 2, hour + 2, '');
+                        }
+                    });
+
+                    const blocks = [];
+                    const otherTasks = [];
+                    tasks.forEach(function (task, taskIndex) {
+                        const taskBlocks = buildBlocks(task, taskIndex);
+                        if (taskBlocks.length === 0) {
+                            otherTasks.push(task);
+                        } else {
+                            blocks.push.apply(blocks, taskBlocks);
+                        }
+                    });
+
+                    blocks.forEach(function (block) {
+                        calendar.appendChild(createTaskBlock(block));
+                    });
+
+                    appendNowLine(calendar);
+                    renderWarnings(blocks);
+                    renderUnscheduled(otherTasks);
+                }
+
+                function appendCell(parent, className, row, column, text) {
+                    const cell = document.createElement('div');
+                    cell.className = className;
+                    cell.style.gridRow = String(row);
+                    cell.style.gridColumn = String(column);
+                    cell.textContent = text;
+                    parent.appendChild(cell);
+                    return cell;
+                }
+
+                function buildBlocks(task, taskIndex) {
+                    const triggers = task.Triggers || [];
+                    const blocks = [];
+                    triggers.forEach(function (trigger) {
+                        const type = String(trigger.Type || '').toLowerCase();
+                        if (type === 'dailytrigger') {
+                            days.forEach(function (day) {
+                                blocks.push.apply(blocks, createBlocks(task, trigger, day, taskIndex));
+                            });
+                        } else if (type === 'weeklytrigger') {
+                            const day = normalizeDay(trigger.DayOfWeek);
+                            if (day) {
+                                blocks.push.apply(blocks, createBlocks(task, trigger, day, taskIndex));
+                            }
+                        }
+                    });
+                    return blocks.filter(Boolean);
+                }
+
+                function createBlocks(task, trigger, day, taskIndex) {
+                    const start = ticksToHours(trigger.TimeOfDayTicks || 0);
+                    const duration = durationHours(task, trigger);
+                    if (duration <= 0) {
+                        return [];
+                    }
+
+                    const blocks = [];
+                    let remaining = duration;
+                    let segmentStart = start;
+                    let dayIndex = dayIndexes[day];
+                    let guard = 0;
+
+                    while (remaining > 0 && guard < 7) {
+                        const segmentDuration = Math.min(24 - segmentStart, remaining);
+                        const startColumn = Math.floor(segmentStart) + 2;
+                        const endColumn = Math.min(26, Math.max(startColumn + 1, Math.ceil(segmentStart + segmentDuration) + 2));
+                        blocks.push({
+                            task: task,
+                            trigger: trigger,
+                            day: days[dayIndex],
+                            dayIndex: dayIndex,
+                            start: segmentStart,
+                            duration: segmentDuration,
+                            totalDuration: duration,
+                            startColumn: startColumn,
+                            endColumn: endColumn,
+                            color: getTaskColor(task, taskIndex),
+                            warning: wasAbortedByShutdown(task),
+                            heavy: isTaskHeavy(task),
+                            label: formatTime(segmentStart) + ' - ' + formatTime(Math.min(24, segmentStart + segmentDuration))
+                        });
+                        remaining -= segmentDuration;
+                        segmentStart = 0;
+                        dayIndex = (dayIndex + 1) % 7;
+                        guard++;
+                    }
+
+                    return blocks;
+                }
+
+                function createTaskBlock(block) {
+                    const element = document.createElement('div');
+                    element.className = 'taskGridBlock' + (block.warning ? ' taskGridBlockWarning' : '') + (block.heavy ? ' taskGridBlockHeavy' : '');
+                    element.style.gridRow = String(block.dayIndex + 2);
+                    element.style.gridColumn = block.startColumn + ' / ' + block.endColumn;
+                    element.style.background = block.color;
+                    element.title = block.task.Name + ' | ' + block.day + ' ' + block.label + tooltipStatus(block.task, block.trigger);
+
+                    const title = document.createElement('span');
+                    title.className = 'taskGridBlockTitle';
+                    title.textContent = block.task.Name || 'Scheduled task';
+
+                    const meta = document.createElement('span');
+                    meta.className = 'taskGridBlockMeta';
+                    meta.textContent = block.label + durationLabel(block.task, block.trigger) + (block.warning ? ' | shutdown abort' : '');
+
+                    element.appendChild(title);
+                    element.appendChild(meta);
+                    return element;
+                }
+
+                function appendNowLine(calendar) {
+                    const now = new Date();
+                    const mondayFirstDay = (now.getDay() + 6) % 7;
+                    if (mondayFirstDay < 0 || mondayFirstDay > 6) {
+                        return;
+                    }
+
+                    const hourWidthPercent = 100 / 25;
+                    const leftPercent = (8 / 1180 * 100) + ((now.getHours() + now.getMinutes() / 60) * hourWidthPercent);
+                    const line = document.createElement('div');
+                    line.className = 'taskGridNowLine';
+                    line.style.left = 'calc(' + leftPercent + '%)';
+                    calendar.appendChild(line);
+                }
+
+                function renderWarnings(blocks) {
+                    const warningContainer = document.querySelector('#TaskGridWarnings');
+                    const shutdownWarnings = uniqueBy(blocks.filter(function (block) { return block.warning; }), function (block) { return taskKey(block.task); });
+                    const heavyOverlaps = findHeavyOverlaps(blocks);
+                    const messages = [];
+
+                    shutdownWarnings.forEach(function (block) {
+                        messages.push(block.task.Name + ' was most recently aborted by server shutdown.');
+                    });
+                    heavyOverlaps.forEach(function (warning) {
+                        messages.push('Heavy tasks overlap on ' + warning.day + ': ' + warning.names + '.');
+                    });
+
+                    warningContainer.hidden = messages.length === 0;
+                    warningContainer.innerHTML = messages.map(function (message) {
+                        return '<div class="taskGridWarningItem">' + escapeHtml(message) + '</div>';
+                    }).join('');
+                }
+
+                function renderUnscheduled(tasks) {
+                    const section = document.querySelector('#TaskGridUnscheduledSection');
+                    const list = document.querySelector('#TaskGridUnscheduledList');
+                    section.hidden = !currentConfig.ShowUnscheduledTasks || tasks.length === 0;
+                    list.innerHTML = '';
+                    if (section.hidden) {
+                        return;
+                    }
+
+                    tasks.forEach(function (task, index) {
+                        const item = document.createElement('div');
+                        item.className = 'taskGridOtherTask';
+                        item.style.color = getTaskColor(task, index);
+                        item.textContent = (task.Name || 'Scheduled task') + ': ' + describeTriggers(task.Triggers || []);
+                        list.appendChild(item);
+                    });
+                }
+
+                function renderStyleList(tasks) {
+                    const container = document.querySelector('#TaskGridStyleList');
+                    container.innerHTML = '';
+                    tasks.forEach(function (task, index) {
+                        const row = document.createElement('div');
+                        row.className = 'taskGridStyleRow';
+                        row.dataset.taskKey = taskKey(task);
+
+                        const name = document.createElement('div');
+                        name.className = 'taskGridTaskName';
+                        name.innerHTML = '<strong>' + escapeHtml(task.Name || 'Scheduled task') + '</strong><span>' + escapeHtml(task.Category || task.Key || task.Id || '') + '</span>';
+
+                        const color = document.createElement('input');
+                        color.type = 'color';
+                        color.className = 'taskGridColorInput';
+                        color.value = getTaskColor(task, index);
+
+                        const heavyLabel = document.createElement('label');
+                        heavyLabel.className = 'taskGridHeavyLabel';
+                        heavyLabel.innerHTML = '<input type="checkbox" class="taskGridHeavyInput" is="emby-checkbox" ' + (isTaskHeavy(task) ? 'checked' : '') + ' /><span>Heavy</span>';
+
+                        row.appendChild(name);
+                        row.appendChild(color);
+                        row.appendChild(heavyLabel);
+                        container.appendChild(row);
+                    });
+                }
+
+                function findHeavyOverlaps(blocks) {
+                    const warnings = [];
+                    const heavy = blocks.filter(function (block) { return block.heavy; });
+                    days.forEach(function (day) {
+                        const dayBlocks = heavy.filter(function (block) { return block.day === day; });
+                        for (let i = 0; i < dayBlocks.length; i++) {
+                            for (let j = i + 1; j < dayBlocks.length; j++) {
+                                if (dayBlocks[i].start < dayBlocks[j].start + dayBlocks[j].duration && dayBlocks[j].start < dayBlocks[i].start + dayBlocks[i].duration) {
+                                    warnings.push({ day: day, names: dayBlocks[i].task.Name + ' and ' + dayBlocks[j].task.Name });
+                                }
+                            }
+                        }
+                    });
+                    return warnings;
+                }
+
+                function durationHours(task, trigger) {
+                    if (trigger.MaxRuntimeTicks) {
+                        return Math.max(ticksToHours(trigger.MaxRuntimeTicks), 1 / 12);
+                    }
+
+                    const result = task.LastExecutionResult;
+                    if (result && result.StartTimeUtc && result.EndTimeUtc) {
+                        const start = new Date(result.StartTimeUtc).getTime();
+                        const end = new Date(result.EndTimeUtc).getTime();
+                        if (end > start) {
+                            return Math.max((end - start) / 3600000, 1 / 12);
+                        }
+                    }
+
+                    return 0.5;
+                }
+
+                function durationLabel(task, trigger) {
+                    if (trigger.MaxRuntimeTicks) {
+                        return ' | max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks));
+                    }
+
+                    const result = task.LastExecutionResult;
+                    if (result && result.StartTimeUtc && result.EndTimeUtc) {
+                        return ' | last ' + formatDuration(durationHours(task, trigger));
+                    }
+
+                    return ' | estimated 30m';
+                }
+
+                function tooltipStatus(task, trigger) {
+                    const parts = [];
+                    if (task.State) {
+                        parts.push('State: ' + task.State);
+                    }
+                    if (task.CurrentProgressPercentage != null) {
+                        parts.push('Progress: ' + Math.round(task.CurrentProgressPercentage) + '%');
+                    }
+                    if (task.LastExecutionResult && task.LastExecutionResult.Status) {
+                        parts.push('Last result: ' + task.LastExecutionResult.Status);
+                    }
+                    if (trigger.MaxRuntimeTicks) {
+                        parts.push('Max runtime: ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks)));
+                    }
+                    return parts.length ? ' | ' + parts.join(' | ') : '';
+                }
+
+                function describeTriggers(triggers) {
+                    if (!triggers.length) {
+                        return 'No triggers';
+                    }
+                    return triggers.map(function (trigger) {
+                        const type = trigger.Type || 'Unknown trigger';
+                        if (trigger.IntervalTicks) {
+                            return type + ' every ' + formatDuration(ticksToHours(trigger.IntervalTicks));
+                        }
+                        return type;
+                    }).join(', ');
+                }
+
+                function taskKey(task) {
+                    return task.Key || task.Id || task.Name || '';
+                }
+
+                function getStyle(task) {
+                    const key = taskKey(task);
+                    return (currentConfig.TaskStyles || []).find(function (style) {
+                        return style.TaskKey === key;
+                    });
+                }
+
+                function getTaskColor(task, index) {
+                    const style = getStyle(task);
+                    return style && style.Color ? style.Color : defaultColors[index % defaultColors.length];
+                }
+
+                function isTaskHeavy(task) {
+                    const style = getStyle(task);
+                    return !!(style && style.Heavy);
+                }
+
+                function wasAbortedByShutdown(task) {
+                    const result = task.LastExecutionResult || {};
+                    const text = [result.Status, result.ErrorMessage, result.LongErrorMessage].join(' ').toLowerCase();
+                    return text.indexOf('shutdown') !== -1 || text.indexOf('aborted') !== -1;
+                }
+
+                function normalizeDay(day) {
+                    if (day == null) {
+                        return null;
+                    }
+
+                    const value = String(day);
+                    if (/^\d+$/.test(value)) {
+                        const dotnetDay = Number(value);
+                        return days[(dotnetDay + 6) % 7] || null;
+                    }
+
+                    return days.find(function (candidate) {
+                        return candidate.toLowerCase() === value.toLowerCase();
+                    }) || null;
+                }
+
+                function ticksToHours(ticks) {
+                    return Number(ticks || 0) / 10000000 / 3600;
+                }
+
+                function formatTime(hours) {
+                    const totalMinutes = Math.round(hours * 60);
+                    const hour = Math.floor(totalMinutes / 60) % 24;
+                    const minute = totalMinutes % 60;
+                    return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+                }
+
+                function formatDuration(hours) {
+                    const minutes = Math.max(1, Math.round(hours * 60));
+                    const wholeHours = Math.floor(minutes / 60);
+                    const remainingMinutes = minutes % 60;
+                    if (wholeHours && remainingMinutes) {
+                        return wholeHours + 'h ' + remainingMinutes + 'm';
+                    }
+                    if (wholeHours) {
+                        return wholeHours + 'h';
+                    }
+                    return remainingMinutes + 'm';
+                }
+
+                function uniqueBy(items, keySelector) {
+                    const seen = new Set();
+                    return items.filter(function (item) {
+                        const key = keySelector(item);
+                        if (seen.has(key)) {
+                            return false;
+                        }
+                        seen.add(key);
+                        return true;
+                    });
+                }
+
+                function escapeHtml(value) {
+                    return String(value == null ? '' : value)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                }
+            })();
+        </script>
+    </div>
+</body>
+</html>
