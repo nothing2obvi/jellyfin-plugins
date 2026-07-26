@@ -49,6 +49,11 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ShowConflictHighlights { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether tasks with aborted or errored results should be highlighted.
+    /// </summary>
+    public bool ShowFailureHighlights { get; set; }
+
+    /// <summary>
     /// Gets or sets the grid zoom percentage.
     /// </summary>
     public int GridZoomPercent { get; set; } = 100;

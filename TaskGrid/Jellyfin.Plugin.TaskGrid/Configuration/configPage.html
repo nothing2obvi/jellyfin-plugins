@@ -25,6 +25,10 @@
                             <input type="checkbox" id="TaskGridShowConflicts" is="emby-checkbox" />
                             <span>Highlight schedule conflicts</span>
                         </label>
+                        <label class="emby-checkbox-label taskGridToggle">
+                            <input type="checkbox" id="TaskGridShowFailures" is="emby-checkbox" />
+                            <span>Highlight aborted or errored tasks</span>
+                        </label>
                         <label class="taskGridZoomControl">
                             <span>Grid zoom</span>
                             <input type="range" id="TaskGridZoom" min="100" max="260" step="20" value="100" />
@@ -198,8 +202,7 @@
             }
 
             .taskGridBlockWarning {
-                outline: 2px solid #ff5c5c;
-                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px rgba(255, 92, 92, 0.72);
+                border-left: 4px solid #ff5c5c;
             }
 
             .taskGridBlockConflict {
@@ -210,6 +213,10 @@
             .taskGridBlockHeavy {
                 border-top: 3px solid rgba(255, 255, 255, 0.85);
                 padding-top: 0.25rem;
+            }
+
+            .taskGridBlockWarning .taskGridBlockMeta {
+                color: #ffd2d2;
             }
 
             .taskGridBlockTitle {
@@ -298,20 +305,12 @@
             }
 
             .taskGridRecentColors {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.35rem;
-                align-items: center;
+                min-width: 0;
             }
 
-            .taskGridRecentColor {
-                width: 1.6rem;
-                height: 1.6rem;
-                border: 1px solid rgba(255, 255, 255, 0.72);
-                border-radius: 4px;
-                background: var(--task-grid-recent-color);
-                cursor: pointer;
-                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+            .taskGridRecentSelect {
+                width: 100%;
+                min-height: 2.4rem;
             }
 
             .taskGridHeavyLabel {
@@ -360,7 +359,7 @@
                 const lanePitchRem = 3.35;
                 const laneTopOffsetRem = 0.45;
 
-                let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true, ShowConflictHighlights: false, GridZoomPercent: 100 };
+                let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true, ShowConflictHighlights: false, ShowFailureHighlights: false, GridZoomPercent: 100 };
                 let scheduledTasks = [];
 
                 document.querySelector('#TaskGridConfigPage').addEventListener('pageshow', loadPage);
@@ -372,6 +371,10 @@
                 });
                 document.querySelector('#TaskGridShowConflicts').addEventListener('change', function () {
                     currentConfig.ShowConflictHighlights = this.checked;
+                    render();
+                });
+                document.querySelector('#TaskGridShowFailures').addEventListener('change', function () {
+                    currentConfig.ShowFailureHighlights = this.checked;
                     render();
                 });
                 document.querySelector('#TaskGridZoom').addEventListener('input', function () {
@@ -386,7 +389,10 @@
                         currentConfig.TaskStyles = currentConfig.TaskStyles || [];
                         currentConfig.RecentColors = currentConfig.RecentColors || [];
                         document.querySelector('#TaskGridShowUnscheduled').checked = currentConfig.ShowUnscheduledTasks !== false;
-                        document.querySelector('#TaskGridShowConflicts').checked = !!currentConfig.ShowConflictHighlights;
+                        currentConfig.ShowConflictHighlights = currentConfig.ShowConflictHighlights === true;
+                        document.querySelector('#TaskGridShowConflicts').checked = currentConfig.ShowConflictHighlights;
+                        currentConfig.ShowFailureHighlights = currentConfig.ShowFailureHighlights === true;
+                        document.querySelector('#TaskGridShowFailures').checked = currentConfig.ShowFailureHighlights;
                         currentConfig.GridZoomPercent = normalizeGridZoom(currentConfig.GridZoomPercent);
                         document.querySelector('#TaskGridZoom').value = currentConfig.GridZoomPercent;
                         updateGridZoom();
@@ -441,6 +447,7 @@
                         currentConfig.RecentColors = normalizeRecentColors(currentConfig.RecentColors);
                         currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
                         currentConfig.ShowConflictHighlights = document.querySelector('#TaskGridShowConflicts').checked;
+                        currentConfig.ShowFailureHighlights = document.querySelector('#TaskGridShowFailures').checked;
                         currentConfig.GridZoomPercent = normalizeGridZoom(document.querySelector('#TaskGridZoom').value);
                         await ApiClient.updatePluginConfiguration(pluginId, currentConfig);
                         Dashboard.processPluginConfigurationUpdateResult();
@@ -556,8 +563,7 @@
                     while (remaining > 0 && guard < 7) {
                         const segmentDuration = Math.min(24 - segmentStart, remaining);
                         const retryWindowEnd = Math.min(24, segmentStart + conflictWindowHours(trigger, segmentDuration));
-                        const startColumn = Math.floor(segmentStart) + 2;
-                        const endColumn = Math.min(26, Math.max(startColumn + 1, Math.ceil(segmentStart + segmentDuration) + 2));
+                        const placement = blockPlacement(segmentStart, segmentDuration);
                         blocks.push({
                             task: task,
                             trigger: trigger,
@@ -567,10 +573,12 @@
                             start: segmentStart,
                             duration: segmentDuration,
                             totalDuration: duration,
-                            startColumn: startColumn,
-                            endColumn: endColumn,
+                            startColumn: placement.startColumn,
+                            endColumn: placement.endColumn,
+                            leftInsetPercent: placement.leftInsetPercent,
+                            rightInsetPercent: placement.rightInsetPercent,
                             color: getTaskColor(task, taskIndex),
-                            warning: wasAbortedByShutdown(task),
+                            warning: currentConfig.ShowFailureHighlights === true && wasAbortedOrErrored(task),
                             heavy: isTaskHeavy(task),
                             ignoreConflicts: isTaskIgnoredForConflicts(task),
                             retryWindowEnd: retryWindowEnd,
@@ -654,6 +662,20 @@
                     calendar.style.gridTemplateRows = '2.4rem repeat(7, ' + rowHeight + 'rem)';
                 }
 
+                function blockPlacement(start, duration) {
+                    const end = Math.min(24, start + duration);
+                    const startHour = Math.max(0, Math.min(23, Math.floor(start)));
+                    const endHour = Math.max(startHour + 1, Math.min(24, Math.ceil(end)));
+                    const spanHours = Math.max(1, endHour - startHour);
+
+                    return {
+                        startColumn: startHour + 2,
+                        endColumn: endHour + 2,
+                        leftInsetPercent: ((start - startHour) / spanHours) * 100,
+                        rightInsetPercent: ((endHour - end) / spanHours) * 100
+                    };
+                }
+
                 function copyBlock(block) {
                     return {
                         task: block.task,
@@ -666,6 +688,8 @@
                         totalDuration: block.totalDuration,
                         startColumn: block.startColumn,
                         endColumn: block.endColumn,
+                        leftInsetPercent: block.leftInsetPercent || 0,
+                        rightInsetPercent: block.rightInsetPercent || 0,
                         color: block.color,
                         warning: block.warning,
                         heavy: block.heavy,
@@ -681,7 +705,11 @@
                     const end = Math.max(target.start + target.duration, block.start + block.duration, block.retryWindowEnd || 0);
                     target.duration = end - target.start;
                     target.totalDuration = Math.max(target.totalDuration || 0, target.duration);
-                    target.endColumn = Math.min(26, Math.max(target.startColumn + 1, Math.ceil(target.start + target.duration) + 2));
+                    const placement = blockPlacement(target.start, target.duration);
+                    target.startColumn = placement.startColumn;
+                    target.endColumn = placement.endColumn;
+                    target.leftInsetPercent = placement.leftInsetPercent;
+                    target.rightInsetPercent = placement.rightInsetPercent;
                     target.warning = target.warning || block.warning;
                     target.heavy = target.heavy || block.heavy;
                     target.ignoreConflicts = target.ignoreConflicts && block.ignoreConflicts;
@@ -700,6 +728,8 @@
                     element.style.gridColumn = block.startColumn + ' / ' + block.endColumn;
                     element.style.background = block.color;
                     element.style.marginTop = ((block.lane || 0) * lanePitchRem + laneTopOffsetRem) + 'rem';
+                    element.style.marginLeft = 'calc(0.22rem + ' + (block.leftInsetPercent || 0).toFixed(4) + '%)';
+                    element.style.marginRight = 'calc(0.22rem + ' + (block.rightInsetPercent || 0).toFixed(4) + '%)';
                     element.title = block.task.Name + ' | ' + block.day + ' ' + block.label + retryTooltip(block) + tooltipStatus(block.task, block.trigger);
                     element.tabIndex = 0;
                     element.setAttribute('role', 'button');
@@ -720,7 +750,7 @@
 
                     const meta = document.createElement('span');
                     meta.className = 'taskGridBlockMeta';
-                    meta.textContent = block.label + retryLabel(block) + durationLabel(block.task, block.trigger) + (block.warning ? ' | shutdown abort' : '');
+                    meta.textContent = block.label + retryLabel(block) + durationLabel(block.task, block.trigger) + (block.warning ? ' | aborted/error' : '');
 
                     element.appendChild(title);
                     element.appendChild(meta);
@@ -762,14 +792,10 @@
                 function renderWarnings(blocks) {
                     const warningContainer = document.querySelector('#TaskGridWarnings');
                     const shutdownWarnings = uniqueBy(blocks.filter(function (block) { return block.warning; }), function (block) { return taskKey(block.task); });
-                    const heavyOverlaps = findHeavyOverlaps(blocks);
                     const messages = [];
 
                     shutdownWarnings.forEach(function (block) {
-                        messages.push(block.task.Name + ' was most recently aborted by server shutdown.');
-                    });
-                    heavyOverlaps.forEach(function (warning) {
-                        messages.push('Heavy tasks overlap on ' + warning.day + ': ' + warning.names + '.');
+                        messages.push(block.task.Name + ' was most recently aborted or errored.');
                     });
                     warningContainer.hidden = messages.length === 0;
                     warningContainer.innerHTML = messages.map(function (message) {
@@ -886,27 +912,39 @@
                         }
 
                         container.innerHTML = '';
+                        const select = document.createElement('select');
+                        select.className = 'taskGridRecentSelect';
+                        select.setAttribute('aria-label', 'Pick recent color');
+
+                        const placeholder = document.createElement('option');
+                        placeholder.value = '';
+                        placeholder.textContent = 'Pick recent color';
+                        select.appendChild(placeholder);
+
                         colors.forEach(function (recentColor) {
-                            const button = document.createElement('button');
-                            button.type = 'button';
-                            button.className = 'taskGridRecentColor';
-                            button.style.setProperty('--task-grid-recent-color', recentColor);
-                            button.title = recentColor.toUpperCase();
-                            button.setAttribute('aria-label', 'Use color ' + recentColor.toUpperCase());
-                            button.addEventListener('click', function () {
-                                row.querySelector('.taskGridColorInput').value = recentColor;
-                                row.querySelector('.taskGridHexInput').value = recentColor.toUpperCase();
-                                rememberColor(recentColor);
-                                updateStyleFromRow(row);
-                                const scheduler = row.querySelector('.taskGridSchedulerAction');
-                                if (scheduler) {
-                                    scheduler.style.color = recentColor;
-                                }
-                                renderCalendar(visibleTasks());
-                                updateRecentColorButtons();
-                            });
-                            container.appendChild(button);
+                            const option = document.createElement('option');
+                            option.value = recentColor;
+                            option.textContent = recentColor.toUpperCase();
+                            select.appendChild(option);
                         });
+
+                        select.addEventListener('change', function () {
+                            if (!this.value) {
+                                return;
+                            }
+
+                            row.querySelector('.taskGridColorInput').value = this.value;
+                            row.querySelector('.taskGridHexInput').value = this.value.toUpperCase();
+                            rememberColor(this.value);
+                            updateStyleFromRow(row);
+                            const scheduler = row.querySelector('.taskGridSchedulerAction');
+                            if (scheduler) {
+                                scheduler.style.color = this.value;
+                            }
+                            renderCalendar(visibleTasks());
+                            updateRecentColorButtons();
+                        });
+                        container.appendChild(select);
                     });
                 }
 
@@ -969,7 +1007,7 @@
                         block.conflict = false;
                     });
 
-                    if (!currentConfig.ShowConflictHighlights) {
+                    if (currentConfig.ShowConflictHighlights !== true) {
                         return;
                     }
 
@@ -1165,10 +1203,14 @@
                     return fallbackDuration;
                 }
 
-                function wasAbortedByShutdown(task) {
+                function wasAbortedOrErrored(task) {
                     const result = task.LastExecutionResult || {};
                     const text = [result.Status, result.ErrorMessage, result.LongErrorMessage].join(' ').toLowerCase();
-                    return text.indexOf('shutdown') !== -1 || text.indexOf('aborted') !== -1;
+                    return text.indexOf('shutdown') !== -1 ||
+                        text.indexOf('aborted') !== -1 ||
+                        text.indexOf('error') !== -1 ||
+                        text.indexOf('failed') !== -1 ||
+                        text.indexOf('failure') !== -1;
                 }
 
                 function normalizeDay(day) {

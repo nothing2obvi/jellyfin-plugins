@@ -55,27 +55,27 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/TaskGrid/TaskGrid-banner.png",
     "versions": [
       {
-        "version": "1.1.9.0",
-        "changelog": "Fix visual lane overlap with fixed-height task blocks, preview color/heavy/conflict-ignore changes immediately in the grid before saving, and keep schedule conflict details visual-only instead of adding text warnings.",
+        "version": "1.1.10.0",
+        "changelog": "Render fractional task durations and start times within hour columns, keep schedule conflict highlighting gated behind its toggle, add a separate opt-in highlight for tasks whose latest result was aborted or errored, and move recent colors into a compact dropdown.",
         "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.1.9.0.zip",
-        "checksum": "AE04C1C8DEF18B8ADADF959AE49DE698",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.1.10.0.zip",
+        "checksum": "11993EFFB2B0E4CA92C2EE92A362758E",
         "timestamp": "2026-07-26T00:00:00Z"
       },
       {
-        "version": "1.2.9.0",
-        "changelog": "Fix visual lane overlap with fixed-height task blocks, preview color/heavy/conflict-ignore changes immediately in the grid before saving, and keep schedule conflict details visual-only instead of adding text warnings.",
+        "version": "1.2.10.0",
+        "changelog": "Render fractional task durations and start times within hour columns, keep schedule conflict highlighting gated behind its toggle, add a separate opt-in highlight for tasks whose latest result was aborted or errored, and move recent colors into a compact dropdown.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.2.9.0-jellyfin12-rc2.zip",
-        "checksum": "55B80B680AC5AAC441435A4F9E9EF8CB",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.2.10.0-jellyfin12-rc2.zip",
+        "checksum": "758ACB3BDB1FB91B6D33E3935124B3AA",
         "timestamp": "2026-07-26T00:00:00Z"
       },
       {
-        "version": "1.3.9.0",
-        "changelog": "Fix visual lane overlap with fixed-height task blocks, preview color/heavy/conflict-ignore changes immediately in the grid before saving, and keep schedule conflict details visual-only instead of adding text warnings.",
+        "version": "1.3.10.0",
+        "changelog": "Render fractional task durations and start times within hour columns, keep schedule conflict highlighting gated behind its toggle, add a separate opt-in highlight for tasks whose latest result was aborted or errored, and move recent colors into a compact dropdown.",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.3.9.0-jellyfin12-rc3.zip",
-        "checksum": "D670D4B013E4A89947E017A33DC8892B",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/task-grid-1.3.10.0-jellyfin12-rc3.zip",
+        "checksum": "E21CA61BDCD14FA68E44D3751D6DDBDA",
         "timestamp": "2026-07-26T00:00:00Z"
       }
     ]

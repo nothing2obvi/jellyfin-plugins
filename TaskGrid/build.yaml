@@ -1,6 +1,6 @@
 name: "Task Grid"
 guid: "a56a1707-aaeb-4ed5-bd95-1543ff817b9e"
-version: "1.3.9.0"
+version: "1.3.10.0"
 targetAbi: "10.11.0.0, 12.0.0.0-rc2, 12.0.0.0-rc3"
 framework: "net9.0, net10.0"
 owner: "nothing2obvi"
@@ -13,6 +13,12 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.TaskGrid.dll"
 changelog: |
+  ## v1.3.10.0
+  - Render fractional task durations and start times within hour columns so 15-minute tasks and half-hour starts show accurately
+  - Keep schedule conflict highlighting gated strictly behind the conflict toggle
+  - Add a separate opt-in highlight for tasks whose latest result was aborted or errored
+  - Move recent colors into a compact Pick recent color dropdown
+
   ## v1.3.9.0
   - Fix visual lane overlap by giving task blocks a fixed row height
   - Preview task color, heavy flag, and conflict-ignore changes immediately in the grid before saving
