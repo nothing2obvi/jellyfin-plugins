@@ -41,14 +41,31 @@ cd TaskGrid
 ./build.sh
 ```
 
+By default, this builds both supported targets:
+
+- Jellyfin 10.11: `task-grid-1.1.0.0.zip`
+- Jellyfin v12-rc2: `task-grid-1.1.0.0-jellyfin12-rc2.zip`
+- Jellyfin v12-rc3: `task-grid-1.1.0.0-jellyfin12-rc3.zip`
+
+To build only one target:
+
+```bash
+./build.sh 10.11
+./build.sh 12-rc2
+./build.sh 12-rc3
+```
+
+The Jellyfin v12-rc2 build defaults to Jellyfin package references using `12.0.0-rc2`. The Jellyfin v12-rc3 build defaults to Jellyfin package references using `12.0.0-rc3`. To test rc3 against a local Jellyfin source tree, set `JELLYFIN_SOURCE_ROOT=/Users/joncasas/GitHub/jellyfin`.
+
 Or manually:
 
 ```bash
 cd TaskGrid/Jellyfin.Plugin.TaskGrid
-dotnet build -c Release
+dotnet build -c Release -f net9.0 /p:JellyfinTargetAbi=10.11.0.0
+dotnet build -c Release -f net10.0 /p:JellyfinTargetAbi=12.0.0.0 /p:JellyfinSourceRoot=/Users/joncasas/GitHub/jellyfin
 ```
 
-The DLL will be generated in `bin/Release/net9.0/`.
+The DLL will be generated under the matching `bin/Release/` target framework folder.
 
 ## Architecture
 

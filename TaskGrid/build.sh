@@ -3,25 +3,76 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.TaskGrid"
 OUTPUT_DIR="output"
-VERSION="1.0.0.0"
-ZIP_NAME="task-grid-$VERSION.zip"
+VERSION="1.1.0.0"
+TARGET="${1:-all}"
+DEFAULT_JELLYFIN_SOURCE_ROOT="/Users/joncasas/GitHub/jellyfin"
 
 echo "=== Building Task Grid Plugin ==="
 
-rm -rf "$PLUGIN_DIR/bin" "$PLUGIN_DIR/obj" "$OUTPUT_DIR"
+rm -rf "$PLUGIN_DIR/bin" "$PLUGIN_DIR/obj" "$PLUGIN_DIR/publish_out" "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
-echo "Compiling plugin..."
-cd "$PLUGIN_DIR"
-DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet restore
-DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish -c Release -f net9.0 -o publish_out /p:Version="$VERSION" /p:AssemblyVersion="$VERSION"
+build_target() {
+  local target="$1"
+  local target_abi
+  local framework
+  local zip_name
+  local source_root="${JELLYFIN_SOURCE_ROOT:-}"
 
-echo "Copying files..."
-cd ..
-cp "$PLUGIN_DIR/publish_out/Jellyfin.Plugin.TaskGrid.dll" "$OUTPUT_DIR/"
-cp "TaskGrid.png" "$OUTPUT_DIR/"
+  case "$target" in
+    10.11|10.11.0|10.11.0.0)
+      target_abi="10.11.0.0"
+      framework="net9.0"
+      zip_name="task-grid-$VERSION.zip"
+      ;;
+    12|12.0|12.0.0|12.0.0.0|jellyfin12|v12|12-rc3|v12-rc3|rc3)
+      target_abi="12.0.0.0"
+      framework="net10.0"
+      package_version="${JELLYFIN_PACKAGE_VERSION:-12.0.0-rc3}"
+      zip_name="task-grid-$VERSION-jellyfin12-rc3.zip"
+      ;;
+    12-rc2|v12-rc2|rc2)
+      target_abi="12.0.0.0"
+      framework="net10.0"
+      package_version="${JELLYFIN_PACKAGE_VERSION:-12.0.0-rc2}"
+      zip_name="task-grid-$VERSION-jellyfin12-rc2.zip"
+      ;;
+    *)
+      echo "Unknown target '$target'. Use 10.11, 12, or all."
+      exit 1
+      ;;
+  esac
 
-cat > "$OUTPUT_DIR/meta.json" <<JSON
+  echo ""
+  echo "=== Target ABI: $target_abi ($framework) ==="
+  if [ "$target_abi" = "12.0.0.0" ] && [ -n "$source_root" ]; then
+    echo "Using Jellyfin source root: $source_root"
+  elif [ "$target_abi" = "12.0.0.0" ]; then
+    echo "Using Jellyfin package references version $package_version."
+  fi
+
+  rm -rf "$PLUGIN_DIR/publish_out"
+
+  echo "Compiling plugin..."
+  cd "$PLUGIN_DIR"
+  DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet restore \
+    /p:JellyfinTargetAbi="$target_abi" \
+    /p:JellyfinSourceRoot="$source_root" \
+    /p:JellyfinPackageVersion="$package_version"
+  DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish -c Release -f "$framework" -o publish_out \
+    /p:JellyfinTargetAbi="$target_abi" \
+    /p:JellyfinSourceRoot="$source_root" \
+    /p:JellyfinPackageVersion="$package_version" \
+    /p:Version="$VERSION" \
+    /p:AssemblyVersion="$VERSION"
+
+  echo "Copying files..."
+  cd ..
+  rm -f "$OUTPUT_DIR"/*.dll "$OUTPUT_DIR"/*.png "$OUTPUT_DIR"/meta.json "$OUTPUT_DIR/$zip_name"
+  cp "$PLUGIN_DIR/publish_out/Jellyfin.Plugin.TaskGrid.dll" "$OUTPUT_DIR/"
+  cp "TaskGrid.png" "$OUTPUT_DIR/"
+
+  cat > "$OUTPUT_DIR/meta.json" <<JSON
 {
   "guid": "a56a1707-aaeb-4ed5-bd95-1543ff817b9e",
   "name": "Task Grid",
@@ -30,14 +81,26 @@ cat > "$OUTPUT_DIR/meta.json" <<JSON
   "owner": "nothing2obvi",
   "category": "General",
   "version": "$VERSION",
-  "targetAbi": "10.11.0.0",
+  "targetAbi": "$target_abi",
   "timestamp": "2026-07-26T00:00:00Z"
 }
 JSON
 
-echo "Creating ZIP archive..."
-cd "$OUTPUT_DIR"
-zip -r "$ZIP_NAME" *.dll *.png meta.json
-cd ..
+  echo "Creating ZIP archive..."
+  cd "$OUTPUT_DIR"
+  zip -r "$zip_name" *.dll *.png meta.json
+  cd ..
 
-echo "Built $OUTPUT_DIR/$ZIP_NAME"
+  echo "Built $OUTPUT_DIR/$zip_name"
+}
+
+case "$TARGET" in
+  all)
+    build_target "10.11"
+    build_target "12-rc2"
+    build_target "12-rc3"
+    ;;
+  *)
+    build_target "$TARGET"
+    ;;
+esac

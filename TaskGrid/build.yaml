@@ -1,8 +1,8 @@
 name: "Task Grid"
 guid: "a56a1707-aaeb-4ed5-bd95-1543ff817b9e"
-version: "1.0.0.0"
-targetAbi: "10.11.0.0"
-framework: "net9.0"
+version: "1.1.0.0"
+targetAbi: "10.11.0.0, 12.0.0.0-rc2, 12.0.0.0-rc3"
+framework: "net9.0, net10.0"
 owner: "nothing2obvi"
 overview: "Shows Jellyfin scheduled tasks on a weekly hour grid."
 description: |
@@ -13,6 +13,10 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.TaskGrid.dll"
 changelog: |
+  ## v1.1.0.0
+  - Add build support for Jellyfin 10.11, Jellyfin v12-rc2, and Jellyfin v12-rc3
+  - Build Jellyfin v12 against a local Jellyfin source tree when available
+
   ## v1.0.0.0
   - Initial Task Grid release
   - Add Monday-first weekly hour grid for Jellyfin scheduled tasks
