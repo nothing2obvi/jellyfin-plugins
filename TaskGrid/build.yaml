@@ -18,7 +18,7 @@ changelog: |
 
   ## v1.3.6.0
   - Replace the confusing Other Triggers section with trigger summaries in Task Scheduler Links
-  - Add an option to hide tasks with no triggers from the scheduler-link list
+  - Add an option to hide tasks without daily or weekly grid triggers from the scheduler-link list
 
   ## v1.3.5.0
   - Stack overlapping task blocks into lanes with longer blocks above shorter overlaps

@@ -18,12 +18,8 @@
                 <div class="verticalSection">
                     <div class="taskGridToolbar">
                         <label class="emby-checkbox-label taskGridToggle">
-                            <input type="checkbox" id="TaskGridShowHidden" is="emby-checkbox" />
-                            <span>Show hidden tasks</span>
-                        </label>
-                        <label class="emby-checkbox-label taskGridToggle">
                             <input type="checkbox" id="TaskGridShowUnscheduled" is="emby-checkbox" />
-                            <span>Show tasks with no triggers in links</span>
+                            <span>Show tasks without daily or weekly triggers in links</span>
                         </label>
                     </div>
                     <div id="TaskGridStatus" class="fieldDescription"></div>
@@ -347,16 +343,12 @@
                 const dayIndexes = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
                 const defaultColors = ['#00a4dc', '#27ae60', '#f39c12', '#8e5ad7', '#16a085', '#d35400', '#607d8b', '#c0392b'];
 
-                let currentConfig = { TaskStyles: [], ShowHiddenTasks: false, ShowUnscheduledTasks: true };
+                let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true };
                 let scheduledTasks = [];
 
                 document.querySelector('#TaskGridConfigPage').addEventListener('pageshow', loadPage);
                 document.querySelector('#TaskGridRefresh').addEventListener('click', refreshTasks);
                 document.querySelector('#TaskGridSave').addEventListener('click', savePreferences);
-                document.querySelector('#TaskGridShowHidden').addEventListener('change', function () {
-                    currentConfig.ShowHiddenTasks = this.checked;
-                    render();
-                });
                 document.querySelector('#TaskGridShowUnscheduled').addEventListener('change', function () {
                     currentConfig.ShowUnscheduledTasks = this.checked;
                     render();
@@ -368,7 +360,6 @@
                         currentConfig = await ApiClient.getPluginConfiguration(pluginId);
                         currentConfig.TaskStyles = currentConfig.TaskStyles || [];
                         currentConfig.RecentColors = currentConfig.RecentColors || [];
-                        document.querySelector('#TaskGridShowHidden').checked = !!currentConfig.ShowHiddenTasks;
                         document.querySelector('#TaskGridShowUnscheduled').checked = currentConfig.ShowUnscheduledTasks !== false;
                         await refreshTasks(false);
                     } catch (error) {
@@ -418,7 +409,6 @@
 
                         currentConfig.TaskStyles = Array.from(stylesByKey.values());
                         currentConfig.RecentColors = normalizeRecentColors(currentConfig.RecentColors);
-                        currentConfig.ShowHiddenTasks = document.querySelector('#TaskGridShowHidden').checked;
                         currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
                         await ApiClient.updatePluginConfiguration(pluginId, currentConfig);
                         Dashboard.processPluginConfigurationUpdateResult();
@@ -432,7 +422,7 @@
 
                 function render() {
                     const tasks = scheduledTasks
-                        .filter(function (task) { return currentConfig.ShowHiddenTasks || !task.IsHidden; })
+                        .filter(function (task) { return !task.IsHidden; })
                         .sort(function (a, b) { return (a.Name || '').localeCompare(b.Name || ''); });
 
                     renderCalendar(tasks);
@@ -825,9 +815,13 @@
                 function renderSchedulerLinks(tasks) {
                     const container = document.querySelector('#TaskGridSchedulerLinks');
                     container.innerHTML = '';
-                    tasks.filter(function (task) {
-                        return currentConfig.ShowUnscheduledTasks !== false || (task.Triggers || []).length > 0;
-                    }).forEach(function (task, index) {
+                    tasks.map(function (task, index) {
+                        return { task: task, index: index };
+                    }).filter(function (entry) {
+                        return currentConfig.ShowUnscheduledTasks !== false || buildBlocks(entry.task, entry.index).length > 0;
+                    }).forEach(function (entry) {
+                        const task = entry.task;
+                        const index = entry.index;
                         const id = task.Id || '';
                         const item = document.createElement('a');
                         item.className = 'taskGridSchedulerLink';

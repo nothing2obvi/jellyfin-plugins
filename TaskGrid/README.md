@@ -28,7 +28,7 @@ Task Grid is a Jellyfin plugin that shows scheduled tasks on a Monday-first week
 - Native Jellyfin task scheduler links for each task
 - Overlapping task blocks stack into lanes, with longer windows above shorter overlaps
 - Trigger summaries in the scheduler-link list
-- Optional display of tasks with no triggers in the scheduler-link list
+- Optional display of tasks without daily or weekly grid triggers in the scheduler-link list
 
 ## Notes
 
