@@ -31,7 +31,7 @@
                         </label>
                         <label class="taskGridZoomControl">
                             <span>Grid zoom</span>
-                            <input type="range" id="TaskGridZoom" min="100" max="500" step="20" value="100" />
+                            <input type="range" id="TaskGridZoom" min="100" max="1000" step="50" value="100" />
                             <strong id="TaskGridZoomValue">100%</strong>
                         </label>
                     </div>
@@ -238,6 +238,26 @@
                 text-overflow: ellipsis;
             }
 
+            .taskGridRuntimeMarker {
+                position: absolute;
+                top: 0.25rem;
+                bottom: 0.25rem;
+                width: 0;
+                border-left: 2px dotted rgba(255, 255, 255, 0.92);
+                pointer-events: none;
+                transform: translateX(-1px);
+            }
+
+            .taskGridResizeHandle {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                width: 0.7rem;
+                cursor: ew-resize;
+                background: linear-gradient(to left, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+            }
+
             .taskGridRetryTicks {
                 position: absolute;
                 left: 0.3rem;
@@ -265,8 +285,9 @@
 
             .taskGridStyleRow {
                 display: grid;
-                grid-template-columns: minmax(14rem, 1.2fr) 5rem 8rem minmax(12rem, 18rem) 7rem 10rem minmax(8rem, auto);
-                gap: 0.75rem;
+                grid-template-columns: minmax(14rem, 1.2fr) 5rem 8rem 10rem 7rem 10rem minmax(8rem, auto);
+                column-gap: 0.45rem;
+                row-gap: 0.75rem;
                 align-items: center;
                 padding: 0.6rem 0;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.10);
@@ -281,8 +302,7 @@
                 min-width: 0;
             }
 
-            .taskGridTaskName strong,
-            .taskGridTaskName span {
+            .taskGridTaskName strong {
                 display: block;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -290,8 +310,12 @@
             }
 
             .taskGridTaskName span {
+                display: block;
                 font-size: 0.78rem;
+                line-height: 1.35;
                 opacity: 0.72;
+                overflow-wrap: anywhere;
+                white-space: normal;
             }
 
             .taskGridColorInput {
@@ -305,12 +329,72 @@
             }
 
             .taskGridRecentColors {
+                position: relative;
                 min-width: 0;
+                margin-left: -0.2rem;
             }
 
-            .taskGridRecentSelect {
+            .taskGridRecentButton {
                 width: 100%;
                 min-height: 2.4rem;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                padding: 0 0.65rem;
+                border: 1px solid rgba(255, 255, 255, 0.32);
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.06);
+                color: inherit;
+                cursor: pointer;
+            }
+
+            .taskGridRecentButton::after {
+                content: "v";
+                opacity: 0.75;
+            }
+
+            .taskGridRecentPreview {
+                width: 1.45rem;
+                height: 1.45rem;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.68);
+                background: var(--task-grid-recent-color, transparent);
+            }
+
+            .taskGridRecentMenu {
+                position: absolute;
+                z-index: 10;
+                top: calc(100% + 0.25rem);
+                left: 0;
+                min-width: 100%;
+                display: grid;
+                gap: 0.25rem;
+                padding: 0.35rem;
+                border: 1px solid rgba(255, 255, 255, 0.22);
+                border-radius: 6px;
+                background: rgb(28, 32, 37);
+                box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+            }
+
+            .taskGridRecentMenu[hidden] {
+                display: none;
+            }
+
+            .taskGridRecentOption {
+                width: 100%;
+                min-height: 2rem;
+                border: 0;
+                border-radius: 4px;
+                background: var(--task-grid-recent-color);
+                cursor: pointer;
+            }
+
+            .taskGridRecentEmpty {
+                font-size: 0.76rem;
+                opacity: 0.72;
+                padding: 0.35rem 0.45rem;
+                white-space: nowrap;
             }
 
             .taskGridHeavyLabel {
@@ -358,6 +442,7 @@
                 const defaultColors = ['#00a4dc', '#27ae60', '#f39c12', '#8e5ad7', '#16a085', '#d35400', '#607d8b', '#c0392b'];
                 const lanePitchRem = 3.35;
                 const laneTopOffsetRem = 0.45;
+                const minimumVisualHours = 0.25;
 
                 let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true, ShowConflictHighlights: false, ShowFailureHighlights: false, GridZoomPercent: 100 };
                 let scheduledTasks = [];
@@ -380,6 +465,11 @@
                 document.querySelector('#TaskGridZoom').addEventListener('input', function () {
                     currentConfig.GridZoomPercent = normalizeGridZoom(this.value);
                     updateGridZoom();
+                });
+                document.addEventListener('click', function (event) {
+                    if (!event.target.closest('.taskGridRecentColors')) {
+                        closeRecentColorMenus();
+                    }
                 });
 
                 async function loadPage() {
@@ -438,7 +528,8 @@
                                 TaskKey: key,
                                 Color: color,
                                 Heavy: row.querySelector('.taskGridHeavyInput').checked,
-                                IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked
+                                IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked,
+                                VisualLengthHours: Number(row.dataset.visualLengthHours || 0)
                             });
                             rememberColor(color);
                         });
@@ -549,7 +640,8 @@
 
                 function createBlocks(task, trigger, day, taskIndex) {
                     const start = ticksToHours(trigger.TimeOfDayTicks || 0);
-                    const duration = durationHours(task, trigger);
+                    const duration = visualDurationHours(task, trigger);
+                    const lastRuntime = lastSuccessfulRuntimeHours(task);
                     if (duration <= 0) {
                         return [];
                     }
@@ -558,11 +650,15 @@
                     let remaining = duration;
                     let segmentStart = start;
                     let dayIndex = dayIndexes[day];
+                    let elapsedBeforeSegment = 0;
                     let guard = 0;
 
                     while (remaining > 0 && guard < 7) {
                         const segmentDuration = Math.min(24 - segmentStart, remaining);
-                        const retryWindowEnd = Math.min(24, segmentStart + conflictWindowHours(trigger, segmentDuration));
+                        const markerHours = lastRuntime > elapsedBeforeSegment && lastRuntime <= elapsedBeforeSegment + segmentDuration
+                            ? lastRuntime - elapsedBeforeSegment
+                            : 0;
+                        const retryWindowEnd = Math.min(24, segmentStart + segmentDuration);
                         const placement = blockPlacement(segmentStart, segmentDuration);
                         blocks.push({
                             task: task,
@@ -582,10 +678,12 @@
                             heavy: isTaskHeavy(task),
                             ignoreConflicts: isTaskIgnoredForConflicts(task),
                             retryWindowEnd: retryWindowEnd,
+                            runtimeMarkerHours: markerHours,
                             conflict: false,
                             label: formatTime(segmentStart) + ' - ' + formatTime(Math.min(24, segmentStart + segmentDuration))
                         });
                         remaining -= segmentDuration;
+                        elapsedBeforeSegment += segmentDuration;
                         segmentStart = 0;
                         dayIndex = (dayIndex + 1) % 7;
                         guard++;
@@ -697,6 +795,7 @@
                         label: block.label,
                         retryTimes: [block.start],
                         retryWindowEnd: block.retryWindowEnd || block.start + block.duration,
+                        runtimeMarkerHours: block.runtimeMarkerHours || 0,
                         conflict: false
                     };
                 }
@@ -717,6 +816,7 @@
                     target.retryTimes.push(block.start);
                     target.retryTimes = uniqueNumbers(target.retryTimes).sort(function (a, b) { return a - b; });
                     target.retryWindowEnd = Math.max(target.retryWindowEnd || 0, block.retryWindowEnd || block.start + block.duration);
+                    target.runtimeMarkerHours = target.runtimeMarkerHours || block.runtimeMarkerHours || 0;
                     target.label = formatTime(target.start) + ' - ' + formatTime(Math.min(24, target.start + target.duration));
                     target.isRetryWindow = target.retryTimes.length > 1;
                 }
@@ -754,11 +854,37 @@
 
                     element.appendChild(title);
                     element.appendChild(meta);
+                    if (block.runtimeMarkerHours > 0) {
+                        element.appendChild(createRuntimeMarker(block));
+                    }
                     if (block.isRetryWindow) {
                         element.appendChild(createRetryTicks(block));
                     }
+                    element.appendChild(createResizeHandle(block));
 
                     return element;
+                }
+
+                function createRuntimeMarker(block) {
+                    const marker = document.createElement('span');
+                    marker.className = 'taskGridRuntimeMarker';
+                    marker.title = 'Last successful runtime: ' + formatDuration(block.runtimeMarkerHours);
+                    marker.style.left = Math.max(0, Math.min(100, (block.runtimeMarkerHours / Math.max(block.duration, 0.01)) * 100)) + '%';
+                    return marker;
+                }
+
+                function createResizeHandle(block) {
+                    const handle = document.createElement('span');
+                    handle.className = 'taskGridResizeHandle';
+                    handle.title = 'Drag to set visual length';
+                    handle.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    });
+                    handle.addEventListener('pointerdown', function (event) {
+                        beginVisualLengthResize(event, block);
+                    });
+                    return handle;
                 }
 
                 function createRetryTicks(block) {
@@ -772,6 +898,38 @@
                         ticks.appendChild(tick);
                     });
                     return ticks;
+                }
+
+                function beginVisualLengthResize(event, block) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const calendar = document.querySelector('#TaskGridCalendar');
+                    const firstHour = calendar.querySelector('.taskGridHour');
+                    if (!firstHour) {
+                        return;
+                    }
+
+                    const hourLeft = firstHour.getBoundingClientRect().left;
+                    const hourWidth = firstHour.getBoundingClientRect().width;
+                    const minLength = minimumLengthHours(block.task);
+
+                    function resize(moveEvent) {
+                        const endHour = (moveEvent.clientX - hourLeft) / hourWidth;
+                        const requestedLength = snapToQuarterHour(endHour - block.start);
+                        const visualLength = Math.max(minLength, requestedLength);
+                        setTaskVisualLength(block.task, visualLength);
+                        renderCalendar(visibleTasks());
+                    }
+
+                    function finish() {
+                        document.removeEventListener('pointermove', resize);
+                        document.removeEventListener('pointerup', finish);
+                        document.removeEventListener('pointercancel', finish);
+                    }
+
+                    document.addEventListener('pointermove', resize);
+                    document.addEventListener('pointerup', finish);
+                    document.addEventListener('pointercancel', finish);
                 }
 
                 function appendNowLine(calendar) {
@@ -816,6 +974,7 @@
                         const row = document.createElement('div');
                         row.className = 'taskGridStyleRow';
                         row.dataset.taskKey = taskKey(task);
+                        row.dataset.visualLengthHours = String(getManualVisualLength(task));
 
                         const name = document.createElement('div');
                         name.className = 'taskGridTaskName';
@@ -912,39 +1071,71 @@
                         }
 
                         container.innerHTML = '';
-                        const select = document.createElement('select');
-                        select.className = 'taskGridRecentSelect';
-                        select.setAttribute('aria-label', 'Pick recent color');
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'taskGridRecentButton';
+                        button.setAttribute('aria-label', 'Pick recent color');
 
-                        const placeholder = document.createElement('option');
-                        placeholder.value = '';
-                        placeholder.textContent = 'Pick recent color';
-                        select.appendChild(placeholder);
+                        const preview = document.createElement('span');
+                        preview.className = 'taskGridRecentPreview';
+                        preview.style.setProperty('--task-grid-recent-color', row.querySelector('.taskGridColorInput').value);
+                        button.appendChild(preview);
 
-                        colors.forEach(function (recentColor) {
-                            const option = document.createElement('option');
-                            option.value = recentColor;
-                            option.textContent = recentColor.toUpperCase();
-                            select.appendChild(option);
+                        const menu = document.createElement('div');
+                        menu.className = 'taskGridRecentMenu';
+                        menu.hidden = true;
+
+                        if (!colors.length) {
+                            const empty = document.createElement('div');
+                            empty.className = 'taskGridRecentEmpty';
+                            empty.textContent = 'No recent colors';
+                            menu.appendChild(empty);
+                        } else {
+                            colors.forEach(function (recentColor) {
+                                const option = document.createElement('button');
+                                option.type = 'button';
+                                option.className = 'taskGridRecentOption';
+                                option.style.setProperty('--task-grid-recent-color', recentColor);
+                                option.title = recentColor.toUpperCase();
+                                option.setAttribute('aria-label', 'Use recent color');
+                                option.addEventListener('click', function (event) {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    applyRecentColor(row, recentColor);
+                                    closeRecentColorMenus();
+                                });
+                                menu.appendChild(option);
+                            });
+                        }
+
+                        button.addEventListener('click', function (event) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const shouldOpen = menu.hidden;
+                            closeRecentColorMenus();
+                            menu.hidden = !shouldOpen;
                         });
+                        container.appendChild(button);
+                        container.appendChild(menu);
+                    });
+                }
 
-                        select.addEventListener('change', function () {
-                            if (!this.value) {
-                                return;
-                            }
+                function applyRecentColor(row, color) {
+                    row.querySelector('.taskGridColorInput').value = color;
+                    row.querySelector('.taskGridHexInput').value = color.toUpperCase();
+                    rememberColor(color);
+                    updateStyleFromRow(row);
+                    const scheduler = row.querySelector('.taskGridSchedulerAction');
+                    if (scheduler) {
+                        scheduler.style.color = color;
+                    }
+                    renderCalendar(visibleTasks());
+                    updateRecentColorButtons();
+                }
 
-                            row.querySelector('.taskGridColorInput').value = this.value;
-                            row.querySelector('.taskGridHexInput').value = this.value.toUpperCase();
-                            rememberColor(this.value);
-                            updateStyleFromRow(row);
-                            const scheduler = row.querySelector('.taskGridSchedulerAction');
-                            if (scheduler) {
-                                scheduler.style.color = this.value;
-                            }
-                            renderCalendar(visibleTasks());
-                            updateRecentColorButtons();
-                        });
-                        container.appendChild(select);
+                function closeRecentColorMenus() {
+                    document.querySelectorAll('.taskGridRecentMenu').forEach(function (menu) {
+                        menu.hidden = true;
                     });
                 }
 
@@ -958,7 +1149,8 @@
                         TaskKey: key,
                         Color: color,
                         Heavy: row.querySelector('.taskGridHeavyInput').checked,
-                        IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked
+                        IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked,
+                        VisualLengthHours: Number(row.dataset.visualLengthHours || 0)
                     });
                     currentConfig.TaskStyles = Array.from(stylesByKey.values());
                 }
@@ -1047,23 +1239,12 @@
                     return first.start < second.start + second.duration && second.start < first.start + first.duration;
                 }
 
-                function durationHours(task, trigger) {
-                    const lastRuntime = lastRuntimeHours(task);
+                function visualDurationHours(task, trigger) {
+                    const manualLength = getManualVisualLength(task);
                     const maxRuntime = trigger.MaxRuntimeTicks ? ticksToHours(trigger.MaxRuntimeTicks) : 0;
-                    if (lastRuntime > 0) {
-                        if (maxRuntime > 0 && lastRuntime >= 1) {
-                            return Math.max(maxRuntime, 1 / 12);
-                        }
-
-                        const roundedRuntime = roundToQuarterHour(lastRuntime);
-                        return Math.max(maxRuntime > 0 ? Math.min(roundedRuntime, maxRuntime) : roundedRuntime, 1 / 12);
-                    }
-
-                    if (maxRuntime > 0) {
-                        return Math.max(maxRuntime, 1 / 12);
-                    }
-
-                    return 0.5;
+                    const lastRuntime = lastSuccessfulRuntimeHours(task);
+                    const automaticLength = maxRuntime > 0 ? maxRuntime : (lastRuntime > 0 ? lastRuntime : minimumVisualHours);
+                    return normalizeVisualLength(manualLength > 0 ? manualLength : automaticLength, lastRuntime);
                 }
 
                 function lastRuntimeHours(task) {
@@ -1079,19 +1260,29 @@
                     return 0;
                 }
 
+                function lastSuccessfulRuntimeHours(task) {
+                    if (wasAbortedOrErrored(task)) {
+                        return 0;
+                    }
+
+                    return lastRuntimeHours(task);
+                }
+
                 function durationLabel(task, trigger) {
-                    const lastRuntime = lastRuntimeHours(task);
+                    const lastRuntime = lastSuccessfulRuntimeHours(task);
+                    const manualLength = getManualVisualLength(task);
                     if (lastRuntime > 0) {
-                        const shownRuntime = durationHours(task, trigger);
+                        const shownRuntime = visualDurationHours(task, trigger);
                         const maxRuntime = trigger.MaxRuntimeTicks ? ' / max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks)) : '';
-                        return ' | last ' + formatDuration(lastRuntime) + ', shown ' + formatDuration(shownRuntime) + maxRuntime;
+                        const source = manualLength > 0 ? ', visual ' : ', shown ';
+                        return ' | last ' + formatDuration(lastRuntime) + source + formatDuration(shownRuntime) + maxRuntime;
                     }
 
                     if (trigger.MaxRuntimeTicks) {
-                        return ' | max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks));
+                        return ' | visual ' + formatDuration(visualDurationHours(task, trigger)) + ' / max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks));
                     }
 
-                    return ' | estimated 30m';
+                    return ' | visual ' + formatDuration(visualDurationHours(task, trigger));
                 }
 
                 function retryLabel(block) {
@@ -1195,12 +1386,47 @@
                     return !!(style && style.IgnoreConflicts);
                 }
 
-                function conflictWindowHours(trigger, fallbackDuration) {
-                    if (trigger.MaxRuntimeTicks) {
-                        return Math.max(ticksToHours(trigger.MaxRuntimeTicks), 1 / 12);
-                    }
+                function getManualVisualLength(task) {
+                    const style = getStyle(task);
+                    return Math.max(Number(style && style.VisualLengthHours) || 0, 0);
+                }
 
-                    return fallbackDuration;
+                function setTaskVisualLength(task, hours) {
+                    const key = taskKey(task);
+                    const currentStyle = getStyle(task) || {};
+                    const taskIndex = visibleTasks().findIndex(function (candidate) {
+                        return taskKey(candidate) === key;
+                    });
+                    const normalized = normalizeVisualLength(hours, lastSuccessfulRuntimeHours(task));
+                    const stylesByKey = new Map((currentConfig.TaskStyles || []).map(function (style) {
+                        return [style.TaskKey, style];
+                    }));
+                    stylesByKey.set(key, {
+                        TaskKey: key,
+                        Color: normalizeHexColor(currentStyle.Color, defaultColors[Math.max(taskIndex, 0) % defaultColors.length]),
+                        Heavy: !!currentStyle.Heavy,
+                        IgnoreConflicts: !!currentStyle.IgnoreConflicts,
+                        VisualLengthHours: normalized
+                    });
+                    currentConfig.TaskStyles = Array.from(stylesByKey.values());
+                    const row = Array.from(document.querySelectorAll('.taskGridStyleRow')).find(function (candidate) {
+                        return candidate.dataset.taskKey === key;
+                    });
+                    if (row) {
+                        row.dataset.visualLengthHours = String(normalized);
+                    }
+                }
+
+                function minimumLengthHours(task) {
+                    return Math.max(minimumVisualHours, lastSuccessfulRuntimeHours(task));
+                }
+
+                function normalizeVisualLength(hours, lastRuntime) {
+                    return Math.max(minimumVisualHours, snapToQuarterHour(hours), snapToQuarterHour(lastRuntime || 0));
+                }
+
+                function snapToQuarterHour(hours) {
+                    return Math.max(0, Math.round(Number(hours || 0) * 4) / 4);
                 }
 
                 function wasAbortedOrErrored(task) {
@@ -1263,7 +1489,7 @@
                         return 100;
                     }
 
-                    return Math.max(100, Math.min(500, Math.round(zoom / 20) * 20));
+                    return Math.max(100, Math.min(1000, Math.round(zoom / 50) * 50));
                 }
 
                 function uniqueBy(items, keySelector) {

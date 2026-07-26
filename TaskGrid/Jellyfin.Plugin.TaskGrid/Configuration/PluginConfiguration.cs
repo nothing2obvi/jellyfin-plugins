@@ -26,6 +26,11 @@ public class TaskGridStyle
     /// Gets or sets a value indicating whether this task should be ignored by conflict detection.
     /// </summary>
     public bool IgnoreConflicts { get; set; }
+
+    /// <summary>
+    /// Gets or sets the visual block length in hours. A value of 0 uses the automatic length.
+    /// </summary>
+    public double VisualLengthHours { get; set; }
 }
 
 /// <summary>
