@@ -3,9 +3,9 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.TaskGrid"
 OUTPUT_DIR="output"
-LEGACY_10_11_VERSION="1.1.0.0"
-V12_RC2_VERSION="1.2.0.0"
-V12_RC3_VERSION="1.3.0.0"
+LEGACY_10_11_VERSION="1.1.2.0"
+V12_RC2_VERSION="1.2.2.0"
+V12_RC3_VERSION="1.3.2.0"
 TARGET="${1:-all}"
 DEFAULT_JELLYFIN_SOURCE_ROOT="/Users/joncasas/GitHub/jellyfin"
 

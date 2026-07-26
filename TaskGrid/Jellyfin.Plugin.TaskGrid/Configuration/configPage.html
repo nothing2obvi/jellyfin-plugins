@@ -204,6 +204,26 @@
                 text-overflow: ellipsis;
             }
 
+            .taskGridRetryTicks {
+                position: absolute;
+                left: 0.3rem;
+                right: 0.3rem;
+                bottom: 0.18rem;
+                height: 0.25rem;
+                pointer-events: none;
+            }
+
+            .taskGridRetryTick {
+                position: absolute;
+                bottom: 0;
+                width: 0.22rem;
+                height: 0.22rem;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.9);
+                box-shadow: 0 0 5px rgba(255, 255, 255, 0.6);
+                transform: translateX(-50%);
+            }
+
             .taskGridStyleList {
                 display: grid;
                 gap: 0.6rem;
@@ -211,7 +231,7 @@
 
             .taskGridStyleRow {
                 display: grid;
-                grid-template-columns: minmax(12rem, 1fr) 7rem 7rem;
+                grid-template-columns: minmax(12rem, 1fr) 5rem 8rem 7rem;
                 gap: 0.75rem;
                 align-items: center;
                 padding: 0.6rem 0;
@@ -238,6 +258,11 @@
             .taskGridColorInput {
                 width: 5rem;
                 min-height: 2.4rem;
+            }
+
+            .taskGridHexInput {
+                width: 8rem;
+                text-transform: uppercase;
             }
 
             .taskGridHeavyLabel {
@@ -333,7 +358,7 @@
                             const key = row.dataset.taskKey;
                             stylesByKey.set(key, {
                                 TaskKey: key,
-                                Color: row.querySelector('.taskGridColorInput').value,
+                                Color: normalizeHexColor(row.querySelector('.taskGridHexInput').value, row.querySelector('.taskGridColorInput').value),
                                 Heavy: row.querySelector('.taskGridHeavyInput').checked
                             });
                         });
@@ -390,12 +415,13 @@
                         }
                     });
 
-                    blocks.forEach(function (block) {
+                    const displayBlocks = mergeRetryBlocks(blocks);
+                    displayBlocks.forEach(function (block) {
                         calendar.appendChild(createTaskBlock(block));
                     });
 
                     appendNowLine(calendar);
-                    renderWarnings(blocks);
+                    renderWarnings(displayBlocks);
                     renderUnscheduled(otherTasks);
                 }
 
@@ -448,6 +474,7 @@
                         blocks.push({
                             task: task,
                             trigger: trigger,
+                            triggers: [trigger],
                             day: days[dayIndex],
                             dayIndex: dayIndex,
                             start: segmentStart,
@@ -469,13 +496,79 @@
                     return blocks;
                 }
 
+                function mergeRetryBlocks(blocks) {
+                    const groups = new Map();
+                    blocks.forEach(function (block) {
+                        const key = taskKey(block.task) + '|' + block.day;
+                        if (!groups.has(key)) {
+                            groups.set(key, []);
+                        }
+                        groups.get(key).push(block);
+                    });
+
+                    const merged = [];
+                    groups.forEach(function (groupBlocks) {
+                        groupBlocks
+                            .sort(function (a, b) { return a.start - b.start; })
+                            .forEach(function (block) {
+                                const previous = merged.length ? merged[merged.length - 1] : null;
+                                const sameTaskDay = previous &&
+                                    taskKey(previous.task) === taskKey(block.task) &&
+                                    previous.day === block.day;
+                                const previousEnd = previous ? previous.start + previous.duration : 0;
+
+                                if (sameTaskDay && block.start <= previousEnd) {
+                                    mergeBlockInto(previous, block);
+                                } else {
+                                    merged.push(copyBlock(block));
+                                }
+                            });
+                    });
+
+                    return merged;
+                }
+
+                function copyBlock(block) {
+                    return {
+                        task: block.task,
+                        trigger: block.trigger,
+                        triggers: block.triggers ? block.triggers.slice() : [block.trigger],
+                        day: block.day,
+                        dayIndex: block.dayIndex,
+                        start: block.start,
+                        duration: block.duration,
+                        totalDuration: block.totalDuration,
+                        startColumn: block.startColumn,
+                        endColumn: block.endColumn,
+                        color: block.color,
+                        warning: block.warning,
+                        heavy: block.heavy,
+                        label: block.label,
+                        retryTimes: [block.start]
+                    };
+                }
+
+                function mergeBlockInto(target, block) {
+                    const end = Math.max(target.start + target.duration, block.start + block.duration);
+                    target.duration = end - target.start;
+                    target.totalDuration = Math.max(target.totalDuration || 0, target.duration);
+                    target.endColumn = Math.max(target.endColumn, block.endColumn);
+                    target.warning = target.warning || block.warning;
+                    target.heavy = target.heavy || block.heavy;
+                    target.triggers = target.triggers.concat(block.triggers || [block.trigger]);
+                    target.retryTimes.push(block.start);
+                    target.retryTimes = uniqueNumbers(target.retryTimes).sort(function (a, b) { return a - b; });
+                    target.label = formatTime(target.start) + ' - ' + formatTime(Math.min(24, target.start + target.duration));
+                    target.isRetryWindow = target.retryTimes.length > 1;
+                }
+
                 function createTaskBlock(block) {
                     const element = document.createElement('div');
                     element.className = 'taskGridBlock' + (block.warning ? ' taskGridBlockWarning' : '') + (block.heavy ? ' taskGridBlockHeavy' : '');
                     element.style.gridRow = String(block.dayIndex + 2);
                     element.style.gridColumn = block.startColumn + ' / ' + block.endColumn;
                     element.style.background = block.color;
-                    element.title = block.task.Name + ' | ' + block.day + ' ' + block.label + tooltipStatus(block.task, block.trigger);
+                    element.title = block.task.Name + ' | ' + block.day + ' ' + block.label + retryTooltip(block) + tooltipStatus(block.task, block.trigger);
 
                     const title = document.createElement('span');
                     title.className = 'taskGridBlockTitle';
@@ -483,11 +576,28 @@
 
                     const meta = document.createElement('span');
                     meta.className = 'taskGridBlockMeta';
-                    meta.textContent = block.label + durationLabel(block.task, block.trigger) + (block.warning ? ' | shutdown abort' : '');
+                    meta.textContent = block.label + retryLabel(block) + durationLabel(block.task, block.trigger) + (block.warning ? ' | shutdown abort' : '');
 
                     element.appendChild(title);
                     element.appendChild(meta);
+                    if (block.isRetryWindow) {
+                        element.appendChild(createRetryTicks(block));
+                    }
+
                     return element;
+                }
+
+                function createRetryTicks(block) {
+                    const ticks = document.createElement('span');
+                    ticks.className = 'taskGridRetryTicks';
+                    const span = Math.max(block.duration, 0.01);
+                    block.retryTimes.forEach(function (retryStart) {
+                        const tick = document.createElement('span');
+                        tick.className = 'taskGridRetryTick';
+                        tick.style.left = Math.max(0, Math.min(100, ((retryStart - block.start) / span) * 100)) + '%';
+                        ticks.appendChild(tick);
+                    });
+                    return ticks;
                 }
 
                 function appendNowLine(calendar) {
@@ -559,12 +669,35 @@
                         color.className = 'taskGridColorInput';
                         color.value = getTaskColor(task, index);
 
+                        const hex = document.createElement('input');
+                        hex.type = 'text';
+                        hex.className = 'taskGridHexInput';
+                        hex.setAttribute('is', 'emby-input');
+                        hex.setAttribute('maxlength', '7');
+                        hex.value = color.value.toUpperCase();
+                        color.addEventListener('input', function () {
+                            hex.value = color.value.toUpperCase();
+                        });
+                        hex.addEventListener('input', function () {
+                            const normalized = normalizeHexColor(hex.value, '');
+                            if (normalized) {
+                                color.value = normalized;
+                                hex.value = normalized.toUpperCase();
+                            }
+                        });
+                        hex.addEventListener('blur', function () {
+                            const normalized = normalizeHexColor(hex.value, color.value);
+                            color.value = normalized;
+                            hex.value = normalized.toUpperCase();
+                        });
+
                         const heavyLabel = document.createElement('label');
                         heavyLabel.className = 'taskGridHeavyLabel';
                         heavyLabel.innerHTML = '<input type="checkbox" class="taskGridHeavyInput" is="emby-checkbox" ' + (isTaskHeavy(task) ? 'checked' : '') + ' /><span>Heavy</span>';
 
                         row.appendChild(name);
                         row.appendChild(color);
+                        row.appendChild(hex);
                         row.appendChild(heavyLabel);
                         container.appendChild(row);
                     });
@@ -577,6 +710,10 @@
                         const dayBlocks = heavy.filter(function (block) { return block.day === day; });
                         for (let i = 0; i < dayBlocks.length; i++) {
                             for (let j = i + 1; j < dayBlocks.length; j++) {
+                                if (taskKey(dayBlocks[i].task) === taskKey(dayBlocks[j].task)) {
+                                    continue;
+                                }
+
                                 if (dayBlocks[i].start < dayBlocks[j].start + dayBlocks[j].duration && dayBlocks[j].start < dayBlocks[i].start + dayBlocks[i].duration) {
                                     warnings.push({ day: day, names: dayBlocks[i].task.Name + ' and ' + dayBlocks[j].task.Name });
                                 }
@@ -614,6 +751,22 @@
                     }
 
                     return ' | estimated 30m';
+                }
+
+                function retryLabel(block) {
+                    if (!block.isRetryWindow) {
+                        return '';
+                    }
+
+                    return ' | ' + block.retryTimes.length + ' starts';
+                }
+
+                function retryTooltip(block) {
+                    if (!block.isRetryWindow) {
+                        return '';
+                    }
+
+                    return ' | Start times: ' + block.retryTimes.map(formatTime).join(', ');
                 }
 
                 function tooltipStatus(task, trigger) {
@@ -659,7 +812,7 @@
 
                 function getTaskColor(task, index) {
                     const style = getStyle(task);
-                    return style && style.Color ? style.Color : defaultColors[index % defaultColors.length];
+                    return normalizeHexColor(style && style.Color, defaultColors[index % defaultColors.length]);
                 }
 
                 function isTaskHeavy(task) {
@@ -723,6 +876,22 @@
                         seen.add(key);
                         return true;
                     });
+                }
+
+                function uniqueNumbers(values) {
+                    return Array.from(new Set(values.map(function (value) {
+                        return Math.round(value * 10000) / 10000;
+                    })));
+                }
+
+                function normalizeHexColor(value, fallback) {
+                    const text = String(value || '').trim();
+                    const withHash = text.charAt(0) === '#' ? text : '#' + text;
+                    if (/^#[0-9a-fA-F]{6}$/.test(withHash)) {
+                        return withHash.toLowerCase();
+                    }
+
+                    return fallback || '';
                 }
 
                 function escapeHtml(value) {

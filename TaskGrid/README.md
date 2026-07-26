@@ -43,9 +43,9 @@ cd TaskGrid
 
 By default, this builds both supported targets:
 
-- Jellyfin 10.11: `task-grid-1.1.0.0.zip`
-- Jellyfin v12-rc2: `task-grid-1.2.0.0-jellyfin12-rc2.zip`
-- Jellyfin v12-rc3: `task-grid-1.3.0.0-jellyfin12-rc3.zip`
+- Jellyfin 10.11: `task-grid-1.1.2.0.zip`
+- Jellyfin v12-rc2: `task-grid-1.2.2.0-jellyfin12-rc2.zip`
+- Jellyfin v12-rc3: `task-grid-1.3.2.0-jellyfin12-rc3.zip`
 
 To build only one target:
 
