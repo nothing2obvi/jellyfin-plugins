@@ -1,18 +1,26 @@
 name: "Task Grid"
 guid: "a56a1707-aaeb-4ed5-bd95-1543ff817b9e"
-version: "1.3.7.0"
+version: "1.3.8.0"
 targetAbi: "10.11.0.0, 12.0.0.0-rc2, 12.0.0.0-rc3"
 framework: "net9.0, net10.0"
 owner: "nothing2obvi"
 overview: "Shows Jellyfin scheduled tasks on a weekly hour grid."
 description: |
   Task Grid displays Jellyfin scheduled tasks on a Monday-first weekly grid with hour columns,
-  color coding, heavy-task overlap warnings, refresh support, and red warnings for tasks most
+  color coding, optional conflict highlighting, refresh support, and red warnings for tasks most
   recently aborted by server shutdown.
 category: "General"
 artifacts:
   - "Jellyfin.Plugin.TaskGrid.dll"
 changelog: |
+  ## v1.3.8.0
+  - Pack grid rows by actual time overlap so non-overlapping tasks can share a row without drawing on top of each other
+  - Merge repeated same-task start times into a single retry-window block with white start markers
+  - Add optional red conflict highlighting and per-task conflict ignore
+  - Round completed-task runtime estimates to the nearest 15 minutes, while long limited tasks display the full time limit
+  - Integrate native task scheduler links into each task row instead of using a separate Task Scheduler Links section
+  - Add a saved grid zoom control that widens hour columns and enables horizontal scrolling
+
   ## v1.3.7.0
   - Display tasks with previous runtimes using the last runtime rounded up to the nearest 15 minutes, capped by max runtime
 

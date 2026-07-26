@@ -19,7 +19,16 @@
                     <div class="taskGridToolbar">
                         <label class="emby-checkbox-label taskGridToggle">
                             <input type="checkbox" id="TaskGridShowUnscheduled" is="emby-checkbox" />
-                            <span>Show tasks without daily or weekly triggers in links</span>
+                            <span>Show tasks without daily or weekly triggers in task list</span>
+                        </label>
+                        <label class="emby-checkbox-label taskGridToggle">
+                            <input type="checkbox" id="TaskGridShowConflicts" is="emby-checkbox" />
+                            <span>Highlight schedule conflicts</span>
+                        </label>
+                        <label class="taskGridZoomControl">
+                            <span>Grid zoom</span>
+                            <input type="range" id="TaskGridZoom" min="100" max="260" step="20" value="100" />
+                            <strong id="TaskGridZoomValue">100%</strong>
                         </label>
                     </div>
                     <div id="TaskGridStatus" class="fieldDescription"></div>
@@ -39,11 +48,6 @@
                     <button is="emby-button" type="button" id="TaskGridSave" class="raised button-submit taskGridSaveButton">
                         <span>Save Display Preferences</span>
                     </button>
-                </div>
-
-                <div class="verticalSection">
-                    <h3 class="sectionTitle">Task Scheduler Links</h3>
-                    <div id="TaskGridSchedulerLinks" class="taskGridSchedulerLinks"></div>
                 </div>
             </div>
         </div>
@@ -70,6 +74,24 @@
                 margin: 0;
             }
 
+            .taskGridZoomControl {
+                display: grid;
+                grid-template-columns: auto minmax(10rem, 16rem) 3.5rem;
+                gap: 0.6rem;
+                align-items: center;
+                margin: 0;
+            }
+
+            .taskGridZoomControl span,
+            .taskGridZoomControl strong {
+                white-space: nowrap;
+            }
+
+            .taskGridZoomControl strong {
+                font-weight: 600;
+                opacity: 0.78;
+            }
+
             .taskGridWarnings {
                 border-left: 4px solid #d64045;
                 background: rgba(214, 64, 69, 0.12);
@@ -83,6 +105,7 @@
 
             .taskGridScroll {
                 overflow-x: auto;
+                overflow-y: hidden;
                 border: 1px solid rgba(255, 255, 255, 0.16);
                 border-radius: 8px;
                 background: rgba(0, 0, 0, 0.14);
@@ -179,6 +202,11 @@
                 box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px rgba(255, 92, 92, 0.72);
             }
 
+            .taskGridBlockConflict {
+                outline: 2px solid #ff2d2d;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 14px rgba(255, 45, 45, 0.78);
+            }
+
             .taskGridBlockHeavy {
                 border-top: 3px solid rgba(255, 255, 255, 0.85);
             }
@@ -229,11 +257,16 @@
 
             .taskGridStyleRow {
                 display: grid;
-                grid-template-columns: minmax(12rem, 1fr) 5rem 8rem minmax(12rem, 18rem) 7rem;
+                grid-template-columns: minmax(14rem, 1.2fr) 5rem 8rem minmax(12rem, 18rem) 7rem 10rem minmax(8rem, auto);
                 gap: 0.75rem;
                 align-items: center;
                 padding: 0.6rem 0;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            }
+
+            .taskGridStyleRowFocus {
+                outline: 2px solid #00d5ff;
+                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 213, 255, 0.72);
             }
 
             .taskGridTaskName {
@@ -287,42 +320,23 @@
                 margin: 0;
             }
 
-            .taskGridSchedulerLinks {
-                display: grid;
-                gap: 0.5rem;
+            .taskGridIgnoreConflictsLabel {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                margin: 0;
             }
 
-            .taskGridSchedulerLink {
-                display: grid;
-                grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1.25fr) auto;
-                gap: 0.75rem;
-                align-items: center;
-                padding: 0.55rem 0.75rem;
-                border-left: 4px solid currentColor;
-                background: rgba(255, 255, 255, 0.06);
+            .taskGridSchedulerAction {
+                justify-self: end;
                 color: inherit;
                 text-decoration: none;
-            }
-
-            .taskGridSchedulerLink span {
-                min-width: 0;
-                overflow: hidden;
-                text-overflow: ellipsis;
                 white-space: nowrap;
+                opacity: 0.82;
             }
 
-            .taskGridSchedulerSummary {
-                opacity: 0.72;
-            }
-
-            .taskGridSchedulerLink em {
-                font-style: normal;
-                opacity: 0.72;
-            }
-
-            .taskGridSchedulerLinkFocus {
-                outline: 2px solid #00d5ff;
-                box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 213, 255, 0.72);
+            .taskGridSchedulerAction:hover {
+                opacity: 1;
             }
 
             @media (max-width: 720px) {
@@ -330,8 +344,8 @@
                     grid-template-columns: 1fr;
                 }
 
-                .taskGridSchedulerLink {
-                    grid-template-columns: 1fr;
+                .taskGridSchedulerAction {
+                    justify-self: start;
                 }
             }
         </style>
@@ -343,7 +357,7 @@
                 const dayIndexes = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 };
                 const defaultColors = ['#00a4dc', '#27ae60', '#f39c12', '#8e5ad7', '#16a085', '#d35400', '#607d8b', '#c0392b'];
 
-                let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true };
+                let currentConfig = { TaskStyles: [], ShowUnscheduledTasks: true, ShowConflictHighlights: false, GridZoomPercent: 100 };
                 let scheduledTasks = [];
 
                 document.querySelector('#TaskGridConfigPage').addEventListener('pageshow', loadPage);
@@ -353,6 +367,14 @@
                     currentConfig.ShowUnscheduledTasks = this.checked;
                     render();
                 });
+                document.querySelector('#TaskGridShowConflicts').addEventListener('change', function () {
+                    currentConfig.ShowConflictHighlights = this.checked;
+                    render();
+                });
+                document.querySelector('#TaskGridZoom').addEventListener('input', function () {
+                    currentConfig.GridZoomPercent = normalizeGridZoom(this.value);
+                    updateGridZoom();
+                });
 
                 async function loadPage() {
                     Dashboard.showLoadingMsg();
@@ -361,6 +383,10 @@
                         currentConfig.TaskStyles = currentConfig.TaskStyles || [];
                         currentConfig.RecentColors = currentConfig.RecentColors || [];
                         document.querySelector('#TaskGridShowUnscheduled').checked = currentConfig.ShowUnscheduledTasks !== false;
+                        document.querySelector('#TaskGridShowConflicts').checked = !!currentConfig.ShowConflictHighlights;
+                        currentConfig.GridZoomPercent = normalizeGridZoom(currentConfig.GridZoomPercent);
+                        document.querySelector('#TaskGridZoom').value = currentConfig.GridZoomPercent;
+                        updateGridZoom();
                         await refreshTasks(false);
                     } catch (error) {
                         console.error('Error loading Task Grid:', error);
@@ -402,7 +428,8 @@
                             stylesByKey.set(key, {
                                 TaskKey: key,
                                 Color: color,
-                                Heavy: row.querySelector('.taskGridHeavyInput').checked
+                                Heavy: row.querySelector('.taskGridHeavyInput').checked,
+                                IgnoreConflicts: row.querySelector('.taskGridIgnoreConflictsInput').checked
                             });
                             rememberColor(color);
                         });
@@ -410,6 +437,8 @@
                         currentConfig.TaskStyles = Array.from(stylesByKey.values());
                         currentConfig.RecentColors = normalizeRecentColors(currentConfig.RecentColors);
                         currentConfig.ShowUnscheduledTasks = document.querySelector('#TaskGridShowUnscheduled').checked;
+                        currentConfig.ShowConflictHighlights = document.querySelector('#TaskGridShowConflicts').checked;
+                        currentConfig.GridZoomPercent = normalizeGridZoom(document.querySelector('#TaskGridZoom').value);
                         await ApiClient.updatePluginConfiguration(pluginId, currentConfig);
                         Dashboard.processPluginConfigurationUpdateResult();
                     } catch (error) {
@@ -427,7 +456,6 @@
 
                     renderCalendar(tasks);
                     renderStyleList(tasks);
-                    renderSchedulerLinks(tasks);
                 }
 
                 function renderCalendar(tasks) {
@@ -458,6 +486,7 @@
                     });
 
                     const displayBlocks = assignBlockLanes(mergeRetryBlocks(blocks));
+                    applyConflictHighlights(displayBlocks);
                     updateCalendarRowHeight(calendar, displayBlocks);
                     displayBlocks.forEach(function (block) {
                         calendar.appendChild(createTaskBlock(block));
@@ -475,6 +504,14 @@
                     cell.textContent = text;
                     parent.appendChild(cell);
                     return cell;
+                }
+
+                function updateGridZoom() {
+                    const zoom = normalizeGridZoom(currentConfig.GridZoomPercent);
+                    currentConfig.GridZoomPercent = zoom;
+                    document.querySelector('#TaskGridZoom').value = zoom;
+                    document.querySelector('#TaskGridZoomValue').textContent = zoom + '%';
+                    document.querySelector('#TaskGridCalendar').style.minWidth = Math.round(1180 * zoom / 100) + 'px';
                 }
 
                 function buildBlocks(task, taskIndex) {
@@ -511,6 +548,7 @@
 
                     while (remaining > 0 && guard < 7) {
                         const segmentDuration = Math.min(24 - segmentStart, remaining);
+                        const retryWindowEnd = Math.min(24, segmentStart + conflictWindowHours(trigger, segmentDuration));
                         const startColumn = Math.floor(segmentStart) + 2;
                         const endColumn = Math.min(26, Math.max(startColumn + 1, Math.ceil(segmentStart + segmentDuration) + 2));
                         blocks.push({
@@ -527,6 +565,9 @@
                             color: getTaskColor(task, taskIndex),
                             warning: wasAbortedByShutdown(task),
                             heavy: isTaskHeavy(task),
+                            ignoreConflicts: isTaskIgnoredForConflicts(task),
+                            retryWindowEnd: retryWindowEnd,
+                            conflict: false,
                             label: formatTime(segmentStart) + ' - ' + formatTime(Math.min(24, segmentStart + segmentDuration))
                         });
                         remaining -= segmentDuration;
@@ -557,7 +598,7 @@
                                 const sameTaskDay = previous &&
                                     taskKey(previous.task) === taskKey(block.task) &&
                                     previous.day === block.day;
-                                const previousEnd = previous ? previous.start + previous.duration : 0;
+                                const previousEnd = previous ? Math.max(previous.start + previous.duration, previous.retryWindowEnd || 0) : 0;
 
                                 if (sameTaskDay && block.start <= previousEnd) {
                                     mergeBlockInto(previous, block);
@@ -573,8 +614,10 @@
                 function assignBlockLanes(blocks) {
                     const lanesByDay = new Map();
                     const ordered = blocks.slice().sort(function (a, b) {
-                        const durationDelta = b.duration - a.duration;
-                        return durationDelta || a.start - b.start || String(a.task.Name || '').localeCompare(String(b.task.Name || ''));
+                        return a.dayIndex - b.dayIndex ||
+                            a.start - b.start ||
+                            b.duration - a.duration ||
+                            String(a.task.Name || '').localeCompare(String(b.task.Name || ''));
                     });
 
                     ordered.forEach(function (block) {
@@ -619,28 +662,33 @@
                         color: block.color,
                         warning: block.warning,
                         heavy: block.heavy,
+                        ignoreConflicts: block.ignoreConflicts,
                         label: block.label,
-                        retryTimes: [block.start]
+                        retryTimes: [block.start],
+                        retryWindowEnd: block.retryWindowEnd || block.start + block.duration,
+                        conflict: false
                     };
                 }
 
                 function mergeBlockInto(target, block) {
-                    const end = Math.max(target.start + target.duration, block.start + block.duration);
+                    const end = Math.max(target.start + target.duration, block.start + block.duration, block.retryWindowEnd || 0);
                     target.duration = end - target.start;
                     target.totalDuration = Math.max(target.totalDuration || 0, target.duration);
-                    target.endColumn = Math.max(target.endColumn, block.endColumn);
+                    target.endColumn = Math.min(26, Math.max(target.startColumn + 1, Math.ceil(target.start + target.duration) + 2));
                     target.warning = target.warning || block.warning;
                     target.heavy = target.heavy || block.heavy;
+                    target.ignoreConflicts = target.ignoreConflicts && block.ignoreConflicts;
                     target.triggers = target.triggers.concat(block.triggers || [block.trigger]);
                     target.retryTimes.push(block.start);
                     target.retryTimes = uniqueNumbers(target.retryTimes).sort(function (a, b) { return a - b; });
+                    target.retryWindowEnd = Math.max(target.retryWindowEnd || 0, block.retryWindowEnd || block.start + block.duration);
                     target.label = formatTime(target.start) + ' - ' + formatTime(Math.min(24, target.start + target.duration));
                     target.isRetryWindow = target.retryTimes.length > 1;
                 }
 
                 function createTaskBlock(block) {
                     const element = document.createElement('div');
-                    element.className = 'taskGridBlock' + (block.warning ? ' taskGridBlockWarning' : '') + (block.heavy ? ' taskGridBlockHeavy' : '');
+                    element.className = 'taskGridBlock' + (block.warning ? ' taskGridBlockWarning' : '') + (block.conflict ? ' taskGridBlockConflict' : '') + (block.heavy ? ' taskGridBlockHeavy' : '');
                     element.style.gridRow = String(block.dayIndex + 2);
                     element.style.gridColumn = block.startColumn + ' / ' + block.endColumn;
                     element.style.background = block.color;
@@ -708,6 +756,7 @@
                     const warningContainer = document.querySelector('#TaskGridWarnings');
                     const shutdownWarnings = uniqueBy(blocks.filter(function (block) { return block.warning; }), function (block) { return taskKey(block.task); });
                     const heavyOverlaps = findHeavyOverlaps(blocks);
+                    const conflicts = currentConfig.ShowConflictHighlights ? findScheduleConflicts(blocks) : [];
                     const messages = [];
 
                     shutdownWarnings.forEach(function (block) {
@@ -715,6 +764,9 @@
                     });
                     heavyOverlaps.forEach(function (warning) {
                         messages.push('Heavy tasks overlap on ' + warning.day + ': ' + warning.names + '.');
+                    });
+                    conflicts.forEach(function (warning) {
+                        messages.push('Schedule conflict on ' + warning.day + ': ' + warning.names + '.');
                     });
 
                     warningContainer.hidden = messages.length === 0;
@@ -726,14 +778,20 @@
                 function renderStyleList(tasks) {
                     const container = document.querySelector('#TaskGridStyleList');
                     container.innerHTML = '';
-                    tasks.forEach(function (task, index) {
+                    tasks.map(function (task, index) {
+                        return { task: task, index: index };
+                    }).filter(function (entry) {
+                        return currentConfig.ShowUnscheduledTasks !== false || buildBlocks(entry.task, entry.index).length > 0;
+                    }).forEach(function (entry) {
+                        const task = entry.task;
+                        const index = entry.index;
                         const row = document.createElement('div');
                         row.className = 'taskGridStyleRow';
                         row.dataset.taskKey = taskKey(task);
 
                         const name = document.createElement('div');
                         name.className = 'taskGridTaskName';
-                        name.innerHTML = '<strong>' + escapeHtml(task.Name || 'Scheduled task') + '</strong><span>' + escapeHtml(task.Category || task.Key || task.Id || '') + '</span>';
+                        name.innerHTML = '<strong>' + escapeHtml(task.Name || 'Scheduled task') + '</strong><span>' + escapeHtml(describeTriggers(task.Triggers || [])) + '</span>';
 
                         const color = document.createElement('input');
                         color.type = 'color';
@@ -775,11 +833,26 @@
                         heavyLabel.className = 'taskGridHeavyLabel';
                         heavyLabel.innerHTML = '<input type="checkbox" class="taskGridHeavyInput" is="emby-checkbox" ' + (isTaskHeavy(task) ? 'checked' : '') + ' /><span>Heavy</span>';
 
+                        const ignoreConflictsLabel = document.createElement('label');
+                        ignoreConflictsLabel.className = 'taskGridIgnoreConflictsLabel';
+                        ignoreConflictsLabel.innerHTML = '<input type="checkbox" class="taskGridIgnoreConflictsInput" is="emby-checkbox" ' + (isTaskIgnoredForConflicts(task) ? 'checked' : '') + ' /><span>Ignore conflicts</span>';
+
+                        const scheduler = document.createElement('a');
+                        scheduler.className = 'taskGridSchedulerAction';
+                        scheduler.href = taskSchedulerUrl(task.Id || '');
+                        scheduler.textContent = task.Id ? 'Open scheduler' : 'No task id';
+                        scheduler.style.color = getTaskColor(task, index);
+                        if (!task.Id) {
+                            scheduler.removeAttribute('href');
+                        }
+
                         row.appendChild(name);
                         row.appendChild(color);
                         row.appendChild(hex);
                         row.appendChild(recent);
                         row.appendChild(heavyLabel);
+                        row.appendChild(ignoreConflictsLabel);
+                        row.appendChild(scheduler);
                         container.appendChild(row);
                     });
                     updateRecentColorButtons();
@@ -812,65 +885,28 @@
                     });
                 }
 
-                function renderSchedulerLinks(tasks) {
-                    const container = document.querySelector('#TaskGridSchedulerLinks');
-                    container.innerHTML = '';
-                    tasks.map(function (task, index) {
-                        return { task: task, index: index };
-                    }).filter(function (entry) {
-                        return currentConfig.ShowUnscheduledTasks !== false || buildBlocks(entry.task, entry.index).length > 0;
-                    }).forEach(function (entry) {
-                        const task = entry.task;
-                        const index = entry.index;
-                        const id = task.Id || '';
-                        const item = document.createElement('a');
-                        item.className = 'taskGridSchedulerLink';
-                        item.href = taskSchedulerUrl(id);
-                        item.style.color = getTaskColor(task, index);
-                        item.dataset.taskKey = taskKey(task);
-
-                        const name = document.createElement('span');
-                        name.textContent = task.Name || 'Scheduled task';
-
-                        const summary = document.createElement('span');
-                        summary.className = 'taskGridSchedulerSummary';
-                        summary.textContent = describeTriggers(task.Triggers || []);
-
-                        const action = document.createElement('em');
-                        action.textContent = id ? 'Open scheduler' : 'No task id';
-
-                        item.appendChild(name);
-                        item.appendChild(summary);
-                        item.appendChild(action);
-                        if (!id) {
-                            item.removeAttribute('href');
-                        }
-                        container.appendChild(item);
-                    });
-                }
-
                 function scrollToSchedulerLink(task) {
                     const key = taskKey(task);
-                    const link = Array.from(document.querySelectorAll('.taskGridSchedulerLink')).find(function (candidate) {
+                    const link = Array.from(document.querySelectorAll('.taskGridStyleRow')).find(function (candidate) {
                         return candidate.dataset.taskKey === key;
                     });
                     if (!link) {
                         return;
                     }
 
-                    document.querySelectorAll('.taskGridSchedulerLinkFocus').forEach(function (candidate) {
-                        candidate.classList.remove('taskGridSchedulerLinkFocus');
+                    document.querySelectorAll('.taskGridStyleRowFocus').forEach(function (candidate) {
+                        candidate.classList.remove('taskGridStyleRowFocus');
                     });
-                    link.classList.add('taskGridSchedulerLinkFocus');
+                    link.classList.add('taskGridStyleRowFocus');
                     link.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     window.setTimeout(function () {
-                        link.classList.remove('taskGridSchedulerLinkFocus');
+                        link.classList.remove('taskGridStyleRowFocus');
                     }, 2400);
                 }
 
                 function findHeavyOverlaps(blocks) {
                     const warnings = [];
-                    const heavy = blocks.filter(function (block) { return block.heavy; });
+                    const heavy = blocks.filter(function (block) { return block.heavy && !block.ignoreConflicts; });
                     days.forEach(function (day) {
                         const dayBlocks = heavy.filter(function (block) { return block.day === day; });
                         for (let i = 0; i < dayBlocks.length; i++) {
@@ -888,23 +924,65 @@
                     return warnings;
                 }
 
+                function applyConflictHighlights(blocks) {
+                    blocks.forEach(function (block) {
+                        block.conflict = false;
+                    });
+
+                    if (!currentConfig.ShowConflictHighlights) {
+                        return;
+                    }
+
+                    findScheduleConflicts(blocks).forEach(function (warning) {
+                        warning.blocks.forEach(function (block) {
+                            block.conflict = true;
+                        });
+                    });
+                }
+
+                function findScheduleConflicts(blocks) {
+                    const warnings = [];
+                    days.forEach(function (day) {
+                        const dayBlocks = blocks.filter(function (block) {
+                            return block.day === day && !block.ignoreConflicts;
+                        });
+                        for (let i = 0; i < dayBlocks.length; i++) {
+                            for (let j = i + 1; j < dayBlocks.length; j++) {
+                                if (taskKey(dayBlocks[i].task) === taskKey(dayBlocks[j].task)) {
+                                    continue;
+                                }
+
+                                if (blocksOverlap(dayBlocks[i], dayBlocks[j])) {
+                                    warnings.push({
+                                        day: day,
+                                        names: dayBlocks[i].task.Name + ' and ' + dayBlocks[j].task.Name,
+                                        blocks: [dayBlocks[i], dayBlocks[j]]
+                                    });
+                                }
+                            }
+                        }
+                    });
+                    return warnings;
+                }
+
                 function blocksOverlap(first, second) {
                     return first.start < second.start + second.duration && second.start < first.start + first.duration;
                 }
 
                 function durationHours(task, trigger) {
                     const lastRuntime = lastRuntimeHours(task);
+                    const maxRuntime = trigger.MaxRuntimeTicks ? ticksToHours(trigger.MaxRuntimeTicks) : 0;
                     if (lastRuntime > 0) {
-                        const roundedRuntime = roundUpToQuarterHour(lastRuntime);
-                        if (trigger.MaxRuntimeTicks) {
-                            return Math.max(Math.min(roundedRuntime, ticksToHours(trigger.MaxRuntimeTicks)), 1 / 12);
+                        if (maxRuntime > 0 && lastRuntime >= 1) {
+                            return Math.max(maxRuntime, 1 / 12);
                         }
 
-                        return Math.max(roundedRuntime, 1 / 12);
+                        const roundedRuntime = roundToQuarterHour(lastRuntime);
+                        return Math.max(maxRuntime > 0 ? Math.min(roundedRuntime, maxRuntime) : roundedRuntime, 1 / 12);
                     }
 
-                    if (trigger.MaxRuntimeTicks) {
-                        return Math.max(ticksToHours(trigger.MaxRuntimeTicks), 1 / 12);
+                    if (maxRuntime > 0) {
+                        return Math.max(maxRuntime, 1 / 12);
                     }
 
                     return 0.5;
@@ -926,9 +1004,9 @@
                 function durationLabel(task, trigger) {
                     const lastRuntime = lastRuntimeHours(task);
                     if (lastRuntime > 0) {
-                        const roundedRuntime = durationHours(task, trigger);
+                        const shownRuntime = durationHours(task, trigger);
                         const maxRuntime = trigger.MaxRuntimeTicks ? ' / max ' + formatDuration(ticksToHours(trigger.MaxRuntimeTicks)) : '';
-                        return ' | last ' + formatDuration(lastRuntime) + ', shown ' + formatDuration(roundedRuntime) + maxRuntime;
+                        return ' | last ' + formatDuration(lastRuntime) + ', shown ' + formatDuration(shownRuntime) + maxRuntime;
                     }
 
                     if (trigger.MaxRuntimeTicks) {
@@ -1034,6 +1112,19 @@
                     return !!(style && style.Heavy);
                 }
 
+                function isTaskIgnoredForConflicts(task) {
+                    const style = getStyle(task);
+                    return !!(style && style.IgnoreConflicts);
+                }
+
+                function conflictWindowHours(trigger, fallbackDuration) {
+                    if (trigger.MaxRuntimeTicks) {
+                        return Math.max(ticksToHours(trigger.MaxRuntimeTicks), 1 / 12);
+                    }
+
+                    return fallbackDuration;
+                }
+
                 function wasAbortedByShutdown(task) {
                     const result = task.LastExecutionResult || {};
                     const text = [result.Status, result.ErrorMessage, result.LongErrorMessage].join(' ').toLowerCase();
@@ -1080,8 +1171,17 @@
                     return remainingMinutes + 'm';
                 }
 
-                function roundUpToQuarterHour(hours) {
-                    return Math.ceil(Math.max(hours, 1 / 60) * 4) / 4;
+                function roundToQuarterHour(hours) {
+                    return Math.max(Math.round(Math.max(hours, 1 / 60) * 4) / 4, 1 / 12);
+                }
+
+                function normalizeGridZoom(value) {
+                    const zoom = Number(value);
+                    if (!Number.isFinite(zoom)) {
+                        return 100;
+                    }
+
+                    return Math.max(100, Math.min(260, Math.round(zoom / 20) * 20));
                 }
 
                 function uniqueBy(items, keySelector) {

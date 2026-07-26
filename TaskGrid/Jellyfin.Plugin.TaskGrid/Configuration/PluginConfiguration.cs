@@ -21,6 +21,11 @@ public class TaskGridStyle
     /// Gets or sets a value indicating whether this task should be treated as heavy for overlap warnings.
     /// </summary>
     public bool Heavy { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this task should be ignored by conflict detection.
+    /// </summary>
+    public bool IgnoreConflicts { get; set; }
 }
 
 /// <summary>
@@ -34,9 +39,19 @@ public class PluginConfiguration : BasePluginConfiguration
     public List<TaskGridStyle> TaskStyles { get; set; } = new();
 
     /// <summary>
-    /// Gets or sets a value indicating whether tasks without daily or weekly triggers should appear in the scheduler links.
+    /// Gets or sets a value indicating whether tasks without daily or weekly triggers should appear in the task list.
     /// </summary>
     public bool ShowUnscheduledTasks { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether overlapping scheduled tasks should be highlighted.
+    /// </summary>
+    public bool ShowConflictHighlights { get; set; }
+
+    /// <summary>
+    /// Gets or sets the grid zoom percentage.
+    /// </summary>
+    public int GridZoomPercent { get; set; } = 100;
 
     /// <summary>
     /// Gets or sets recently used task colors.

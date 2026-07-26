@@ -3,9 +3,9 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.TaskGrid"
 OUTPUT_DIR="output"
-LEGACY_10_11_VERSION="1.1.7.0"
-V12_RC2_VERSION="1.2.7.0"
-V12_RC3_VERSION="1.3.7.0"
+LEGACY_10_11_VERSION="1.1.8.0"
+V12_RC2_VERSION="1.2.8.0"
+V12_RC3_VERSION="1.3.8.0"
 TARGET="${1:-all}"
 DEFAULT_JELLYFIN_SOURCE_ROOT="/Users/joncasas/GitHub/jellyfin"
 
@@ -84,7 +84,7 @@ build_target() {
   "guid": "a56a1707-aaeb-4ed5-bd95-1543ff817b9e",
   "name": "Task Grid",
   "overview": "Shows Jellyfin scheduled tasks on a weekly hour grid.",
-  "description": "Task Grid displays Jellyfin scheduled tasks on a Monday-first weekly grid with hour columns, color coding, heavy-task overlap warnings, refresh support, and red warnings for tasks most recently aborted by server shutdown.",
+  "description": "Task Grid displays Jellyfin scheduled tasks on a Monday-first weekly grid with hour columns, color coding, optional conflict highlighting, refresh support, and red warnings for tasks most recently aborted by server shutdown.",
   "owner": "nothing2obvi",
   "category": "General",
   "version": "$plugin_version",

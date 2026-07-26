@@ -17,24 +17,26 @@ Task Grid is a Jellyfin plugin that shows scheduled tasks on a Monday-first week
 - Monday-through-Sunday task grid, with Monday on top
 - 24 hour columns for each day
 - Task blocks sized by maximum runtime when Jellyfin exposes one
-- Sizing from the last completed runtime rounded up to the nearest 15 minutes, capped by maximum runtime when available
+- Sizing from the last completed runtime rounded to the nearest 15 minutes, with long limited tasks shown for their full time limit
 - Short estimate when no runtime or duration limit is available
 - Red warning treatment when the most recent task result says it was aborted by shutdown
 - Refresh button for recently changed schedules
+- Saved grid zoom control that widens the hour columns and enables horizontal scrolling
 - Per-task color coding
 - Recently used color shortcuts beside the hex color field and selector
-- Heavy-task flags with overlap warnings
+- Optional red conflict highlighting, with per-task conflict ignore
 - Custom sidebar access from Jellyfin's Extensions section
-- Native Jellyfin task scheduler links for each task
-- Overlapping task blocks stack into lanes, with longer windows above shorter overlaps
-- Trigger summaries in the scheduler-link list
-- Optional display of tasks without daily or weekly grid triggers in the scheduler-link list
+- Native Jellyfin task scheduler links integrated into each task row
+- Task blocks pack into rows only when their time windows do not overlap
+- Repeated same-task start times merge into one retry-window block with white start markers
+- Trigger summaries in the task list
+- Optional display of tasks without daily or weekly grid triggers in the task list
 
 ## Notes
 
-Task Grid reads Jellyfin's scheduled task data through the same scheduled task API used by the admin dashboard. It does not change task schedules. Display preferences such as colors and heavy-task flags are stored in the plugin configuration.
+Task Grid reads Jellyfin's scheduled task data through the same scheduled task API used by the admin dashboard. It does not change task schedules. Display preferences such as colors and conflict options are stored in the plugin configuration.
 
-Jellyfin does not always know how long a future task will run. When a scheduled trigger has a maximum runtime, Task Grid uses that value. Otherwise it uses the last completed runtime when available, then falls back to a 30 minute display estimate.
+Jellyfin does not always know how long a future task will run. Task Grid uses the last completed runtime rounded to the nearest 15 minutes when available. If a task has been running long and has a maximum runtime, Task Grid shows the full time-limit window. If no runtime history or limit is available, it falls back to a 30 minute display estimate.
 
 ## Installation
 
@@ -57,9 +59,9 @@ cd TaskGrid
 
 By default, this builds both supported targets:
 
-- Jellyfin 10.11: `task-grid-1.1.7.0.zip`
-- Jellyfin v12-rc2: `task-grid-1.2.7.0-jellyfin12-rc2.zip`
-- Jellyfin v12-rc3: `task-grid-1.3.7.0-jellyfin12-rc3.zip`
+- Jellyfin 10.11: `task-grid-1.1.8.0.zip`
+- Jellyfin v12-rc2: `task-grid-1.2.8.0-jellyfin12-rc2.zip`
+- Jellyfin v12-rc3: `task-grid-1.3.8.0-jellyfin12-rc3.zip`
 
 To build only one target:
 
