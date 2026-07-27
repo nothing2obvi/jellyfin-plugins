@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <JellyfinTargetAbi Condition="'$(JellyfinTargetAbi)' == ''">12.0.0.0</JellyfinTargetAbi>
-    <JellyfinPackageVersion Condition="'$(JellyfinPackageVersion)' == '' And '$(JellyfinTargetAbi)' == '12.0.0.0'">12.0.0-rc2</JellyfinPackageVersion>
+    <JellyfinPackageVersion Condition="'$(JellyfinPackageVersion)' == '' And '$(JellyfinTargetAbi)' == '12.0.0.0'">12.0.0-rc3</JellyfinPackageVersion>
     <TargetFramework Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">net10.0</TargetFramework>
     <TargetFramework Condition="'$(JellyfinTargetAbi)' != '12.0.0.0'">net9.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.JellyTag</RootNamespace>
@@ -12,8 +12,8 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <AnalysisMode>AllDisabledByDefault</AnalysisMode>
-    <AssemblyVersion>1.52.25.0</AssemblyVersion>
-    <Version>1.52.25.0</Version>
+    <AssemblyVersion>1.52.26.0</AssemblyVersion>
+    <Version>1.52.26.0</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(JellyfinTargetAbi)' == '12.0.0.0' And '$(JellyfinSourceRoot)' != ''">

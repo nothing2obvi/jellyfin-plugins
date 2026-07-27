@@ -3,8 +3,8 @@ set -e
 
 PLUGIN_DIR="Jellyfin.Plugin.JellyTag"
 OUTPUT_DIR="output"
-VERSION="1.52.25.0"
-LEGACY_10_11_VERSION="1.51.29.0"
+VERSION="1.52.26.0"
+LEGACY_10_11_VERSION="1.51.30.0"
 TARGET="${1:-12}"
 
 case "$TARGET" in
@@ -30,7 +30,7 @@ echo "=== Building JellyTag-Plus Plugin ==="
 echo "Target ABI: $TARGET_ABI ($FRAMEWORK)"
 
 if [ "$TARGET_ABI" = "12.0.0.0" ] && [ -z "${JELLYFIN_SOURCE_ROOT:-}" ]; then
-  JELLYFIN_PACKAGE_VERSION="${JELLYFIN_PACKAGE_VERSION:-12.0.0-rc2}"
+  JELLYFIN_PACKAGE_VERSION="${JELLYFIN_PACKAGE_VERSION:-12.0.0-rc3}"
   echo "Using Jellyfin package references version $JELLYFIN_PACKAGE_VERSION."
 fi
 

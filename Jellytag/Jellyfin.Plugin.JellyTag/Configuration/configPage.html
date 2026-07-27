@@ -582,6 +582,20 @@
             return key || 'collection';
         }
 
+        function normalizeBadgeFileKey(value) {
+            return String(value == null ? '' : value).replace(/\./g, '_');
+        }
+
+        function appendImageAuthQuery(url, token) {
+            var parts = ['t=' + Date.now()];
+            if (token) {
+                var encoded = encodeURIComponent(token);
+                parts.push('ApiKey=' + encoded);
+                parts.push('api_key=' + encoded);
+            }
+            return url + (url.indexOf('?') >= 0 ? '&' : '?') + parts.join('&');
+        }
+
         function collectionRulePositionOptions(selected) {
             var options = [
                 ['', 'Use collection default'],
@@ -666,7 +680,7 @@
             if (!keyInput || !img || !label) return;
             var key = normalizeCollectionKey(keyInput.value);
             var token = ApiClient.accessToken();
-            var url = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + encodeURIComponent(key)) + '?t=' + Date.now() + (token ? '&api_key=' + encodeURIComponent(token) : '');
+            var url = appendImageAuthQuery(ApiClient.getUrl('JellyTagPlus/BadgePreview/' + encodeURIComponent(key)), token);
             img.onload = function() { img.classList.remove('missing'); label.textContent = 'Image preview'; };
             img.onerror = function() { img.classList.add('missing'); label.textContent = 'Image preview: none uploaded'; };
             img.src = url;
@@ -1659,13 +1673,15 @@
             var headers = {}; if (token) headers['Authorization'] = 'MediaBrowser Token="' + token + '"';
             fetch(url, {headers:headers}).then(function(r){return r.json();}).then(function(customList) {
                 var gallery = document.querySelector('#BadgeGallery'); gallery.innerHTML = '';
+                var customSet = {};
+                (customList || []).forEach(function(key) { customSet[normalizeBadgeFileKey(key)] = true; });
                 getAllBadgeKeys().forEach(function(b) {
-                    var isCustom = customList.indexOf(b.key) >= 0;
+                    var isCustom = !!customSet[normalizeBadgeFileKey(b.key)];
                     var card = document.createElement('div'); card.className = 'badge-card' + (isCustom ? ' custom' : '');
                     card.setAttribute('data-badge-key', b.key);
                     var img = document.createElement('img');
-                    var previewUrl = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + b.key);
-                    img.src = previewUrl + '?t=' + Date.now() + (token ? '&api_key=' + token : ''); img.alt = b.label;
+                    var previewUrl = ApiClient.getUrl('JellyTagPlus/BadgePreview/' + encodeURIComponent(b.key));
+                    img.src = appendImageAuthQuery(previewUrl, token); img.alt = b.label;
                     card.appendChild(img);
                     var lbl = document.createElement('div'); lbl.className = 'badge-label';
                     lbl.textContent = b.label + (isCustom ? ' (custom)' : ''); card.appendChild(lbl);
@@ -1884,7 +1900,7 @@
             function refreshPreview(){if(!previewItemId||refreshing)return;refreshing=true;errorEl.style.display='none';errorEl.textContent='';spinner.style.display='block';
                 ApiClient.getPluginConfiguration(JellyTagConfig.pluginUniqueId).then(function(config){collectConfigFromForm(config);return saveConfigObject(config);}).then(function(){
                     return ApiClient.ajax({type:'POST',url:ApiClient.getUrl('JellyTagPlus/ClearCache')});}).then(function(){
-                    var token=ApiClient.accessToken();var bust='_t='+Date.now();var tp=token?'&api_key='+token:'';
+                    var token=ApiClient.accessToken();var bust='_t='+Date.now();var tp=token?'&ApiKey='+encodeURIComponent(token)+'&api_key='+encodeURIComponent(token):'';
                     var pu=ApiClient.getUrl('Items/'+previewItemId+'/Images/Primary')+'?'+bust+tp;
                     var tu=ApiClient.getUrl('Items/'+previewItemId+'/Images/Thumb')+'?'+bust+tp;
                     var pl=new Promise(function(res){var img=new Image();img.onload=function(){posterImg.src=pu;posterImg.style.display='block';res();};img.onerror=function(){posterImg.style.display='none';res();};img.src=pu;});
