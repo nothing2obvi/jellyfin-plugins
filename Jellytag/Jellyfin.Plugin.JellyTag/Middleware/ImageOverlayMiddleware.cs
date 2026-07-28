@@ -27,6 +27,7 @@ public partial class ImageOverlayMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<ImageOverlayMiddleware> _logger;
     private const string ForceRefreshStateFileName = "force-refresh-state.json";
+    private const string ForceRefreshStateVersionPrefix = "v2:";
     private const string WarmupResultHeader = "X-JellyTag-Warmup-Result";
     private const string WarmupResultCacheHit = "cache-hit";
     private const string WarmupResultCacheWritten = "cache-written";
@@ -863,7 +864,8 @@ public partial class ImageOverlayMiddleware
         EnsureForceRefreshStateLoaded();
 
         var refreshKey = $"{item.Id:N}:{parsedImageType}";
-        if (!forceMetadataRefresh && ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == badgeState) return;
+        var storedBadgeState = GetStoredForceRefreshState(badgeState);
+        if (!forceMetadataRefresh && ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == storedBadgeState) return;
         if (!forceMetadataRefresh && !hasVisibleBadges && !ForceRefreshStates.ContainsKey(refreshKey)) return;
 
         var refreshLock = ForceRefreshLocks.GetOrAdd(refreshKey, _ => new SemaphoreSlim(1, 1));
@@ -889,7 +891,7 @@ public partial class ImageOverlayMiddleware
                 throw new InvalidOperationException("Original image restore verification failed after force-refresh touch.");
             }
 
-            ForceRefreshStates[refreshKey] = badgeState;
+            ForceRefreshStates[refreshKey] = storedBadgeState;
             SaveForceRefreshState();
             await libraryManager.UpdateItemAsync(item, item.GetParent(), ItemUpdateType.ImageUpdate, cancellationToken).ConfigureAwait(false);
             logger.LogInformation("Force-refreshed {ImageType} image metadata for {ItemName}", parsedImageType, item.Name);
@@ -1211,6 +1213,11 @@ public partial class ImageOverlayMiddleware
     {
         var dataFolder = Plugin.Instance?.DataFolderPath;
         return string.IsNullOrWhiteSpace(dataFolder) ? null : Path.Combine(dataFolder, ForceRefreshStateFileName);
+    }
+
+    private static string GetStoredForceRefreshState(string badgeState)
+    {
+        return ForceRefreshStateVersionPrefix + badgeState;
     }
 
     private static string GetBadgeStateFingerprint(IReadOnlyList<BadgeInfo> badges)
