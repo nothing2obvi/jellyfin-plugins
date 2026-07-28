@@ -68,9 +68,9 @@ public class BuildBadgeStatusIndexTask : IScheduledTask
             _logger.LogInformation("Building JellyTag-Plus badge status index");
             await _badgeVisibilityService.RefreshBadgeStatusIndexAsync(
                 percent => progress.Report(Math.Clamp(percent * 100, 1, 99)),
-                async (item, imageType, state, token) =>
+                async (item, imageType, state, forceMetadataRefresh, token) =>
                 {
-                    await ImageOverlayMiddleware.TryForceImageRefreshForStateAsync(item, imageType, state.BadgeState, state.HasVisibleBadges, _providerManager, _logger, token).ConfigureAwait(false);
+                    await ImageOverlayMiddleware.TryForceImageRefreshForStateAsync(item, imageType, state.BadgeState, state.HasVisibleBadges, _providerManager, _logger, forceMetadataRefresh, token).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);
             progress.Report(100);

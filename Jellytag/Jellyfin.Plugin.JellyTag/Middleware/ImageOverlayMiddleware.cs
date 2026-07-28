@@ -844,6 +844,11 @@ public partial class ImageOverlayMiddleware
 
     public static async Task TryForceImageRefreshForStateAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILogger logger, CancellationToken cancellationToken)
     {
+        await TryForceImageRefreshForStateAsync(item, imageType, badgeState, hasVisibleBadges, providerManager, logger, forceMetadataRefresh: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task TryForceImageRefreshForStateAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILogger logger, bool forceMetadataRefresh, CancellationToken cancellationToken)
+    {
         var config = Plugin.Instance?.Configuration;
         if (config?.ForceImageRefresh != true || !TryParseImageType(imageType, out var parsedImageType)) return;
 
@@ -855,8 +860,8 @@ public partial class ImageOverlayMiddleware
         EnsureForceRefreshStateLoaded();
 
         var refreshKey = $"{item.Id:N}:{parsedImageType}";
-        if (ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == badgeState) return;
-        if (!hasVisibleBadges && !ForceRefreshStates.ContainsKey(refreshKey)) return;
+        if (!forceMetadataRefresh && ForceRefreshStates.TryGetValue(refreshKey, out var currentState) && currentState == badgeState) return;
+        if (!forceMetadataRefresh && !hasVisibleBadges && !ForceRefreshStates.ContainsKey(refreshKey)) return;
 
         var refreshLock = ForceRefreshLocks.GetOrAdd(refreshKey, _ => new SemaphoreSlim(1, 1));
         if (!await refreshLock.WaitAsync(0, cancellationToken).ConfigureAwait(false)) return;

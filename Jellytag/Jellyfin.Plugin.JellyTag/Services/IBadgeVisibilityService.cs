@@ -31,7 +31,7 @@ public interface IBadgeVisibilityService
     /// <summary>
     /// Rebuilds raw badge detection and final visible badge state indexes.
     /// </summary>
-    Task RefreshBadgeStatusIndexAsync(Action<double>? progress, Func<BaseItem, string, VisibleBadgeState, CancellationToken, Task>? changedCallback, CancellationToken cancellationToken);
+    Task RefreshBadgeStatusIndexAsync(Action<double>? progress, Func<BaseItem, string, VisibleBadgeState, bool, CancellationToken, Task>? changedCallback, CancellationToken cancellationToken);
 }
 
 /// <summary>

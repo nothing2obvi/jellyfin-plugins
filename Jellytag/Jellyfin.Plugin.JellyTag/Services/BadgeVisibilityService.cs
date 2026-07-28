@@ -142,7 +142,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
     }
 
     /// <inheritdoc />
-    public async Task RefreshBadgeStatusIndexAsync(Action<double>? progress, Func<BaseItem, string, VisibleBadgeState, CancellationToken, Task>? changedCallback, CancellationToken cancellationToken)
+    public async Task RefreshBadgeStatusIndexAsync(Action<double>? progress, Func<BaseItem, string, VisibleBadgeState, bool, CancellationToken, Task>? changedCallback, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await _qualityDetectionService.RefreshBadgeStatusIndexAsync(percent => progress?.Invoke(Math.Clamp(percent * 0.45, 0, 0.45)), cancellationToken).ConfigureAwait(false);
@@ -186,11 +186,10 @@ public class BadgeVisibilityService : IBadgeVisibilityService
                 }
 
                 pendingEntries[stableKey] = entry;
-                if (oldEntry != null
-                    && !string.Equals(oldEntry.BadgeState, state.BadgeState, StringComparison.Ordinal)
-                    && changedCallback != null)
+                var shouldRefreshImageMetadata = oldEntry == null || !string.Equals(oldEntry.BadgeState, state.BadgeState, StringComparison.Ordinal);
+                if (shouldRefreshImageMetadata && changedCallback != null)
                 {
-                    await changedCallback(item, imageType, state, cancellationToken).ConfigureAwait(false);
+                    await changedCallback(item, imageType, state, oldEntry == null, cancellationToken).ConfigureAwait(false);
                 }
 
                 completed++;
