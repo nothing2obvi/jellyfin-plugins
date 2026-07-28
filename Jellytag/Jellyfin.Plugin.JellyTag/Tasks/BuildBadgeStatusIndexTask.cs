@@ -1,5 +1,6 @@
 using Jellyfin.Plugin.JellyTag.Services;
 using Jellyfin.Plugin.JellyTag.Middleware;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
@@ -14,15 +15,17 @@ public class BuildBadgeStatusIndexTask : IScheduledTask
     private static int _isRunning;
     private readonly IBadgeVisibilityService _badgeVisibilityService;
     private readonly IProviderManager _providerManager;
+    private readonly ILibraryManager _libraryManager;
     private readonly ILogger<BuildBadgeStatusIndexTask> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BuildBadgeStatusIndexTask"/> class.
     /// </summary>
-    public BuildBadgeStatusIndexTask(IBadgeVisibilityService badgeVisibilityService, IProviderManager providerManager, ILogger<BuildBadgeStatusIndexTask> logger)
+    public BuildBadgeStatusIndexTask(IBadgeVisibilityService badgeVisibilityService, IProviderManager providerManager, ILibraryManager libraryManager, ILogger<BuildBadgeStatusIndexTask> logger)
     {
         _badgeVisibilityService = badgeVisibilityService;
         _providerManager = providerManager;
+        _libraryManager = libraryManager;
         _logger = logger;
     }
 
@@ -70,7 +73,7 @@ public class BuildBadgeStatusIndexTask : IScheduledTask
                 percent => progress.Report(Math.Clamp(percent * 100, 1, 99)),
                 async (item, imageType, state, forceMetadataRefresh, token) =>
                 {
-                    await ImageOverlayMiddleware.TryForceImageRefreshForStateAsync(item, imageType, state.BadgeState, state.HasVisibleBadges, _providerManager, _logger, forceMetadataRefresh, token).ConfigureAwait(false);
+                    await ImageOverlayMiddleware.TryForceImageRefreshForStateAsync(item, imageType, state.BadgeState, state.HasVisibleBadges, _providerManager, _libraryManager, _logger, forceMetadataRefresh, token).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);
             progress.Report(100);

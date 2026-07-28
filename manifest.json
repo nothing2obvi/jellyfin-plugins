@@ -28,6 +28,22 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
+        "version": "1.51.36.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Makes Force Image Refresh persist Jellyfin image updates and notify clients after refreshing artwork metadata.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.36.0.zip",
+        "checksum": "d6a8e888f9bfbccc1a34d8acbec57e2e",
+        "timestamp": "2026-07-28T00:00:00Z"
+      },
+      {
+        "version": "1.52.32.0",
+        "changelog": "Makes Force Image Refresh persist Jellyfin image updates and notify clients after refreshing artwork metadata.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.32.0-jellyfin12.zip",
+        "checksum": "8db77fb0f0ae38d98ada06ec23959fcf",
+        "timestamp": "2026-07-28T00:00:00Z"
+      },
+      {
         "version": "1.51.35.0",
         "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Force-refreshes image metadata once for visible badge state indexes created before the first-run refresh behavior.",
         "targetAbi": "10.11.0.0",

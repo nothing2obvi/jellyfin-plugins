@@ -1,6 +1,6 @@
 name: "JellyTag-Plus"
 guid: "a3db8d87-9a5a-4f35-94b5-7df409f7dc01"
-version: "1.52.31.0"
+version: "1.52.32.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "nothing2obvi"
@@ -19,6 +19,13 @@ category: "General"
 artifacts:
   - "Jellyfin.Plugin.JellyTagPlus.dll"
 changelog: |
+  ## v1.52.32.0
+  - Make Force Image Refresh persist Jellyfin image updates and notify clients after refreshing artwork metadata
+
+  ## v1.51.36.0
+  - Final Jellyfin 10.11-supported release
+  - Make Force Image Refresh persist Jellyfin image updates and notify clients after refreshing artwork metadata
+
   ## v1.52.31.0
   - Force-refresh image metadata once for visible badge state indexes created before the first-run refresh behavior
 

@@ -9,6 +9,7 @@ using Jellyfin.Plugin.JellyTag.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Controller.Session;
@@ -186,7 +187,7 @@ public partial class ImageOverlayMiddleware
         var requestCachedFile = await cacheService.GetCachedImageFileForRequestAsync(itemId, requestCacheKey).ConfigureAwait(false);
         if (requestCachedFile != null)
         {
-            if (await TryServeRequestCachedImageAsync(context, requestCachedFile, requestCacheKey, item, imageType, imageVersion, config, collectionFolders, targetConfigFingerprint, badgeVisibilityService, cacheService, providerManager, isRealClientImageRequest, learnedClientProfileService).ConfigureAwait(false))
+            if (await TryServeRequestCachedImageAsync(context, requestCachedFile, requestCacheKey, item, imageType, imageVersion, config, collectionFolders, targetConfigFingerprint, badgeVisibilityService, cacheService, providerManager, libraryManager, isRealClientImageRequest, learnedClientProfileService).ConfigureAwait(false))
             {
                 return;
             }
@@ -197,7 +198,7 @@ public partial class ImageOverlayMiddleware
             requestCachedFile = await cacheService.GetCachedImageFileForRequestAsync(itemId, compatibleRequestCacheKey).ConfigureAwait(false);
             if (requestCachedFile != null)
             {
-                if (await TryServeRequestCachedImageAsync(context, requestCachedFile, compatibleRequestCacheKey, item, imageType, imageVersion, config, collectionFolders, targetConfigFingerprint, badgeVisibilityService, cacheService, providerManager, isRealClientImageRequest, learnedClientProfileService).ConfigureAwait(false))
+                if (await TryServeRequestCachedImageAsync(context, requestCachedFile, compatibleRequestCacheKey, item, imageType, imageVersion, config, collectionFolders, targetConfigFingerprint, badgeVisibilityService, cacheService, providerManager, libraryManager, isRealClientImageRequest, learnedClientProfileService).ConfigureAwait(false))
                 {
                     return;
                 }
@@ -211,7 +212,7 @@ public partial class ImageOverlayMiddleware
             visibleBadges.Count, string.Join(", ", visibleBadges.Select(b => b.BadgeKey)));
 
         var badgeState = visibleState.BadgeState;
-        await TryForceImageRefreshAsync(item, imageType, badgeState, visibleBadges.Count > 0, providerManager, context.RequestAborted).ConfigureAwait(false);
+        await TryForceImageRefreshAsync(item, imageType, badgeState, visibleBadges.Count > 0, providerManager, libraryManager, context.RequestAborted).ConfigureAwait(false);
 
         if (visibleBadges.Count == 0)
         {
@@ -786,6 +787,7 @@ public partial class ImageOverlayMiddleware
         IBadgeVisibilityService badgeVisibilityService,
         IImageCacheService cacheService,
         IProviderManager providerManager,
+        ILibraryManager libraryManager,
         bool isRealClientImageRequest,
         ILearnedClientProfileService learnedClientProfileService)
     {
@@ -793,7 +795,7 @@ public partial class ImageOverlayMiddleware
         if (indexedState != null && !string.Equals(indexedState.BadgeState, cachedImage.BadgeState, StringComparison.Ordinal))
         {
             cacheService.RemoveRequestCacheEntry(requestCacheKey);
-            await TryForceImageRefreshAsync(item, imageType, indexedState.BadgeState, indexedState.HasVisibleBadges, providerManager, context.RequestAborted).ConfigureAwait(false);
+            await TryForceImageRefreshAsync(item, imageType, indexedState.BadgeState, indexedState.HasVisibleBadges, providerManager, libraryManager, context.RequestAborted).ConfigureAwait(false);
             _logger.LogInformation(
                 "Ignoring stale JellyTag-Plus request cache for {ItemName} {ImageType}; cached badge state {CachedBadgeState} no longer matches indexed state {IndexedBadgeState}",
                 item.Name,
@@ -809,6 +811,7 @@ public partial class ImageOverlayMiddleware
             indexedState?.BadgeState ?? cachedImage.BadgeState,
             indexedState?.HasVisibleBadges ?? true,
             providerManager,
+            libraryManager,
             context.RequestAborted).ConfigureAwait(false);
         SetWarmupResult(context, WarmupResultCacheHit);
         MarkWarmerProgressFromRealClientRequest(isRealClientImageRequest, item, imageType, context, config, learnedClientProfileService);
@@ -837,17 +840,17 @@ public partial class ImageOverlayMiddleware
         DateTime CreatedUtc);
 
 
-    private async Task TryForceImageRefreshAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, CancellationToken cancellationToken)
+    private async Task TryForceImageRefreshAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILibraryManager libraryManager, CancellationToken cancellationToken)
     {
-        await TryForceImageRefreshForStateAsync(item, imageType, badgeState, hasVisibleBadges, providerManager, _logger, cancellationToken).ConfigureAwait(false);
+        await TryForceImageRefreshForStateAsync(item, imageType, badgeState, hasVisibleBadges, providerManager, libraryManager, _logger, cancellationToken).ConfigureAwait(false);
     }
 
-    public static async Task TryForceImageRefreshForStateAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILogger logger, CancellationToken cancellationToken)
+    public static async Task TryForceImageRefreshForStateAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILibraryManager libraryManager, ILogger logger, CancellationToken cancellationToken)
     {
-        await TryForceImageRefreshForStateAsync(item, imageType, badgeState, hasVisibleBadges, providerManager, logger, forceMetadataRefresh: false, cancellationToken).ConfigureAwait(false);
+        await TryForceImageRefreshForStateAsync(item, imageType, badgeState, hasVisibleBadges, providerManager, libraryManager, logger, forceMetadataRefresh: false, cancellationToken).ConfigureAwait(false);
     }
 
-    public static async Task TryForceImageRefreshForStateAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILogger logger, bool forceMetadataRefresh, CancellationToken cancellationToken)
+    public static async Task TryForceImageRefreshForStateAsync(BaseItem item, string imageType, string badgeState, bool hasVisibleBadges, IProviderManager providerManager, ILibraryManager libraryManager, ILogger logger, bool forceMetadataRefresh, CancellationToken cancellationToken)
     {
         var config = Plugin.Instance?.Configuration;
         if (config?.ForceImageRefresh != true || !TryParseImageType(imageType, out var parsedImageType)) return;
@@ -888,6 +891,7 @@ public partial class ImageOverlayMiddleware
 
             ForceRefreshStates[refreshKey] = badgeState;
             SaveForceRefreshState();
+            await libraryManager.UpdateItemAsync(item, item.GetParent(), ItemUpdateType.ImageUpdate, cancellationToken).ConfigureAwait(false);
             logger.LogInformation("Force-refreshed {ImageType} image metadata for {ItemName}", parsedImageType, item.Name);
         }
         catch (Exception ex)
