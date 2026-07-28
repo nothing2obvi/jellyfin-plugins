@@ -119,7 +119,7 @@ Progress counts and total cache file/size counts are calculated by a separate sc
 
 The scheduled task **JellyTag-Plus Build Badge Status Index** prebuilds detected badge status for media items so normal browsing and warmer requests can reuse that work instead of repeatedly checking metadata and collection membership. The task runs gently in small batches so it does not monopolize Jellyfin. Once you are done setting up badge configuration, run this task before requesting images or running the warmer so JellyTag-Plus can reuse precomputed badge status right away. Newly added or changed items still work before the task runs: JellyTag-Plus detects that one item on demand and writes the result into the index. Run this task after changing Jellyfin collections or badge rules if you want JellyTag-Plus to see those changes immediately; otherwise the index refreshes during the task's next scheduled run or after JellyTag-Plus clears its badge detection cache.
 
-The badge status task also writes a durable visible badge state index. When a client asks for an image that already has a JellyTag-Plus cached overlay, JellyTag-Plus can compare the cached image's old badge state to the indexed current badge state. If the states differ, the stale cache shortcut is ignored and the image is rendered again with the current badges. When Force Image Refresh is enabled, the task also gently touches Jellyfin image metadata for items whose indexed badge state changed, helping stubborn client caches notice that artwork should be fetched again. The first run after installing the visible badge state index may also refresh existing supported image metadata once, so clients with older local artwork are encouraged to request the current images.
+The badge status task also writes a durable visible badge state index. When a client asks for an image that already has a JellyTag-Plus cached overlay, JellyTag-Plus can compare the cached image's old badge state to the indexed current badge state. If the states differ, the stale cache shortcut is ignored and the image is rendered again with the current badges. When Force Image Refresh is enabled, the task also gently touches Jellyfin image metadata for items whose indexed badge state changed, helping stubborn client caches notice that artwork should be fetched again. The first run after installing or upgrading the visible badge state index may also refresh existing supported image metadata once, so clients with older local artwork are encouraged to request the current images.
 
 After a burst of normal browsing image requests and render activity goes quiet for 5 seconds, JellyTag-Plus also performs a small recent request completion check. It remembers recent uncached overlay renders, checks whether they reached cache, and retries missing ones once at low impact. This is intentionally conservative and may be reverted if it proves unhelpful.
 
@@ -131,7 +131,7 @@ This feature is intentionally more invasive than normal rendering. Keep image ba
 
 ## Jellyfin Compatibility
 
-JellyTag-Plus `1.51.34.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+JellyTag-Plus `1.51.35.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
 
 JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
 
@@ -143,7 +143,7 @@ That build uses Jellyfin `12.0.0-rc3` API packages by default and is compatible 
 
 JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
 
-Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.34.0` package on the next plugin update.
+Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.35.0` package on the next plugin update.
 
 ## Installation
 

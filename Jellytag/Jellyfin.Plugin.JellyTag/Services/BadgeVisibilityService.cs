@@ -21,6 +21,7 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 public class BadgeVisibilityService : IBadgeVisibilityService
 {
     private const string VisibleBadgeStateIndexFileName = "visible-badge-state-index.json";
+    private const int VisibleBadgeStateIndexVersion = 2;
     private static readonly TimeSpan VisibleBadgeCacheTtl = TimeSpan.FromMinutes(10);
     private static readonly string EmptyBadgeState = CreateBadgeStateFingerprint(Array.Empty<BadgeInfo>());
 
@@ -159,6 +160,11 @@ public class BadgeVisibilityService : IBadgeVisibilityService
         var totalWork = Math.Max(1, items.Count * imageTypes.Length);
         var completed = 0;
         var pendingEntries = new Dictionary<string, VisibleBadgeStateIndexEntry>(StringComparer.OrdinalIgnoreCase);
+        var forceRefreshExistingEntriesForIndexUpgrade = false;
+        lock (_indexLock)
+        {
+            forceRefreshExistingEntriesForIndexUpgrade = GetVisibleBadgeStateIndexLocked().Version < VisibleBadgeStateIndexVersion;
+        }
 
         foreach (var item in items)
         {
@@ -186,10 +192,12 @@ public class BadgeVisibilityService : IBadgeVisibilityService
                 }
 
                 pendingEntries[stableKey] = entry;
-                var shouldRefreshImageMetadata = oldEntry == null || !string.Equals(oldEntry.BadgeState, state.BadgeState, StringComparison.Ordinal);
+                var shouldRefreshImageMetadata = oldEntry == null
+                    || forceRefreshExistingEntriesForIndexUpgrade
+                    || !string.Equals(oldEntry.BadgeState, state.BadgeState, StringComparison.Ordinal);
                 if (shouldRefreshImageMetadata && changedCallback != null)
                 {
-                    await changedCallback(item, imageType, state, oldEntry == null, cancellationToken).ConfigureAwait(false);
+                    await changedCallback(item, imageType, state, oldEntry == null || forceRefreshExistingEntriesForIndexUpgrade, cancellationToken).ConfigureAwait(false);
                 }
 
                 completed++;
@@ -257,6 +265,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
         {
             _visibleBadgeStateIndex = new VisibleBadgeStateIndex
             {
+                Version = VisibleBadgeStateIndexVersion,
                 Entries = entries,
                 CompletedUtcTicks = DateTime.UtcNow.Ticks
             };
@@ -773,7 +782,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
 
     private sealed class VisibleBadgeStateIndex
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = VisibleBadgeStateIndexVersion;
 
         public Dictionary<string, VisibleBadgeStateIndexEntry> Entries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
