@@ -18,6 +18,7 @@ public class ImageCacheService : IImageCacheService
 
     private const string CacheIndexFileName = "cache-index.json";
     private const string CacheMetadataFolderName = "metadata";
+    private const int RequestCacheEntryVersion = 2;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ImageCacheService"/> class.
@@ -55,6 +56,13 @@ public class ImageCacheService : IImageCacheService
             {
                 return Task.FromResult<CachedImageFile?>(null);
             }
+
+            if (requestEntry.Version < RequestCacheEntryVersion)
+            {
+                index.RequestEntries.Remove(requestCacheKey);
+                SaveCacheIndexLocked();
+                return Task.FromResult<CachedImageFile?>(null);
+            }
         }
 
         var cachedFile = TryGetCachedFile(itemId, requestEntry.BadgeKey, requestEntry.ImageTag, requestEntry.BadgeState, allowExpiredValidation: false);
@@ -83,6 +91,7 @@ public class ImageCacheService : IImageCacheService
             {
                 index.RequestEntries[requestCacheKey] = new RequestCacheIndexEntry
                 {
+                    Version = RequestCacheEntryVersion,
                     ItemId = itemId.ToString("N"),
                     BadgeKey = badgeKey,
                     ImageTag = imageTag,
@@ -886,6 +895,8 @@ public class ImageCacheService : IImageCacheService
         public RequestCacheIndexEntry()
         {
         }
+
+        public int Version { get; set; }
 
         public string ItemId { get; set; } = string.Empty;
 
