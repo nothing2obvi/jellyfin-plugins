@@ -54,6 +54,12 @@ public interface IImageCacheService
     void SetRequestCacheEntries(IEnumerable<string> requestCacheKeys, Guid itemId, string badgeKey, string imageTag, string badgeState);
 
     /// <summary>
+    /// Removes one learned request-level cache key.
+    /// </summary>
+    /// <param name="requestCacheKey">The request-level cache key.</param>
+    void RemoveRequestCacheEntry(string requestCacheKey);
+
+    /// <summary>
     /// Gets a cached image file if available and not expired.
     /// </summary>
     /// <param name="itemId">The item ID.</param>

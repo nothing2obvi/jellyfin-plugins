@@ -18,6 +18,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<IQualityDetectionService, QualityDetectionService>();
+        serviceCollection.AddSingleton<IBadgeVisibilityService, BadgeVisibilityService>();
         serviceCollection.AddSingleton<IImageOverlayService, ImageOverlayService>();
         serviceCollection.AddSingleton<IImageCacheService, ImageCacheService>();
         serviceCollection.AddSingleton<IImageTrafficCoordinator, ImageTrafficCoordinator>();

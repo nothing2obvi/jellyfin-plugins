@@ -28,6 +28,22 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
+        "version": "1.51.32.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds durable visible badge state validation so stale cached overlays are rejected when badge state changes, and lets the badge status index task refresh changed Jellyfin image metadata when Force Image Refresh is enabled.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.32.0.zip",
+        "checksum": "7fdf570752335778545cc56e1b875ee8",
+        "timestamp": "2026-07-27T00:00:00Z"
+      },
+      {
+        "version": "1.52.28.0",
+        "changelog": "Adds durable visible badge state validation so stale cached overlays are rejected when badge state changes, and lets the badge status index task refresh changed Jellyfin image metadata when Force Image Refresh is enabled.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.28.0-jellyfin12.zip",
+        "checksum": "6665b057617adef7b58530db730d34ea",
+        "timestamp": "2026-07-27T00:00:00Z"
+      },
+      {
         "version": "1.51.31.0",
         "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Lets seasons and episodes inherit collection badge matches from their parent series.",
         "targetAbi": "10.11.0.0",

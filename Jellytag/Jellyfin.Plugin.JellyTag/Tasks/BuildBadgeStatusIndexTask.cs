@@ -1,4 +1,6 @@
 using Jellyfin.Plugin.JellyTag.Services;
+using Jellyfin.Plugin.JellyTag.Middleware;
+using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -10,15 +12,17 @@ namespace Jellyfin.Plugin.JellyTag.Tasks;
 public class BuildBadgeStatusIndexTask : IScheduledTask
 {
     private static int _isRunning;
-    private readonly IQualityDetectionService _qualityDetectionService;
+    private readonly IBadgeVisibilityService _badgeVisibilityService;
+    private readonly IProviderManager _providerManager;
     private readonly ILogger<BuildBadgeStatusIndexTask> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BuildBadgeStatusIndexTask"/> class.
     /// </summary>
-    public BuildBadgeStatusIndexTask(IQualityDetectionService qualityDetectionService, ILogger<BuildBadgeStatusIndexTask> logger)
+    public BuildBadgeStatusIndexTask(IBadgeVisibilityService badgeVisibilityService, IProviderManager providerManager, ILogger<BuildBadgeStatusIndexTask> logger)
     {
-        _qualityDetectionService = qualityDetectionService;
+        _badgeVisibilityService = badgeVisibilityService;
+        _providerManager = providerManager;
         _logger = logger;
     }
 
@@ -62,8 +66,12 @@ public class BuildBadgeStatusIndexTask : IScheduledTask
         {
             progress.Report(1);
             _logger.LogInformation("Building JellyTag-Plus badge status index");
-            await _qualityDetectionService.RefreshBadgeStatusIndexAsync(
+            await _badgeVisibilityService.RefreshBadgeStatusIndexAsync(
                 percent => progress.Report(Math.Clamp(percent * 100, 1, 99)),
+                async (item, imageType, state, token) =>
+                {
+                    await ImageOverlayMiddleware.TryForceImageRefreshForStateAsync(item, imageType, state.BadgeState, state.HasVisibleBadges, _providerManager, _logger, token).ConfigureAwait(false);
+                },
                 cancellationToken).ConfigureAwait(false);
             progress.Report(100);
             _logger.LogInformation("Finished building JellyTag-Plus badge status index");

@@ -733,7 +733,8 @@ public class ImageCacheService : IImageCacheService
         }
     }
 
-    private void RemoveRequestCacheEntry(string requestCacheKey)
+    /// <inheritdoc />
+    public void RemoveRequestCacheEntry(string requestCacheKey)
     {
         lock (_lock)
         {
