@@ -1694,7 +1694,7 @@ public class CacheWarmTask : IScheduledTask
             ImageVariant.MaxWidth(GetPhase(OtherPhaseKey), 512, "native media artwork")
         };
 
-        return new ClientWarmupProfile("desktop", "Jellyfin Desktop", "Fixed native media artwork request from Jellyfin Desktop. Normal Desktop Qt browsing uses dynamic Jellyfin Web sizes.", primaryVariants, []);
+        return new ClientWarmupProfile("desktop", "Jellium Desktop", "Fixed native media artwork request from Jellium Desktop. Normal Desktop Qt browsing uses dynamic Jellyfin Web sizes.", primaryVariants, []);
     }
 
     private static ClientWarmupProfile CreateLearnedClientProfile(IReadOnlyList<LearnedClientVariant> learnedVariants)
