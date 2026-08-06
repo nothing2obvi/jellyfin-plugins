@@ -198,7 +198,6 @@ public class ImageCacheService : IImageCacheService
             SetCacheIndexEntry(cacheKey, cacheFilePath);
         }
 
-        TryWriteCacheMetadata(cacheKey, cacheFilePath, badgeState, fileInfo);
         _logger.LogDebug("Cache file hit for item {ItemId}", itemId);
         return new CachedImageFile(cacheFilePath, GetContentType(), fileInfo.Length, badgeState);
     }
@@ -664,7 +663,7 @@ public class ImageCacheService : IImageCacheService
                 CreatedUtcTicks = fileInfo.Exists ? fileInfo.CreationTimeUtc.Ticks : now.Ticks,
                 LastValidatedUtcTicks = (validatedUtc ?? now).Ticks
             };
-            var tempPath = path + ".tmp";
+            var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
             File.WriteAllText(tempPath, JsonSerializer.Serialize(metadata));
             File.Move(tempPath, path, overwrite: true);
         }
