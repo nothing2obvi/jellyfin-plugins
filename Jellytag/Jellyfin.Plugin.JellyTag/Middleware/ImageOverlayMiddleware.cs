@@ -60,6 +60,9 @@ public partial class ImageOverlayMiddleware
     [GeneratedRegex(@"/Items/([0-9a-f]{32}|[0-9a-f-]{36})/Images/(Primary|Thumb)(/\d+)?$", RegexOptions.IgnoreCase)]
     private static partial Regex ImagePathRegex();
 
+    [GeneratedRegex(@"/Items/([0-9a-f]{32}|[0-9a-f-]{36})/Images/([^/?]+)(/\d+)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex JellyfinImagePathRegex();
+
     public ImageOverlayMiddleware(RequestDelegate next, ILogger<ImageOverlayMiddleware> logger)
     {
         _next = next;
@@ -101,6 +104,14 @@ public partial class ImageOverlayMiddleware
             return;
         }
 
+        var isJellyfinImageRequest = JellyfinImagePathRegex().IsMatch(path);
+        var isWarmupRequest = IsWarmupRequest(context.Request.Query);
+        var isCompletionCheckRequest = IsCompletionCheckRequest(context.Request.Query);
+        var isRealClientImageRequest = isJellyfinImageRequest && !isWarmupRequest && !isCompletionCheckRequest;
+        using var clientImageActivity = isRealClientImageRequest
+            ? trafficCoordinator.BeginClientImageActivity()
+            : null;
+
         var match = ImagePathRegex().Match(path);
         if (!match.Success)
         {
@@ -123,13 +134,9 @@ public partial class ImageOverlayMiddleware
 
         var itemIdStr = match.Groups[1].Value;
         var imageType = match.Groups[2].Value;
-        var isWarmupRequest = IsWarmupRequest(context.Request.Query);
-        var isCompletionCheckRequest = IsCompletionCheckRequest(context.Request.Query);
-        var isRealClientImageRequest = !isWarmupRequest && !isCompletionCheckRequest;
 
         if (isRealClientImageRequest)
         {
-            trafficCoordinator.NotifyClientImageRequest();
             NotifyRecentCompletionRequest();
         }
 

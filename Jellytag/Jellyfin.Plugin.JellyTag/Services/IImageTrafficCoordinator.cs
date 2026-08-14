@@ -6,12 +6,17 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 public interface IImageTrafficCoordinator
 {
     /// <summary>
-    /// Records a normal client image request.
+    /// Records a normal client image request without tracking active work.
     /// </summary>
     void NotifyClientImageRequest();
 
     /// <summary>
-    /// Waits until no normal client image requests have been seen for the configured quiet period.
+    /// Records active normal client image work until the returned scope is disposed.
+    /// </summary>
+    IDisposable BeginClientImageActivity();
+
+    /// <summary>
+    /// Waits until no normal client image activity has been active or seen for the configured quiet period.
     /// </summary>
     Task WaitForClientQuietPeriodAsync(TimeSpan quietPeriod, CancellationToken cancellationToken);
 }
