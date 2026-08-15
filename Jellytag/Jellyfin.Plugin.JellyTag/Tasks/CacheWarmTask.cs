@@ -9,6 +9,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -80,6 +81,7 @@ public class CacheWarmTask : IScheduledTask
 
     private readonly ILibraryManager _libraryManager;
     private readonly IServerApplicationHost _applicationHost;
+    private readonly ISessionManager _sessionManager;
     private readonly IImageTrafficCoordinator _trafficCoordinator;
     private readonly ILearnedClientProfileService _learnedClientProfileService;
     private readonly IImageCacheService _cacheService;
@@ -88,6 +90,7 @@ public class CacheWarmTask : IScheduledTask
     public CacheWarmTask(
         ILibraryManager libraryManager,
         IServerApplicationHost applicationHost,
+        ISessionManager sessionManager,
         IImageTrafficCoordinator trafficCoordinator,
         ILearnedClientProfileService learnedClientProfileService,
         IImageCacheService cacheService,
@@ -95,6 +98,7 @@ public class CacheWarmTask : IScheduledTask
     {
         _libraryManager = libraryManager;
         _applicationHost = applicationHost;
+        _sessionManager = sessionManager;
         _trafficCoordinator = trafficCoordinator;
         _learnedClientProfileService = learnedClientProfileService;
         _cacheService = cacheService;
@@ -152,6 +156,7 @@ public class CacheWarmTask : IScheduledTask
         var maxConcurrency = Math.Clamp(config.WarmerMaxConcurrency <= 0 ? 1 : config.WarmerMaxConcurrency, 1, 8);
         var delayMs = Math.Clamp(config.WarmerDelayMs, 0, 10000);
         var quietPeriod = TimeSpan.FromSeconds(Math.Clamp(config.WarmerClientQuietSeconds, 0, 120));
+        var pauseDuringPlayback = config.WarmerPauseDuringPlayback;
 
         foreach (var bucket in executionBuckets)
         {
@@ -230,8 +235,9 @@ public class CacheWarmTask : IScheduledTask
                             var request = remainingClientRequests[requestIndex];
                             try
                             {
-                                await WaitForClientQuietPeriodWithProgressAsync(
+                                await WaitForWarmupWindowWithProgressAsync(
                                     quietPeriod,
+                                    pauseDuringPlayback,
                                     progress,
                                     () => completedClientBuckets,
                                     totalClientBuckets,
@@ -338,8 +344,9 @@ public class CacheWarmTask : IScheduledTask
         }
     }
 
-    private async Task WaitForClientQuietPeriodWithProgressAsync(
+    private async Task WaitForWarmupWindowWithProgressAsync(
         TimeSpan quietPeriod,
+        bool pauseDuringPlayback,
         IProgress<double> progress,
         Func<int> getCompletedBuckets,
         int totalBuckets,
@@ -347,18 +354,43 @@ public class CacheWarmTask : IScheduledTask
         int totalInBucket,
         CancellationToken cancellationToken)
     {
-        if (quietPeriod <= TimeSpan.Zero)
+        while (true)
         {
-            return;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var waitTask = _trafficCoordinator.WaitForClientQuietPeriodAsync(quietPeriod, cancellationToken);
-        while (await Task.WhenAny(waitTask, Task.Delay(ProgressHeartbeatInterval, cancellationToken)).ConfigureAwait(false) != waitTask)
-        {
-            ReportWarmupProgress(progress, getCompletedBuckets(), totalBuckets, getCompletedInBucket(), totalInBucket);
-        }
+            if (pauseDuringPlayback)
+            {
+                while (HasActivePlayback())
+                {
+                    ReportWarmupProgress(progress, getCompletedBuckets(), totalBuckets, getCompletedInBucket(), totalInBucket);
+                    await Task.Delay(ProgressHeartbeatInterval, cancellationToken).ConfigureAwait(false);
+                }
+            }
 
-        await waitTask.ConfigureAwait(false);
+            if (quietPeriod > TimeSpan.Zero)
+            {
+                var waitTask = _trafficCoordinator.WaitForClientQuietPeriodAsync(quietPeriod, cancellationToken);
+                while (await Task.WhenAny(waitTask, Task.Delay(ProgressHeartbeatInterval, cancellationToken)).ConfigureAwait(false) != waitTask)
+                {
+                    ReportWarmupProgress(progress, getCompletedBuckets(), totalBuckets, getCompletedInBucket(), totalInBucket);
+                }
+
+                await waitTask.ConfigureAwait(false);
+            }
+
+            if (!pauseDuringPlayback || !HasActivePlayback())
+            {
+                return;
+            }
+        }
+    }
+
+    private bool HasActivePlayback()
+    {
+        return _sessionManager.Sessions.Any(session =>
+            session.NowPlayingItem != null
+            && session.PlayState != null
+            && !session.PlayState.IsPaused);
     }
 
     private static void ReportWarmupProgress(IProgress<double> progress, int completedBuckets, int totalBuckets, int completedInBucket = 0, int totalInBucket = 0)

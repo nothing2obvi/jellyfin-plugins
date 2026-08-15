@@ -28,6 +28,22 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
+        "version": "1.51.41.0",
+        "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds an option to pause the cache warmer while any Jellyfin session is actively playing media.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.41.0.zip",
+        "checksum": "fa75b401ddfff67c1934267607acd0b4",
+        "timestamp": "2026-08-15T00:00:00Z"
+      },
+      {
+        "version": "1.52.37.0",
+        "changelog": "Adds an option to pause the cache warmer while any Jellyfin session is actively playing media.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.37.0-jellyfin12.zip",
+        "checksum": "23c010f6e5bd9a0a3d15efd4ef126b08",
+        "timestamp": "2026-08-15T00:00:00Z"
+      },
+      {
         "version": "1.51.40.0",
         "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Makes the cache warmer quiet window wait for real client image activity to finish, including non-badged Jellyfin image requests.",
         "targetAbi": "10.11.0.0",

@@ -172,6 +172,7 @@ public class PluginConfiguration : BasePluginConfiguration
         WarmerMaxConcurrency = 1;
         WarmerDelayMs = 5000;
         WarmerClientQuietSeconds = 120;
+        WarmerPauseDuringPlayback = false;
         WarmerClientProfiles = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned" };
         WarmerClientProfileOrder = new List<string> { "androidtv", "roku", "streamyfin", "wholphin", "moonfin-mobile-desktop", "moonfin-tvos", "moonfin-smart-tv", "moonfin-roku", "dune", "swiftfin", "desktop", "findroid", "learned" };
         JpegQuality = 90;
@@ -205,6 +206,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public int WarmerMaxConcurrency { get; set; }
     public int WarmerDelayMs { get; set; }
     public int WarmerClientQuietSeconds { get; set; }
+    public bool WarmerPauseDuringPlayback { get; set; }
     public List<string> WarmerClientProfiles { get; set; }
     public List<string> WarmerClientProfileOrder { get; set; }
     public int JpegQuality { get; set; }
