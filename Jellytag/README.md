@@ -92,6 +92,8 @@ The **Learned Clients** profile is enabled by default and placed last on new ins
 
 Because **Learned Clients** is last by default, its **Home & Libraries** phase runs after fixed client Home and Libraries phases. Move it higher in the profile order if you want learned variants to run earlier within that phase. Newly learned variants are not added to a cache warmer run that is already in progress. Restart the **JellyTag-Plus Cache Warmer** scheduled task to have a running warmup pick up variants learned while users were browsing.
 
+Learned variants and counters update in memory immediately and are saved in the background every 30 seconds, with a final flush on normal server shutdown. An abrupt server stop can lose the most recent unsaved learning updates, but existing cached images are unaffected.
+
 A scheduled task named **JellyTag-Plus Clear Learned Client Profile** clears learned variants. Learned variants do not expire automatically.
 
 Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
@@ -110,13 +112,13 @@ Warmer throttling is configurable:
 
 Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
 
-The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. While the warmer is running and enough recent completions exist, each phase can also show a compact approximate ETA. This is based on variants completed by the cache warmer plus matching variants completed by normal client browsing. **Learned Clients** progress is dynamic and can decrease when new real client image sizes are discovered, because the total amount of learned work has grown.
+The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. While the warmer is running and enough recent completions exist, each phase can also show a compact approximate ETA. This is based on variants completed by the cache warmer, including browsing-created cache entries discovered by its cache pre-pass. Normal browsing no longer reads or writes the warmer progress ledger for each image. **Learned Clients** progress is dynamic and can decrease when new real client image sizes are discovered, because the total amount of learned work has grown.
 
 Progress counts and total cache file/size counts are calculated by a separate scheduled task named **JellyTag-Plus Calculate Progress and Totals**. This is deliberate: estimating per-client progress and counting large cache folders can require walking enabled libraries, client variants, warmer state, cache shortcut data, and cache files, which can be heavy on large Jellyfin servers. Keeping this work as a scheduled task prevents opening or refreshing the plugin page from locking up Jellyfin. The scheduled task updates saved progress as it works through client profiles and counts cache totals in small batches, so the plugin page can read the most recent calculated progress and totals without doing the heavy scan itself.
 
 > **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. The Learned Clients profile can grow large on servers with many clients or dynamic image sizes because there is no built-in variant cap. This can make clients faster after warming, but plugin cache storage and warmer work may become quite large. Use it deliberately and keep an eye on disk usage.
 
-**Normal Render Max Concurrency** limits how many uncached JellyTag-Plus image overlays can render at once during normal browsing. Cache hits are not throttled. The default is `2`; lowering it to `1` can make browsing feel steadier on slower or busier servers, while higher values may finish uncached pages faster if the server has enough CPU and disk headroom.
+**Normal Render Max Concurrency** limits how many uncached JellyTag-Plus image overlays can render at once during normal browsing. Cache hits are not throttled. Render slots are released as soon as overlay rendering finishes, before cache persistence and client transfer. Parsed SVG badges are reused across output sizes, and image streams avoid redundant full-buffer copies. The default is `2`; lowering it to `1` can make browsing feel steadier on slower or busier servers, while higher values may finish uncached pages faster if the server has enough CPU and disk headroom.
 
 The scheduled task **JellyTag-Plus Build Badge Status Index** prebuilds detected badge status for media items so normal browsing and warmer requests can reuse that work instead of repeatedly checking metadata and collection membership. The task runs gently in small batches so it does not monopolize Jellyfin. Once you are done setting up badge configuration, run this task before requesting images or running the warmer so JellyTag-Plus can reuse precomputed badge status right away. Newly added or changed items still work before the task runs: JellyTag-Plus detects that one item on demand and writes the result into the index. Run this task after changing Jellyfin collections or badge rules if you want JellyTag-Plus to see those changes immediately; otherwise the index refreshes during the task's next scheduled run or after JellyTag-Plus clears its badge detection cache.
 
@@ -240,3 +242,7 @@ JellyTag-Plus intercepts Jellyfin image requests for supported image types, dete
 ## License
 
 MIT License
+
+## Regression checks
+
+With the .NET 10 SDK installed, run `dotnet run --project tests/JellyTag.RegressionTests.csproj -c Release` from the Jellytag directory. This checks learned-profile batching, concurrent persistence, clear/retry/shutdown behavior, and SVG rendering across sizes and reloads.

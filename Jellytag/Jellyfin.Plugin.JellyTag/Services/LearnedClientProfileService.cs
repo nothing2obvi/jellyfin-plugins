@@ -13,13 +13,16 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 /// <summary>
 /// Persists image variants learned from real client requests.
 /// </summary>
-public class LearnedClientProfileService : ILearnedClientProfileService
+public class LearnedClientProfileService : ILearnedClientProfileService, IDisposable
 {
     private const string StateFileName = "learned-client-profile.json";
     private static readonly string[] DimensionQueryKeys = ["width", "height", "maxWidth", "maxHeight", "fillWidth", "fillHeight"];
     private static readonly string[] PreservedQueryKeys = ["quality"];
     private readonly ILogger<LearnedClientProfileService> _logger;
     private readonly object _lock = new();
+    private readonly object _persistenceLock = new();
+    private readonly Timer _flushTimer;
+    private bool _dirty;
     private readonly string _statePath;
     private LearnedClientProfileState? _state;
     private bool _loaded;
@@ -32,6 +35,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         _logger = logger;
         var cachePath = Plugin.Instance?.CacheFolderPath ?? Path.Combine(Path.GetTempPath(), "JellyTag", "cache");
         _statePath = Path.Combine(cachePath, StateFileName);
+        _flushTimer = new Timer(_ => FlushPendingChanges(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
     /// <inheritdoc />
@@ -62,7 +66,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
                     : existing.FirstSeenUtcTicks;
                 existing.SeenCount = Math.Max(1, existing.SeenCount) + 1;
                 ApplyBetterSource(existing, source);
-                SaveLocked();
+                _dirty = true;
                 return;
             }
 
@@ -86,7 +90,7 @@ public class LearnedClientProfileService : ILearnedClientProfileService
                 FirstSeenUtcTicks = nowTicks,
                 LastSeenUtcTicks = nowTicks
             };
-            SaveLocked();
+            _dirty = true;
         }
     }
 
@@ -134,10 +138,15 @@ public class LearnedClientProfileService : ILearnedClientProfileService
     /// <inheritdoc />
     public void Clear()
     {
-        lock (_lock)
+        // Serialize clear with flush so an older snapshot cannot restore cleared data.
+        lock (_persistenceLock)
         {
-            _state = new LearnedClientProfileState();
-            _loaded = true;
+            lock (_lock)
+            {
+                _state = new LearnedClientProfileState();
+                _loaded = true;
+                _dirty = false;
+            }
             TryDelete(_statePath);
             foreach (var tempFile in GetTemporaryStateFiles())
             {
@@ -179,24 +188,43 @@ public class LearnedClientProfileService : ILearnedClientProfileService
         return _state;
     }
 
-    private void SaveLocked()
+    public void Dispose()
     {
-        var directory = Path.GetDirectoryName(_statePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _flushTimer.Dispose();
+        FlushPendingChanges();
+    }
 
-        var tempPath = $"{_statePath}.{Guid.NewGuid():N}.tmp";
-        try
+    private void FlushPendingChanges()
+    {
+        lock (_persistenceLock)
         {
-            File.WriteAllText(tempPath, JsonSerializer.Serialize(GetStateLocked(), new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(tempPath, _statePath, overwrite: true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to write JellyTag-Plus learned client profile");
-            TryDelete(tempPath);
+            var tempPath = $"{_statePath}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                LearnedClientProfileState snapshot;
+                lock (_lock)
+                {
+                    if (!_dirty) return;
+                    var state = GetStateLocked();
+                    snapshot = new LearnedClientProfileState
+                    {
+                        Version = state.Version,
+                        Variants = state.Variants.ToDictionary(pair => pair.Key, pair => pair.Value.Snapshot(), StringComparer.Ordinal)
+                    };
+                    _dirty = false;
+                }
+
+                // Requests may keep updating in-memory counters while serialization and I/O run.
+                Directory.CreateDirectory(Path.GetDirectoryName(_statePath)!);
+                File.WriteAllText(tempPath, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tempPath, _statePath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                lock (_lock) { _dirty = true; }
+                _logger.LogWarning(ex, "Failed to write JellyTag-Plus learned client profile; will retry");
+                TryDelete(tempPath);
+            }
         }
     }
 
@@ -490,6 +518,9 @@ public class LearnedClientProfileService : ILearnedClientProfileService
 
     private sealed class LearnedClientVariantEntry
     {
+        // Query is assigned once and never mutated; all remaining fields are value types or strings.
+        public LearnedClientVariantEntry Snapshot() => (LearnedClientVariantEntry)MemberwiseClone();
+
         public string ImageType { get; set; } = "Primary";
 
         public string PhaseKey { get; set; } = CacheWarmTask.HomeLibrariesPhaseKey;

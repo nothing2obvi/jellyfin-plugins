@@ -28,6 +28,22 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
+        "version": "1.51.42.0",
+        "changelog": "Speed up cached images by removing per-request warmer ledger I/O, batching learned-profile saves, and checking exact cache hits first. Speed up new renders by releasing render slots before cache writes/client transfers, reusing parsed SVGs, and avoiding image-buffer copies. Existing image caches remain compatible.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.42.0.zip",
+        "checksum": "8822e426dfb28749c68cb720c6d793c1",
+        "timestamp": "2026-09-23T00:00:00Z"
+      },
+      {
+        "version": "1.52.38.0",
+        "changelog": "Speed up cached images by removing per-request warmer ledger I/O, batching learned-profile saves, and checking exact cache hits first. Speed up new renders by releasing render slots before cache writes/client transfers, reusing parsed SVGs, and avoiding image-buffer copies. Existing image caches remain compatible.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.38.0-jellyfin12.zip",
+        "checksum": "bc841a59e6d580c1b4492bf1cc35636d",
+        "timestamp": "2026-09-23T00:00:00Z"
+      },
+      {
         "version": "1.51.41.0",
         "changelog": "Final Jellyfin 10.11-supported JellyTag-Plus release. Adds an option to pause the cache warmer while any Jellyfin session is actively playing media.",
         "targetAbi": "10.11.0.0",

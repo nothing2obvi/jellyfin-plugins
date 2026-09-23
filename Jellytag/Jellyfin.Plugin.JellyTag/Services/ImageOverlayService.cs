@@ -17,6 +17,8 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
     private readonly ConcurrentDictionary<string, byte[]> _svgCache = new();
     private readonly ConcurrentDictionary<string, SKBitmap?> _rasterCache = new();
     private readonly ConcurrentDictionary<string, SKBitmap> _svgRasterCache = new();
+    // Accessed under _svgRasterCacheLock; retain the parsed SVG across raster sizes.
+    private readonly Dictionary<string, SKSvg> _parsedSvgCache = new();
     private readonly ConcurrentDictionary<string, float> _svgAspectRatioCache = new();
     private readonly ConcurrentDictionary<string, List<SKPointI>> _positionCache = new();
     private readonly object _svgRasterCacheLock = new();
@@ -264,12 +266,10 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
             var encodeFormat = outputFormat == OutputImageFormat.WebP ? SKEncodedImageFormat.Webp : SKEncodedImageFormat.Jpeg;
             var encodeQuality = outputFormat == OutputImageFormat.WebP ? Math.Clamp(config.WebPQuality, 1, 100) : jpegQuality;
             var contentType = outputFormat == OutputImageFormat.WebP ? "image/webp" : "image/jpeg";
-            using var data = resultImage.Encode(encodeFormat, encodeQuality);
-
-            var outputStream = new MemoryStream();
-            data.SaveTo(outputStream);
-            outputStream.Position = 0;
-            return (outputStream, contentType);
+            var data = resultImage.Encode(encodeFormat, encodeQuality)
+                ?? throw new InvalidOperationException("Failed to encode badge overlay image.");
+            // The caller owns the stream, which also owns the encoded native buffer.
+            return (data.AsStream(streamDisposesData: true), contentType);
         }
         finally
         {
@@ -577,14 +577,8 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
         }
     }
 
-    private static SKBitmap? RasterizeSvg(byte[] svgBytes, int targetWidth, int targetHeight)
+    private static SKBitmap RasterizeSvg(SKPicture picture, int targetWidth, int targetHeight)
     {
-        using var svg = new SKSvg();
-        using var stream = new MemoryStream(svgBytes);
-        svg.Load(stream);
-        var picture = svg.Picture;
-        if (picture == null) return null;
-
         var bitmap = new SKBitmap(targetWidth, targetHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.Transparent);
@@ -995,12 +989,29 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
                 return cached;
             }
 
-            var rasterized = RasterizeSvg(svgBytes, badgeWidth, badgeHeight);
-            if (rasterized == null)
+            if (!_parsedSvgCache.TryGetValue(resourceFileName, out var svg))
             {
-                return null;
+                svg = new SKSvg();
+                try
+                {
+                    using var stream = new MemoryStream(svgBytes, writable: false);
+                    svg.Load(stream);
+                    if (svg.Picture == null)
+                    {
+                        svg.Dispose();
+                        return null;
+                    }
+
+                    _parsedSvgCache.Add(resourceFileName, svg);
+                }
+                catch
+                {
+                    svg.Dispose();
+                    throw;
+                }
             }
 
+            var rasterized = RasterizeSvg(svg.Picture!, badgeWidth, badgeHeight);
             _svgRasterCache[cacheKey] = rasterized;
             return rasterized;
         }
@@ -1016,6 +1027,12 @@ public class ImageOverlayService : IImageOverlayService, IDisposable
             }
 
             _svgRasterCache.Clear();
+            foreach (var svg in _parsedSvgCache.Values)
+            {
+                svg.Dispose();
+            }
+
+            _parsedSvgCache.Clear();
         }
     }
 
