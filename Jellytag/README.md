@@ -134,7 +134,7 @@ This feature is intentionally more invasive than normal rendering. Keep image ba
 
 ## Jellyfin Compatibility
 
-JellyTag-Plus `1.51.35.0` is the final Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
+JellyTag-Plus `1.51.43.0` is the current Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
 
 JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
 

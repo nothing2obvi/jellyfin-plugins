@@ -28,6 +28,22 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
+        "version": "1.51.43.0",
+        "changelog": "Reduce uncached image request overhead by batching image-cache and badge-status index writes every 30 seconds. Index changes are available immediately in memory, with background persistence, retry on failure, and a final flush on normal shutdown. Existing image caches remain compatible.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.43.0.zip",
+        "checksum": "439d6569521b80a6fbc4c7c8b182e878",
+        "timestamp": "2026-09-29T00:00:00Z"
+      },
+      {
+        "version": "1.52.39.0",
+        "changelog": "Reduce uncached image request overhead by batching image-cache and badge-status index writes every 30 seconds. Index changes are available immediately in memory, with background persistence, retry on failure, and a final flush on normal shutdown. Existing image caches remain compatible.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.39.0-jellyfin12.zip",
+        "checksum": "d9e9007fca6352a01ec12ff185c85491",
+        "timestamp": "2026-09-29T00:00:00Z"
+      },
+      {
         "version": "1.51.42.0",
         "changelog": "Speed up cached images by removing per-request warmer ledger I/O, batching learned-profile saves, and checking exact cache hits first. Speed up new renders by releasing render slots before cache writes/client transfers, reusing parsed SVGs, and avoiding image-buffer copies. Existing image caches remain compatible.",
         "targetAbi": "10.11.0.0",
