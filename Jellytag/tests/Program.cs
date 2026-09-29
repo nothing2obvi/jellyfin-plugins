@@ -13,6 +13,7 @@ var root = Path.Combine(Path.GetTempPath(), "jellytag-regression-" + Guid.NewGui
 Directory.CreateDirectory(root);
 try
 {
+    await TestImageMutationPassthrough();
     TestProfilePersistence();
     await TestRendering();
     await IndexPersistenceTests.Run(root);
@@ -122,4 +123,34 @@ async Task TestRendering()
     var reloaded = await Render(320);
     Check(first.SequenceEqual(reloaded), "Reload changed rendering");
     Console.WriteLine("PASS: concurrent rendering, SVG reuse/reload, seekable encoded-stream lifetime, stable output");
+}
+
+async Task TestImageMutationPassthrough()
+{
+    foreach (var method in new[] { "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTIONS" })
+    foreach (var imagePath in new[] { "Primary", "Primary/0", "Thumb" })
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.Path = "/Items/65c7227568403c38e069a5e58af11a99/Images/" + imagePath;
+        context.Request.ContentType = "image/jpeg";
+        var payload = Convert.ToBase64String(new byte[] { 1, 2, 3, 4 });
+        context.Request.Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(payload));
+        var calls = 0;
+        var middleware = new Jellyfin.Plugin.JellyTag.Middleware.ImageOverlayMiddleware(async ctx =>
+        {
+            calls++;
+            Check(ctx.Request.Body.Position == 0, "Upload body was consumed by JellyTag");
+            using var reader = new StreamReader(ctx.Request.Body, leaveOpen: true);
+            Check(await reader.ReadToEndAsync() == payload, "Upload body changed");
+            Check(ctx.Request.ContentType == "image/jpeg", "Upload content type changed");
+            ctx.Response.StatusCode = 204;
+            ctx.Response.Headers["X-Passthrough"] = "yes";
+        }, NullLogger<Jellyfin.Plugin.JellyTag.Middleware.ImageOverlayMiddleware>.Instance);
+        // Null dependencies deliberately fail if any overlay/cache/traffic work runs.
+        await middleware.InvokeAsync(context, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        Check(calls == 1 && context.Response.StatusCode == 204 && context.Response.Headers["X-Passthrough"] == "yes",
+            "Non-GET image request did not preserve the downstream response");
+    }
+    Console.WriteLine("PASS: image uploads/deletions and other non-GET requests bypass all overlay work with intact bodies and responses");
 }

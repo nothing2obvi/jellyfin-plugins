@@ -28,6 +28,22 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/Jellytag/JellyTag-Plus.png",
     "versions": [
       {
+        "version": "1.51.44.0",
+        "changelog": "Fix interference with Maintainerr and other artwork uploads: only process GET image requests, passing uploads, deletions, and other HTTP methods directly to Jellyfin. Existing image rendering and cache optimizations are preserved. Restart Jellyfin after updating, then rerun Maintainerr overlays.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.51.44.0.zip",
+        "checksum": "df5fdaef4d55d47a489cb60e33b76b65",
+        "timestamp": "2026-09-29T00:00:00Z"
+      },
+      {
+        "version": "1.52.40.0",
+        "changelog": "Fix interference with Maintainerr and other artwork uploads: only process GET image requests, passing uploads, deletions, and other HTTP methods directly to Jellyfin. Existing image rendering and cache optimizations are preserved. Restart Jellyfin after updating, then rerun Maintainerr overlays.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/jellytag-plus-1.52.40.0-jellyfin12.zip",
+        "checksum": "c5e90668ee6342d9bb45541e134180c1",
+        "timestamp": "2026-09-29T00:00:00Z"
+      },
+      {
         "version": "1.51.43.0",
         "changelog": "Reduce uncached image request overhead by batching image-cache and badge-status index writes every 30 seconds. Index changes are available immediately in memory, with background persistence, retry on failure, and a final flush on normal shutdown. Existing image caches remain compatible.",
         "targetAbi": "10.11.0.0",

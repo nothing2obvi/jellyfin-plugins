@@ -97,6 +97,14 @@ public partial class ImageOverlayMiddleware
         IAuthorizationContext authorizationContext,
         ISessionManager sessionManager)
     {
+        // Image uploads and deletions share these URLs with downloads. Never
+        // answer a mutation with a cached image or intercept its response.
+        if (!HttpMethods.IsGet(context.Request.Method))
+        {
+            await _next(context).ConfigureAwait(false);
+            return;
+        }
+
         var path = context.Request.Path.Value;
         if (path == null)
         {
