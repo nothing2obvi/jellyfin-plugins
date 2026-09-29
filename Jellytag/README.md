@@ -243,6 +243,8 @@ JellyTag-Plus intercepts Jellyfin image requests for supported image types, dete
 
 MIT License
 
+Image-cache and visible-badge indexes update in memory immediately and persist in batches every 30 seconds, with a final flush on normal shutdown. Image files themselves are still saved before a render is reported as cached. An abrupt server stop may lose the latest index updates; image-cache shortcuts are relearned as images are requested, and the badge status index can be refreshed with its scheduled task.
+
 ## Regression checks
 
-With the .NET 10 SDK installed, run `dotnet run --project tests/JellyTag.RegressionTests.csproj -c Release` from the Jellytag directory. This checks learned-profile batching, concurrent persistence, clear/retry/shutdown behavior, and SVG rendering across sizes and reloads.
+With the .NET 10 SDK installed, run `dotnet run --project tests/JellyTag.RegressionTests.csproj -c Release` from the Jellytag directory. This checks learned-profile batching, concurrent persistence, clear/retry/shutdown behavior, SVG rendering across sizes and reloads, and index batching with concurrent updates, clearing, retry, and shutdown.

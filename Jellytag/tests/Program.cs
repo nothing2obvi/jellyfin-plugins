@@ -15,6 +15,7 @@ try
 {
     TestProfilePersistence();
     await TestRendering();
+    await IndexPersistenceTests.Run(root);
     Console.WriteLine("PASS: all Jellytag regression checks");
 }
 finally { Directory.Delete(root, recursive: true); }

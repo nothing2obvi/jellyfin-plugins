@@ -8,11 +8,12 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 /// <summary>
 /// Service for caching modified images.
 /// </summary>
-public class ImageCacheService : IImageCacheService
+public class ImageCacheService : IImageCacheService, IDisposable
 {
     private readonly ILogger<ImageCacheService> _logger;
     private readonly string _cachePath;
     private readonly object _lock = new();
+    private readonly BatchedJsonWriter<CacheIndex> _indexWriter;
     private CacheIndex? _cacheIndex;
     private bool _cacheIndexLoaded;
 
@@ -28,6 +29,7 @@ public class ImageCacheService : IImageCacheService
         _logger = logger;
         _cachePath = Plugin.Instance?.CacheFolderPath ?? Path.Combine(Path.GetTempPath(), "JellyTag", "cache");
         EnsureCacheDirectoryExists();
+        _indexWriter = new BatchedJsonWriter<CacheIndex>(GetCacheIndexPath, SnapshotCacheIndex, _logger);
     }
 
     /// <inheritdoc />
@@ -60,7 +62,7 @@ public class ImageCacheService : IImageCacheService
             if (requestEntry.Version < RequestCacheEntryVersion)
             {
                 index.RequestEntries.Remove(requestCacheKey);
-                SaveCacheIndexLocked();
+                _indexWriter.MarkDirty();
                 return Task.FromResult<CachedImageFile?>(null);
             }
         }
@@ -101,7 +103,7 @@ public class ImageCacheService : IImageCacheService
                 };
             }
 
-            SaveCacheIndexLocked();
+            _indexWriter.MarkDirty();
         }
     }
 
@@ -278,10 +280,14 @@ public class ImageCacheService : IImageCacheService
     /// <inheritdoc />
     public void ClearCache()
     {
+        lock (_indexWriter.PersistenceLock)
         lock (_lock)
         {
             try
             {
+                _cacheIndex = new CacheIndex();
+                _cacheIndexLoaded = true;
+                _indexWriter.ResetPending();
                 if (Directory.Exists(_cachePath))
                 {
                     var jpgFiles = Directory.GetFiles(_cachePath, "*.jpg", SearchOption.AllDirectories);
@@ -320,8 +326,6 @@ public class ImageCacheService : IImageCacheService
                         }
                     }
 
-                    _cacheIndex = new CacheIndex();
-                    _cacheIndexLoaded = true;
                     _logger.LogInformation("Cleared {Count} cached images", files.Length);
                 }
             }
@@ -384,7 +388,7 @@ public class ImageCacheService : IImageCacheService
             if (removed > 0)
             {
                 PruneRequestEntriesLocked(index);
-                SaveCacheIndexLocked();
+                _indexWriter.MarkDirty();
                 _logger.LogDebug("Pruned {Count} stale JellyTag-Plus cache index entries", removed);
             }
         }
@@ -722,7 +726,7 @@ public class ImageCacheService : IImageCacheService
                 RelativePath = ToRelativePath(cachePath),
                 UpdatedUtcTicks = DateTime.UtcNow.Ticks
             };
-            SaveCacheIndexLocked();
+            _indexWriter.MarkDirty();
         }
     }
 
@@ -736,7 +740,7 @@ public class ImageCacheService : IImageCacheService
             if (removed)
             {
                 TryDeleteCacheMetadata(cacheKey);
-                SaveCacheIndexLocked();
+                _indexWriter.MarkDirty();
             }
         }
     }
@@ -749,7 +753,7 @@ public class ImageCacheService : IImageCacheService
             var index = GetCacheIndexLocked();
             if (index.RequestEntries.Remove(requestCacheKey))
             {
-                SaveCacheIndexLocked();
+                _indexWriter.MarkDirty();
             }
         }
     }
@@ -778,7 +782,7 @@ public class ImageCacheService : IImageCacheService
 
             if (removed)
             {
-                SaveCacheIndexLocked();
+                _indexWriter.MarkDirty();
             }
         }
     }
@@ -838,14 +842,21 @@ public class ImageCacheService : IImageCacheService
         }
     }
 
-    private void SaveCacheIndexLocked()
+    private CacheIndex SnapshotCacheIndex()
     {
-        EnsureCacheDirectoryExists();
-        var path = GetCacheIndexPath();
-        var tempPath = path + ".tmp";
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(GetCacheIndexLocked()));
-        File.Move(tempPath, path, overwrite: true);
+        lock (_lock)
+        {
+            var index = GetCacheIndexLocked();
+            return new CacheIndex
+            {
+                Version = index.Version,
+                Entries = new(index.Entries, StringComparer.OrdinalIgnoreCase),
+                RequestEntries = new(index.RequestEntries, StringComparer.OrdinalIgnoreCase)
+            };
+        }
     }
+
+    public void Dispose() => _indexWriter.Dispose();
 
     private string GetCacheIndexPath() => Path.Combine(_cachePath, CacheIndexFileName);
 

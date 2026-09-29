@@ -18,7 +18,7 @@ namespace Jellyfin.Plugin.JellyTag.Services;
 /// <summary>
 /// Resolves and indexes final JellyTag-Plus badge visibility for image requests.
 /// </summary>
-public class BadgeVisibilityService : IBadgeVisibilityService
+public class BadgeVisibilityService : IBadgeVisibilityService, IDisposable
 {
     private const string VisibleBadgeStateIndexFileName = "visible-badge-state-index.json";
     private const int VisibleBadgeStateIndexVersion = 2;
@@ -30,6 +30,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
     private readonly IImageOverlayService _overlayService;
     private readonly ILogger<BadgeVisibilityService> _logger;
     private readonly object _indexLock = new();
+    private readonly BatchedJsonWriter<VisibleBadgeStateIndex> _indexWriter;
     private readonly ConcurrentDictionary<string, VisibleBadgeCacheEntry> _visibleBadgeCache = new();
     private VisibleBadgeStateIndex? _visibleBadgeStateIndex;
     private bool _visibleBadgeStateIndexLoaded;
@@ -47,6 +48,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
         _qualityDetectionService = qualityDetectionService;
         _overlayService = overlayService;
         _logger = logger;
+        _indexWriter = new BatchedJsonWriter<VisibleBadgeStateIndex>(GetVisibleBadgeStateIndexPath, SnapshotVisibleBadgeStateIndex, _logger);
     }
 
     /// <inheritdoc />
@@ -255,7 +257,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
             }
 
             index.Entries[key] = entry;
-            SaveVisibleBadgeStateIndexLocked();
+            _indexWriter.MarkDirty();
         }
     }
 
@@ -270,7 +272,7 @@ public class BadgeVisibilityService : IBadgeVisibilityService
                 CompletedUtcTicks = DateTime.UtcNow.Ticks
             };
             _visibleBadgeStateIndexLoaded = true;
-            SaveVisibleBadgeStateIndexLocked();
+            _indexWriter.MarkDirty();
         }
     }
 
@@ -303,19 +305,21 @@ public class BadgeVisibilityService : IBadgeVisibilityService
         return _visibleBadgeStateIndex;
     }
 
-    private void SaveVisibleBadgeStateIndexLocked()
+    private VisibleBadgeStateIndex SnapshotVisibleBadgeStateIndex()
     {
-        var path = GetVisibleBadgeStateIndexPath();
-        if (string.IsNullOrWhiteSpace(path))
+        lock (_indexLock)
         {
-            return;
+            var index = GetVisibleBadgeStateIndexLocked();
+            return new VisibleBadgeStateIndex
+            {
+                Version = index.Version,
+                CompletedUtcTicks = index.CompletedUtcTicks,
+                Entries = new(index.Entries, StringComparer.OrdinalIgnoreCase)
+            };
         }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var tempPath = path + ".tmp";
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(GetVisibleBadgeStateIndexLocked()));
-        File.Move(tempPath, path, overwrite: true);
     }
+
+    public void Dispose() => _indexWriter.Dispose();
 
     private static string? GetVisibleBadgeStateIndexPath()
     {
