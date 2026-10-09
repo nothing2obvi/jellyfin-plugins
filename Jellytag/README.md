@@ -4,7 +4,7 @@
   <a href="https://ko-fi.com/yeahnoforsure_" target="_blank" rel="noopener noreferrer"><img src="../assets/support_me_on_kofi_blue.png" alt="Support me on Ko-fi" width="240" /></a>
 </p>
 
-JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It is a fork/continuation of the original plugin from [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins), renamed so it can live separately from the original plugin.
+JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It builds on the original plugin from [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins) and uses a separate name so both projects can coexist.
 
 > **Disclaimer:** The original plugins in [Atilil/jellyfin-plugins](https://github.com/Atilil/jellyfin-plugins) are described by their author as built from vibecoding; see [Atilil/jellyfin-plugins#17](https://github.com/Atilil/jellyfin-plugins/issues/17). The additional and modified features in JellyTag-Plus are also vibecoded.
 
@@ -12,239 +12,177 @@ JellyTag-Plus overlays quality, language, and collection badges on Jellyfin post
     <img src="JellyTag-Plus.png" alt="JellyTag-Plus" width="60%" />
 </p>
 
-## What Is Different
-
-JellyTag-Plus keeps the original server-side badge overlay idea and adds a lot of practical library-management behavior:
-
-- **Collection badges**: Add one or more collection rules. If an item belongs to a Jellyfin collection whose title matches your regex, it can receive that collection's badge.
-- **Custom collection images**: Each collection badge rule can use its own uploaded image.
-- **Badge targeting**: Badge panels can be enabled separately for posters, season posters, series/movie thumbnails, episode thumbnails, videos, and other supported image targets. Collection badge rules have the same target controls.
-- **Per-library badge controls**: Choose which badge categories each library gets: resolution, HDR, codec, audio, language, and collections.
-- **Expanded language flags**: Added and adjusted language flag assets, including `tgl` and `fil` mapping to `flag-fil.svg`.
-- **Undetermined language fallback**: Missing, unknown, or undetermined languages use `flag-und.svg` instead of falling back to text.
-- **Alphabetized language badges**: Language badges are rendered in stable alphabetical order.
-- **Series language aggregation**: Series-level language badges can reflect languages found across episodes.
-- **Force image refresh**: Optional refresh flow intended to help clients notice that artwork has changed.
-- **Aggressive cache warmer**: Scheduled task that pre-renders common image request variants used by major Jellyfin clients.
-
 ## Features
 
-- Resolution, HDR, video codec, audio, language flag, VOST, and collection badges
-- Server-side rendering through Jellyfin image middleware
-- Poster and thumbnail support
-- Per-panel controls for position, order, layout, size, margin, gap, style, and text colors
-- SVG/image badge mode and text badge mode
-- Custom badge uploads
-- Multiple collection rules with regex matching and custom images
-- Per-library badge category filtering
-- Config export/import
-- File-based image cache with configurable cache duration
-- Scheduled cache cleanup task
-- Scheduled cache warmer task
+- Resolution, HDR, video codec, audio, language, VOST, and collection badges
+- Server-side overlays for posters and thumbnails
+- Per-library badge categories and per-target controls for posters, season posters, series/movie thumbnails, episode thumbnails, videos, and other supported images
+- Configurable panel position, order, layout, size, spacing, and image or text style
+- Regex-based collection rules with custom images and placement
+- Alphabetized language flags, with series-level aggregation across episodes
+- Filipino flags for `tgl` and `fil`; `flag-und.svg` for missing or unknown languages
+- Config export/import, image caching, and scheduled cleanup and warmup tasks
 
-## Bypass Overlays
+## Installation and compatibility
 
-Image requests can include `?jellytag=off` to return the original Jellyfin image without JellyTag-Plus overlays. This per-request bypass is intended for export and archive tools such as [Pixelfin](https://github.com/nothing2obvi/pixelfin).
+1. Open **Dashboard → Plugins → Repositories** in Jellyfin.
+2. Add this repository URL:
+   ```text
+   https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json
+   ```
+3. Find **JellyTag-Plus** in **Catalog** and install it.
+4. Restart Jellyfin.
 
-Example:
+| Jellyfin | Plugin release line | Target ABI | Runtime |
+|----------|---------------------|------------|---------|
+| 10.11.x | 1.51.x (current: 1.51.44.0) | `10.11.0.0` | .NET 9 |
+| 12 | 1.52.x (current: 1.52.40.0) | `12.0.0.0` | .NET 10 |
+
+The runtime comes with Jellyfin. The Jellyfin 12 package uses `12.0.0-rc3` API packages and supports rc2/rc3. Jellyfin can update from the 1.51.x plugin line to 1.52.x when you upgrade the server.
+
+Existing cached images can be reused across a Jellyfin upgrade when the source image, request parameters, badge state, and plugin settings still match.
+
+## Configuration
+
+Open **Dashboard → Plugins → JellyTag-Plus**.
+
+### Global settings
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| Enable JellyTag-Plus | Enable overlays globally | Enabled |
+| Output Format | JPEG or WebP | JPEG |
+| JPEG Quality | Output image quality | 90 |
+| Cache Duration | Cache lifetime in hours; `0` keeps images indefinitely | 168 |
+| Validate Expired Cache Before Re-rendering | Reuse expired images when the source and badges are unchanged. Shortcut cache hits skip this metadata check. | Disabled |
+| Normal Render Max Concurrency | Simultaneous uncached renders during browsing; cache hits are not throttled | 2 |
+| Force Image Refresh | Help clients fetch updated artwork; see below | Disabled |
+| Excluded Libraries | Libraries to skip | None |
+
+A render concurrency of `1` may suit slower servers; higher values may help with uncached pages if CPU and storage have room. Render slots are released before cache writes and client transfers.
+
+### Poster and thumbnail settings
+
+Each image type has independent badge panels. Thumbnails can also mirror poster settings with a size reduction.
+
+| Setting | Description |
+|---------|-------------|
+| Enabled | Show or hide the category |
+| Position | Corner, border-center, or edge placement |
+| Layout | Horizontal or vertical stacking |
+| Style | Image or text badges |
+| Size % | Badge width as a percentage of the image |
+| Margin % | Distance from the edge |
+| Gap % | Space between badges |
+| Display Mode | Highest quality only, or all |
+| Order | Panel stacking order |
+| Text colors | Background, text color, opacity, and corner radius |
+
+### Collection badges
+
+Rules match **Jellyfin collection titles** using regex, not TMDB collection IDs. Custom collections are supported.
+
+Each rule has a badge key, regex, text label, optional uploaded image, position/layout overrides, and target toggles for posters, season posters, series thumbnails, episode thumbnails, videos, and other images.
+
+Rules use the shared Collection Badges style unless overridden. Matching badges at the same position stack in rule order. Left/top stacks follow normal order; right-aligned horizontal stacks extend left, and bottom-aligned vertical stacks extend upward.
+
+### Custom badges
+
+Replace default badge images or customize labels for text badges. Uploaded assets are stored in the plugin data folder and survive updates.
+
+## Cache warmer
+
+The **JellyTag-Plus Cache Warmer** scheduled task pre-renders poster and thumbnail variants from enabled libraries. Enable, disable, and reorder client profiles on the configuration page.
+
+Fixed profiles cover Findroid, Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, and Jellium Desktop.
+
+These profiles cover known `Primary` and `Thumb` sizes. Dynamic grid, card, screen, and layout sizes use **Learned Clients**. Jellyfin Web and web-based clients—including Android, iOS, Desktop Qt, Tizen, WebOS, and Xbox—also use Learned Clients rather than fixed profiles.
+
+### Order and learned variants
+
+The warmer runs these phases in order: **Home → Libraries → Home & Libraries → Episodes → Videos → Other**. Within each phase, it follows your client profile order.
+
+**Learned Clients** is enabled and placed last by default. It records real `Primary` and `Thumb` requests, including dimensions and quality, rounds dimensions to the nearest 10 pixels, and skips variants already covered by fixed profiles.
+
+Learned requests use **Home & Libraries** when their source view is unclear, **Episodes** for episodes, and **Videos** for music videos and standalone videos. Moving the profile changes its priority within a phase, not the phase order.
+
+New variants join the next warmer run. Restart an active run to include them immediately. Variants do not expire automatically; use **JellyTag-Plus Clear Learned Client Profile** to remove them.
+
+### Throttling
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| Warmer Max Concurrency | Simultaneous warmer requests | 1 |
+| Warmer Delay | Delay after each request, in milliseconds | 5000 |
+| Warmer Client Quiet Window | Seconds without normal image traffic before warmup resumes | 120 |
+| Pause warmer during active playback | Wait while any Jellyfin session is playing; paused playback does not count | Disabled |
+
+The default profile order is Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellium Desktop, Findroid, then Learned Clients.
+
+Normal image requests take priority. The warmer waits for the quiet window after browsing activity before continuing.
+
+> The warmer can create many images per item. Learned Clients has no variant cap, so storage and warmup time can grow substantially. Enable only the profiles you need and watch disk usage.
+
+### Progress
+
+Successful warmup requests are recorded so later runs can resume unfinished work. Each client/phase also checks for matching images cached during normal browsing before sending requests. Clearing the plugin image cache clears warmer progress too.
+
+**Estimated Warmer Progress** shows client and phase percentages, with approximate ETAs when enough recent completions are available. Learned Clients percentages can drop as new variants increase the total work.
+
+Run **JellyTag-Plus Calculate Progress and Totals** to update progress estimates and cache file/size totals. The configuration page displays saved results rather than scanning libraries and cache folders on every visit.
+
+## Badge status and image caching
+
+JellyTag-Plus detects badges from metadata and collection membership, applies your settings, and caches the rendered image. Matching requests reuse the cache.
+
+Run **JellyTag-Plus Build Badge Status Index** after configuring badges or changing collections and rules to precompute badge state. New or changed items can still be checked on demand. Cached overlays are rendered again when their badge state differs from the index.
+
+Learned profiles, image-cache indexes, and badge-status indexes update in memory immediately and save every 30 seconds, with a final flush on normal shutdown. Image files are saved before a render is reported as cached. An abrupt stop may lose recent unsaved index or learning updates; cache shortcuts are relearned on request, and the badge-status task can refresh its index.
+
+After five seconds of browsing/render inactivity, a small completion check retries recent uncached renders that failed to reach the cache, once.
+
+## Force Image Refresh
+
+This optional setting helps clients notice changed badges by briefly swapping and restoring the stored artwork. The badge-status task also refreshes image metadata when badge state changes; its first run after an index upgrade may refresh existing images once.
+
+Unlike normal overlays, this changes stored artwork temporarily. Keep image backups and use it carefully.
+
+## Bypass overlays
+
+Add `jellytag=off` to an image request to get Jellyfin's image without JellyTag-Plus overlays. This is useful for export and archive tools such as [Pixelfin](https://github.com/nothing2obvi/pixelfin).
 
 ```text
 /Items/{itemId}/Images/Primary?jellytag=off
 ```
 
-## Cache Warmer
-
-The **JellyTag-Plus Cache Warmer** is a scheduled task that walks enabled libraries and requests poster/thumbnail image URLs ahead of time. Those requests pass through JellyTag-Plus exactly like real client requests, causing badged images to be rendered and stored in the plugin cache before users browse to them.
-
-The warmer includes organized client profiles for:
-
-- Findroid
-- Jellyfin Android TV
-- Jellyfin Roku
-- Streamyfin
-- Wholphin
-- Moonfin Core
-- Moonfin tvOS
-- Moonfin Smart-TV
-- Moonfin Roku
-- DUNE
-- Swiftfin
-- Jellyfin Desktop
-- Learned Clients
-
-It warms only documented `Primary` and `Thumb` variants for those clients. Jellyfin Web and WebShellClients, meaning Android, iOS, and Desktop Qt when they show Jellyfin Web inside the native app shell, are intentionally not warmed as fixed profiles because they calculate image sizes dynamically. Tizen, WebOS, and Xbox are also Jellyfin Web-style shells in the client code reviewed here, so their real poster and thumbnail sizes should be covered by **Learned Clients** after browsing.
-
-Some listed clients also have a mix of fixed and variable variants:
-
-- **Wholphin**: fixed `quality=96` and row-height variants are in its profile; dynamic grid `fillWidth` requests are covered by **Learned Clients**.
-- **Moonfin Core**: fixed Primary and Thumb sizes found in Moonfin Core are in its profile; dynamic card, genre, folder-grid, scaled desktop, and screen-derived sizes are covered by **Learned Clients**.
-- **Moonfin tvOS**: fixed detail/search/playback/episode sizes are in its profile; dynamic card and shelf sizes are covered by **Learned Clients**.
-- **Moonfin Smart-TV**: fixed card/detail/playback sizes are in its profile; any layout-dependent sizes are covered by **Learned Clients**.
-- **DUNE**: fixed search and carousel variants are in its profile; screen-derived main browse `maxHeight` variants are covered by **Learned Clients**.
-- **Swiftfin**: fixed library/detail/episode/download sizes are in its profile; proxy, screen, and layout-derived sizes are covered by **Learned Clients**.
-- **Jellyfin Desktop**: fixed native media artwork is in its profile; normal Desktop Qt browsing uses Jellyfin Web dynamic sizes and is covered by **Learned Clients**.
-
-When JellyTag-Plus cannot reliably tell whether a learned non-episode, non-video image request came from a home row or a library view, it groups that learned variant under **Home & Libraries**.
-
-Client profiles can be enabled, disabled, and reordered from the configuration page. The warmer runs in phases across all enabled clients: Home, then Libraries, then Home & Libraries, then Episodes, then Videos, then Other. Within each phase priority it follows the configured client profile order. Progress display keeps ambiguous Home & Libraries work separate when a client cannot reliably distinguish home rows from library views.
-
-The **Learned Clients** profile is enabled by default and placed last on new installs. Move it higher if you want to warm the real variants your clients and users have actually requested before fixed client presets. It records real non-warmer `Primary` and `Thumb` image requests, reads the request shape such as `fillWidth`, `fillHeight`, `maxWidth`, `maxHeight`, `width`, `height`, and `quality`, normalizes requested dimensions to the nearest 10 pixels, skips variants already covered by fixed client profiles, and makes the remaining variants available to the warmer. Non-episode/non-video learned variants appear in the **Home & Libraries** phase because Jellyfin image requests do not reliably say whether they came from the home screen or a library view. Episode variants appear in **Episodes**, and music video/standalone video variants appear in **Videos**.
-
-Because **Learned Clients** is last by default, its **Home & Libraries** phase runs after fixed client Home and Libraries phases. Move it higher in the profile order if you want learned variants to run earlier within that phase. Newly learned variants are not added to a cache warmer run that is already in progress. Restart the **JellyTag-Plus Cache Warmer** scheduled task to have a running warmup pick up variants learned while users were browsing.
-
-Learned variants and counters update in memory immediately and are saved in the background every 30 seconds, with a final flush on normal server shutdown. An abrupt server stop can lose the most recent unsaved learning updates, but existing cached images are unaffected.
-
-A scheduled task named **JellyTag-Plus Clear Learned Client Profile** clears learned variants. Learned variants do not expire automatically.
-
-Warmup progress is stored after successful requests so interval-based runs start with variants that have not been warmed yet. Clearing the JellyTag-Plus image cache also clears that warmer progress.
-
-When a warmer run starts a client/phase bucket, JellyTag-Plus first performs a lightweight cache pre-pass for variants that are not already in the warmer ledger. If an image was previously rendered by normal browsing and the cache shortcut still matches, the warmer marks that variant complete before making a warmup request. This helps older client-rendered caches get counted without re-rendering them.
-
-Warmer throttling is configurable:
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| Warmer Max Concurrency | Maximum number of warmer image requests allowed to run at the same time | 1 |
-| Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
-| Warmer Client Quiet Window | How long the warmer waits after normal client image traffic before starting another request, in seconds | 120 |
-| Pause warmer during active playback | Optional setting that makes the warmer wait while any Jellyfin session is actively playing media. Paused playback does not pause the warmer. | Disabled |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid, Learned Clients |
-
-Normal client image requests take priority. When someone is browsing posters or thumbnails, the warmer pauses until the quiet window passes, then continues with not-yet-warmed variants. The default throttling is intentionally conservative enough for all-day warmer runs without bothering users browsing posters and thumbnails on clients.
-
-The configuration page shows **Estimated Warmer Progress** for each client profile, with phase percentages underneath. While the warmer is running and enough recent completions exist, each phase can also show a compact approximate ETA. This is based on variants completed by the cache warmer, including browsing-created cache entries discovered by its cache pre-pass. Normal browsing no longer reads or writes the warmer progress ledger for each image. **Learned Clients** progress is dynamic and can decrease when new real client image sizes are discovered, because the total amount of learned work has grown.
-
-Progress counts and total cache file/size counts are calculated by a separate scheduled task named **JellyTag-Plus Calculate Progress and Totals**. This is deliberate: estimating per-client progress and counting large cache folders can require walking enabled libraries, client variants, warmer state, cache shortcut data, and cache files, which can be heavy on large Jellyfin servers. Keeping this work as a scheduled task prevents opening or refreshing the plugin page from locking up Jellyfin. The scheduled task updates saved progress as it works through client profiles and counts cache totals in small batches, so the plugin page can read the most recent calculated progress and totals without doing the heavy scan itself.
-
-> **Important:** The warmer is **very aggressive**. It can create many cached images per media item, especially when posters and thumbnails are both enabled. The Learned Clients profile can grow large on servers with many clients or dynamic image sizes because there is no built-in variant cap. This can make clients faster after warming, but plugin cache storage and warmer work may become quite large. Use it deliberately and keep an eye on disk usage.
-
-**Normal Render Max Concurrency** limits how many uncached JellyTag-Plus image overlays can render at once during normal browsing. Cache hits are not throttled. Render slots are released as soon as overlay rendering finishes, before cache persistence and client transfer. Parsed SVG badges are reused across output sizes, and image streams avoid redundant full-buffer copies. The default is `2`; lowering it to `1` can make browsing feel steadier on slower or busier servers, while higher values may finish uncached pages faster if the server has enough CPU and disk headroom.
-
-The scheduled task **JellyTag-Plus Build Badge Status Index** prebuilds detected badge status for media items so normal browsing and warmer requests can reuse that work instead of repeatedly checking metadata and collection membership. The task runs gently in small batches so it does not monopolize Jellyfin. Once you are done setting up badge configuration, run this task before requesting images or running the warmer so JellyTag-Plus can reuse precomputed badge status right away. Newly added or changed items still work before the task runs: JellyTag-Plus detects that one item on demand and writes the result into the index. Run this task after changing Jellyfin collections or badge rules if you want JellyTag-Plus to see those changes immediately; otherwise the index refreshes during the task's next scheduled run or after JellyTag-Plus clears its badge detection cache.
-
-The badge status task also writes a durable visible badge state index. When a client asks for an image that already has a JellyTag-Plus cached overlay, JellyTag-Plus can compare the cached image's old badge state to the indexed current badge state. If the states differ, the stale cache shortcut is ignored and the image is rendered again with the current badges. When Force Image Refresh is enabled, the task also gently touches Jellyfin image metadata for items whose indexed badge state changed, helping stubborn client caches notice that artwork should be fetched again. The first run after installing or upgrading the visible badge state index may also refresh existing supported image metadata once, so clients with older local artwork are encouraged to request the current images.
-
-After a burst of normal browsing image requests and render activity goes quiet for 5 seconds, JellyTag-Plus also performs a small recent request completion check. It remembers recent uncached overlay renders, checks whether they reached cache, and retries missing ones once at low impact. This is intentionally conservative and may be reverted if it proves unhelpful.
-
-## Force Image Refresh
-
-Force Image Refresh is an optional helper for stubborn client-side image caches. It attempts to make Jellyfin clients notice changed artwork by briefly swapping/restoring item images and then requesting the restored image. This is meant to help devices such as Android TV or Roku fetch fresh artwork when badges change.
-
-This feature is intentionally more invasive than normal rendering. Keep image backups and use it carefully.
-
-## Jellyfin Compatibility
-
-JellyTag-Plus `1.51.44.0` is the current Jellyfin 10.11-supported release. That package targets Jellyfin ABI `10.11.0.0` and .NET 9.
-
-JellyTag-Plus `1.52.0.0` starts the Jellyfin 12+ release line. The newer Jellyfin source line targets Jellyfin ABI `12.0.0.0` and .NET 10. From the `Jellytag` folder, build the active Jellyfin 12 package with:
-
-```bash
-./build.sh
-```
-
-That build uses Jellyfin `12.0.0-rc3` API packages by default and is compatible with Jellyfin 12 rc2/rc3. Set `JELLYFIN_PACKAGE_VERSION` to use a newer Jellyfin 12 package when one is available, or set `JELLYFIN_SOURCE_ROOT` to build against a local Jellyfin source checkout. A .NET 10 SDK is required for the Jellyfin 12 package. The final Jellyfin 10.11 package can still be rebuilt with `./build.sh 10.11` if needed.
-
-JellyTag-Plus image cache keys are intentionally independent of the Jellyfin server version. When upgrading from Jellyfin 10.11 to Jellyfin 12, already cached badged images can still be reused when the source image version, request size/query, badge state, and JellyTag-Plus settings match.
-
-Jellyfin only auto-updates plugins when the repository package version is higher than the installed version. Because Jellyfin 12+ starts at `1.52.0.0`, a server upgraded from Jellyfin 10.11 can replace the final `1.51.35.0` package on the next plugin update.
-
-## Installation
-
-1. In Jellyfin, go to **Dashboard -> Plugins -> Repositories**
-2. Add this repository URL:
-   ```text
-   https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json
-   ```
-3. Go to **Catalog**, find **JellyTag-Plus**, and install it
-4. Restart Jellyfin
-
-## Configuration
-
-Go to **Dashboard -> Plugins -> JellyTag-Plus** to access the configuration page.
-
-### Global Settings
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| Enable JellyTag-Plus | Enable or disable the plugin globally | Enabled |
-| Output Format | JPEG or WebP | JPEG |
-| JPEG Quality | Output image quality | 90 |
-| Cache Duration | How long cached images are kept, in hours. `0` means forever. | 168 |
-| Validate Expired Cache Before Re-rendering | When cache duration has expired, check whether the same image and badges would still be used. If nothing changed, keep the cached image and reset its age instead of rendering again. Shortcut cache hits skip this metadata work to stay fast. | Disabled |
-| Warmer Max Concurrency | Maximum simultaneous warmer image requests | 1 |
-| Warmer Delay | Delay after each warmer request, in milliseconds | 5000 |
-| Warmer Client Quiet Window | Seconds of no normal image traffic before the warmer resumes | 120 |
-| Pause warmer during active playback | Wait while any Jellyfin session is actively playing media. Paused playback does not pause the warmer. | Disabled |
-| Warmer Client Profiles | Enabled client profiles and their warmup order | Jellyfin Android TV, Jellyfin Roku, Streamyfin, Wholphin, Moonfin Core, Moonfin tvOS, Moonfin Smart-TV, Moonfin Roku, DUNE, Swiftfin, Jellyfin Desktop, Findroid, Learned Clients |
-| Force Image Refresh | Attempt to make clients notice changed artwork | Disabled |
-| Excluded Libraries | Libraries to skip for badge generation | None |
-
-### Poster And Thumbnail Settings
-
-Each image type has independent panel settings. Thumbnails can optionally mirror poster settings with a size reduction.
-
-Each badge category is configured as a panel with:
-
-| Setting | Description |
-|---------|-------------|
-| Enabled | Show or hide this category |
-| Position | Corner, border-center, or edge placement |
-| Layout | Horizontal or vertical stacking |
-| Style | Image or text badges |
-| Size % | Badge width as percentage of image |
-| Margin % | Distance from edge |
-| Gap % | Spacing between badges |
-| Display Mode | Show highest quality only, or all |
-| Order | Panel stacking order |
-| Text colors | Background color, text color, opacity, corner radius |
-
-## Collection Badges
-
-Collection rules are configured by regex. A rule matches the **Jellyfin collection title**, not a TMDB collection id. Custom collections are supported.
-
-Each collection rule can have:
-
-- Badge key
-- Collection regex
-- Text label
-- Uploaded custom image
-- Optional position/layout override
-- Up/down ordering for stacks when multiple collection rules match
-- Poster toggle
-- Season poster toggle
-- Series thumbnail toggle
-- Episode thumbnail toggle
-- Video toggle
-- Other toggle
-
-Collection rules use the shared Collection Badges style by default. If a rule has no custom position or layout, existing badge placement is preserved. When multiple collection rules match an item at the same position, JellyTag-Plus stacks them by the rule order shown in the configuration page. Left/top placements read in normal order. Right-aligned horizontal stacks keep the outside edge anchored, so the visual order is reversed toward the right edge. Bottom-aligned vertical stacks keep the bottom edge anchored, so matching badges grow upward from the bottom.
-
-## Custom Badges
-
-You can replace default badges with your own image assets or customize text labels for text-style badges. Custom assets are stored in the Jellyfin plugin data folder and survive updates.
-
-## How It Works
-
-JellyTag-Plus intercepts Jellyfin image requests for supported image types, detects applicable badges from item metadata and collection membership, filters them through your configuration, renders the badges onto the requested image size, and caches the result. Future requests for the same image variant can be served from the plugin cache.
-
-## Requirements
-
-- Jellyfin 10.11.x or later
-- .NET 9.0 runtime, included with Jellyfin 10.11+
+This does not remove badges already embedded in the stored image by another tool. JellyTag-Plus processes only GET requests; uploads and deletions pass directly to Jellyfin.
 
 ## Troubleshooting
 
-- **Badges not appearing:** Verify the plugin is enabled, the item library is enabled, and the badge category is enabled for that library.
-- **Old images still showing on clients:** Clear the client image cache, use Force Image Refresh carefully, or run the cache warmer after clearing the JellyTag-Plus image cache.
-- **Cache getting large:** Lower cache duration, clear the plugin image cache, disable unneeded badge categories, or run the warmer less often.
-- **Slow first warmer run:** Expected. The first run may render many image variants. Later runs should be faster when cached variants are still valid.
+- **Missing badges:** Check that the plugin, library, badge category, and image target are enabled.
+- **Outdated badges:** Run the badge-status index task after changing rules or collections. If the client still shows old artwork, clear its image cache or consider Force Image Refresh.
+- **Large cache:** Disable unnecessary warmer profiles, lower cache duration, or clear the plugin cache. Learned variants can be cleared separately.
+- **Slow first warmup:** The first run may render many variants. Later runs reuse valid cached images.
+
+## Building and regression checks
+
+From the `Jellytag` directory:
+
+```bash
+./build.sh          # Jellyfin 12 / .NET 10
+./build.sh 10.11    # Jellyfin 10.11 / .NET 9
+```
+
+Use an SDK that supports the target framework; Jellyfin 12 requires the .NET 10 SDK. Set `JELLYFIN_PACKAGE_VERSION` to override the Jellyfin 12 API package version, or `JELLYFIN_SOURCE_ROOT` to build against a local Jellyfin checkout.
+
+Run regression checks with the .NET 10 SDK:
+
+```bash
+dotnet run --project tests/JellyTag.RegressionTests.csproj -c Release
+```
+
+Checks cover image upload/deletion passthrough, rendering, SVG reuse, and batched persistence, including concurrent updates, clearing, retries, and shutdown.
 
 ## License
 
 MIT License
-
-Image-cache and visible-badge indexes update in memory immediately and persist in batches every 30 seconds, with a final flush on normal shutdown. Image files themselves are still saved before a render is reported as cached. An abrupt server stop may lose the latest index updates; image-cache shortcuts are relearned as images are requested, and the badge status index can be refreshed with its scheduled task.
-
-## Regression checks
-
-With the .NET 10 SDK installed, run `dotnet run --project tests/JellyTag.RegressionTests.csproj -c Release` from the Jellytag directory. This checks learned-profile batching, concurrent persistence, clear/retry/shutdown behavior, SVG rendering across sizes and reloads, and index batching with concurrent updates, clearing, retry, and shutdown.

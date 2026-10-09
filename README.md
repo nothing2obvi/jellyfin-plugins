@@ -42,18 +42,14 @@ WatchSync automatically synchronizes watch history between libraries of differen
     <img src="Jellytag/JellyTag-Plus.png" alt="JellyTag-Plus" width="60%" />
 </p>
 
-JellyTag-Plus overlays quality, language, and collection badges on Jellyfin posters and thumbnails. It builds on the original plugin with collection badge rules, expanded language flag behavior, force image refresh, per-library badge controls, and an aggressive cache warmer for common client image sizes.
-
-**Highlights:**
+JellyTag-Plus adds quality, language, and collection badges to Jellyfin posters and thumbnails.
 
 - Resolution, HDR, codec, audio, language, VOST, and collection badges
-- Multiple collection badge rules with custom uploaded images
-- Per-library badge category controls
-- Filipino language mapping for `tgl` and `fil` to `flag-fil.svg`
-- Undetermined language fallback using `flag-und.svg`
-- Alphabetized language flags
-- Force image refresh to help clients notice changed artwork
-- Cache warmer that pre-renders common image variants for Jellyfin Web, Android/iOS/Desktop Qt web-shell clients, Android TV, Roku, Streamyfin, and Findroid
+- Regex-based collection rules with custom images
+- Per-library and per-image-target badge controls
+- Alphabetized language flags with an undetermined-language fallback
+- Optional Force Image Refresh for stubborn client caches
+- Cache warmer with fixed client profiles and learned sizes for dynamic layouts
 
 [More details](Jellytag/README.md)
 
