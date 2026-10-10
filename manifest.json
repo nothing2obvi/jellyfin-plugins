@@ -287,5 +287,24 @@
         "timestamp": "2026-07-26T00:00:00Z"
       }
     ]
+  },
+  {
+    "guid": "c5ef5e31-b28c-4cfb-9e53-61bb01819a72",
+    "name": "Version Notifier",
+    "overview": "Quiet 4K availability notifications for movies and episodes.",
+    "description": "Notifies viewers when an accessible 4K alternative is available.",
+    "owner": "nothing2obvi",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/VersionNotifier/assets/version-notifier.png",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release: accessible 4K alternative notifications for movies and episodes, grouped versions and separate libraries, configurable delay and message, and playback cancellation/duplicate protection.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/version-notifier-1.0.0.0-jellyfin12.zip",
+        "checksum": "80fca2160c6392e399b48606670f4529",
+        "timestamp": "2026-10-10T03:25:55Z"
+      }
+    ]
   }
 ]

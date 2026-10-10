@@ -1,0 +1,16 @@
+{
+  "category": "General",
+  "guid": "c5ef5e31-b28c-4cfb-9e53-61bb01819a72",
+  "name": "Version Notifier",
+  "description": "Notifies viewers when an accessible 4K alternative is available.",
+  "overview": "Quiet 4K availability notifications for movies and episodes.",
+  "owner": "nothing2obvi",
+  "version": "1.0.0.0",
+  "targetAbi": "12.0.0.0",
+  "status": "Active",
+  "autoUpdate": true,
+  "imagePath": "version-notifier.png",
+  "assemblies": [
+    "Jellyfin.Plugin.VersionNotifier.dll"
+  ]
+}

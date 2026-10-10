@@ -69,10 +69,22 @@ Task Grid shows Jellyfin scheduled tasks on a Monday-first weekly grid, with day
 
 ---
 
+### Version Notifier
+
+<p align="center"><img src="VersionNotifier/assets/version-notifier.png" alt="Version Notifier" width="60%" /></p>
+
+Version Notifier tells viewers when an accessible 4K copy of their movie or episode is available. Supports grouped versions and separate libraries, with configurable message text and delay.
+
+**Requires Jellyfin 12.x.** Install Version Notifier from this repository’s Jellyfin plugin catalog.
+
+[Installation and details](VersionNotifier/README.md)
+
+---
+
 ## Requirements
 
-- Jellyfin 10.11.0 or higher
-- .NET 9 SDK, if building from source
+- Jellyfin 10.11.0 or higher; Version Notifier requires Jellyfin 12.x. Check each plugin’s README for compatibility.
+- .NET 9 SDK for the original plugins, or .NET 10 SDK for Version Notifier, if building from source.
 
 ## License
 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head><title>Version Notifier</title></head><body>
+<div id="VersionNotifierPage" data-role="page" class="page type-interior pluginConfigurationPage">
+<div data-role="content"><div class="content-primary"><form id="VersionNotifierForm">
+<h2>Version Notifier</h2>
+<p>Let viewers know when an accessible 4K version is available.</p>
+<div class="checkboxContainer checkboxContainer-withDescription"><label><input is="emby-checkbox" type="checkbox" id="Enabled"><span>Enable notifications</span></label></div>
+<div class="inputContainer"><label class="inputLabel" for="DelaySeconds">Notification delay (seconds)</label><input is="emby-input" type="number" id="DelaySeconds" min="0" max="300" step="1" required><div class="fieldDescription">0–300 seconds. Default: 15.</div></div>
+<div class="inputContainer"><label class="inputLabel" for="Message">Notification message</label><input is="emby-input" type="text" id="Message" required></div>
+<button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+</form></div></div>
+<script>
+(function () {
+    const id = 'c5ef5e31-b28c-4cfb-9e53-61bb01819a72';
+    const page = document.querySelector('#VersionNotifierPage');
+    page.addEventListener('pageshow', async function () {
+        Dashboard.showLoadingMsg();
+        try {
+            const config = await ApiClient.getPluginConfiguration(id);
+            page.querySelector('#Enabled').checked = config.Enabled;
+            page.querySelector('#DelaySeconds').value = config.DelaySeconds;
+            page.querySelector('#Message').value = config.Message;
+        } catch (error) { Dashboard.alert('Could not load Version Notifier settings.'); }
+        finally { Dashboard.hideLoadingMsg(); }
+    });
+    page.querySelector('form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (!this.reportValidity()) return;
+        Dashboard.showLoadingMsg();
+        try {
+            const config = await ApiClient.getPluginConfiguration(id);
+            config.Enabled = page.querySelector('#Enabled').checked;
+            config.DelaySeconds = Number(page.querySelector('#DelaySeconds').value);
+            config.Message = page.querySelector('#Message').value.trim() || '[Auto] This title is also available in 4K.';
+            Dashboard.processPluginConfigurationUpdateResult(await ApiClient.updatePluginConfiguration(id, config));
+        } catch (error) { Dashboard.alert('Could not save Version Notifier settings.'); }
+        finally { Dashboard.hideLoadingMsg(); }
+    });
+}());
+</script></div></body></html>
