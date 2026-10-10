@@ -118,7 +118,7 @@ public sealed class PlaybackMonitor : IHostedService, IDisposable
             var config = _configuration();
             if (!config.Enabled) return;
             await _sessions.SendMessageCommand(null, sessionId, new MessageCommand {
-                Header = "Version Notifier", Text = config.EffectiveMessage, TimeoutMs = 8000
+                Header = string.Empty, Text = config.EffectiveMessage, TimeoutMs = 8000
             }, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }

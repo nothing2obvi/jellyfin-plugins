@@ -11,14 +11,14 @@ Built for **Jellyfin 12.x**, targeting the **12.0.0 SDK / .NET 10**. Older Jelly
 1. Open **Dashboard → Plugins → Repositories**, and add:
    - **Name:** `nothing2obvi Plugins`
    - **URL:** `https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json`
-2. Open **Catalog**, select **Version Notifier**, and install version **1.0.2.0**.
+2. Open **Catalog**, select **Version Notifier**, and install version **1.0.3.0**.
 3. Restart Jellyfin, then open **Dashboard → Plugins → Version Notifier**.
 
 Already using this repository? Refresh the catalog and look for Version Notifier.
 
-For manual installation, download [the release ZIP](https://github.com/nothing2obvi/jellyfin-plugin-version-notifier/releases/download/v1.0.2.0/version-notifier-1.0.2.0-jellyfin12.zip), stop Jellyfin, and extract it into `VersionNotifier_1.0.2.0` inside your plugins directory (usually `/config/plugins` in Docker). Start Jellyfin again. Install the complete package to include its dashboard artwork.
+For manual installation, download [the release ZIP](https://github.com/nothing2obvi/jellyfin-plugin-version-notifier/releases/download/v1.0.3.0/version-notifier-1.0.3.0-jellyfin12.zip), stop Jellyfin, and extract it into `VersionNotifier_1.0.3.0` inside your plugins directory (usually `/config/plugins` in Docker). Start Jellyfin again. Install the complete package to include its dashboard artwork.
 
-To build from source, run `./build.sh` from this folder with the .NET 10 SDK and Python 3 installed. It runs tests and creates `output/version-notifier-1.0.2.0-jellyfin12.zip`.
+To build from source, run `./build.sh` from this folder with the .NET 10 SDK and Python 3 installed. It runs tests and creates `output/version-notifier-1.0.3.0-jellyfin12.zip`.
 
 ## Settings
 
@@ -38,6 +38,7 @@ Matching runs after the delay, using filtered provider-ID queries and, for episo
 
 ## Notification behavior and limitations
 
+- Messages have no header; only the configured text is displayed.
 - Only the initiating playback session receives the message, with an eight-second display timeout requested from the client.
 - Repeated starts, seeks, pauses, and resumes do not repeat the notification for an active playback. Stops, title changes, session endings, and shutdown cancel pending work. Starting a genuinely new playback can notify again.
 - Switching sources cancels the pending alert; the plugin verifies the current item, user, and source immediately before sending.

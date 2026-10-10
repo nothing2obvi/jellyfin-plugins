@@ -54,7 +54,7 @@ public sealed class PlaybackTests : IDisposable
         Start(); Start();
         _sessions.PlaybackProgress += Raise.Event<EventHandler<PlaybackProgressEventArgs>>(this, Args());
         await Release(); await _sent.Task.WaitAsync(TimeSpan.FromSeconds(3)); Start();
-        Assert.Equal(TimeSpan.FromSeconds(23), _delay); Assert.Equal("Custom message", _message!.Text); Assert.Equal(1, _sends);
+        Assert.Equal(TimeSpan.FromSeconds(23), _delay); Assert.Equal("Custom message", _message!.Text); Assert.Equal(string.Empty, _message!.Header); Assert.Equal(1, _sends);
         await _sessions.Received(1).SendMessageCommand(null, "session", Arg.Any<MessageCommand>(), Arg.Any<CancellationToken>());
     }
     [Theory]

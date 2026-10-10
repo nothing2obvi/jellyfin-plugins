@@ -5,7 +5,7 @@
   "description": "Notifies viewers when an accessible 4K alternative is available.",
   "overview": "Quiet 4K availability notifications for movies and episodes.",
   "owner": "nothing2obvi",
-  "version": "1.0.2.0",
+  "version": "1.0.3.0",
   "targetAbi": "12.0.0.0",
   "status": "Active",
   "autoUpdate": true,
