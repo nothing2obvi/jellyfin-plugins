@@ -298,6 +298,14 @@
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/VersionNotifier/assets/version-notifier.png",
     "versions": [
       {
+        "version": "1.0.1.0",
+        "changelog": "Improve Android TV compatibility with playback sessions that omit media source IDs.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugin-version-notifier/releases/download/v1.0.1.0/version-notifier-1.0.1.0-jellyfin12.zip",
+        "checksum": "7416c7352e997ed1503d5b72be42c5b0",
+        "timestamp": "2026-10-10T03:51:10Z"
+      },
+      {
         "version": "1.0.0.0",
         "changelog": "Initial release: accessible 4K alternative notifications for movies and episodes, grouped versions and separate libraries, configurable delay and message, and playback cancellation/duplicate protection.",
         "targetAbi": "12.0.0.0",
