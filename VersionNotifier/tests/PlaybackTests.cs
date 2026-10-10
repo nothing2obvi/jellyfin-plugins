@@ -58,7 +58,7 @@ public sealed class PlaybackTests : IDisposable
         await _sessions.Received(1).SendMessageCommand(null, "session", Arg.Any<MessageCommand>(), Arg.Any<CancellationToken>());
     }
     [Theory]
-    [InlineData("stop")] [InlineData("switch")] [InlineData("4k")] [InlineData("unsupported")]
+    [InlineData("stop")] [InlineData("switch")] [InlineData("4k")]
     [InlineData("unavailable")] [InlineData("disabled")] [InlineData("logout")]
     [InlineData("ended")] [InlineData("shutdown")] [InlineData("replacement")]
     public async Task ChangesBeforeDelaySuppressMessage(string change)
@@ -69,7 +69,7 @@ public sealed class PlaybackTests : IDisposable
                 new PlaybackStopEventArgs { Session = _session, Item = _item, PlaySessionId = "play" }); break;
             case "switch": _session.NowPlayingItem.Id = Guid.NewGuid(); break;
             case "4k": _session.PlayState.MediaSourceId = "4k"; break;
-            case "unsupported": _session.Capabilities.SupportedCommands = []; break;
+
             case "unavailable": _available = false; break;
             case "disabled": _config.Enabled = false; break;
             case "logout": _session.UserId = Guid.NewGuid(); break;
@@ -82,6 +82,28 @@ public sealed class PlaybackTests : IDisposable
         }
         await Release(); Assert.Equal(0, _sends);
     }
+    [Fact]
+    public async Task MissingMediaSourceIdCanStillNotify()
+    {
+        _session.PlayState.MediaSourceId = null!;
+        var start = Args();
+        start.MediaSourceId = null!;
+        _sessions.PlaybackStart += Raise.Event<EventHandler<PlaybackProgressEventArgs>>(this, start);
+        await Release();
+        await _sent.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.Equal(1, _sends);
+    }
+
+    [Fact]
+    public async Task EmptySupportedCommandsStillNotifies()
+    {
+        _session.Capabilities.SupportedCommands = [];
+        Start();
+        await Release();
+        await _sent.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.Equal(1, _sends);
+    }
+
     [Fact]
     public async Task SendFailureIsHandledWithoutRetry()
     {

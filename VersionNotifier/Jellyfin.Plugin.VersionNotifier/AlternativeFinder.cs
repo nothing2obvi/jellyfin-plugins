@@ -17,8 +17,10 @@ public sealed class AlternativeFinder(ILibraryManager library, IMediaSourceManag
         var item = library.GetItemById(itemId);
         if (item is not Movie && item is not Episode || item is null || !item.IsVisibleStandalone(user)) return false;
         var grouped = AccessibleSources(item, user).ToArray();
-        var playing = grouped.FirstOrDefault(s => string.Equals(s.Id, sourceId, StringComparison.OrdinalIgnoreCase));
-        // Never infer the selected source from the first/default version.
+        var playing = string.IsNullOrWhiteSpace(sourceId)
+            ? (grouped.Length == 1 ? grouped[0] : null)
+            : grouped.FirstOrDefault(s => string.Equals(s.Id, sourceId, StringComparison.OrdinalIgnoreCase));
+        // Missing source IDs are safe only when exactly one accessible source exists.
         if (playing is null || !Matching.HasResolution(playing) || Matching.Is4K(playing)) return false;
         if (grouped.Any(Matching.Is4K)) return true;
 

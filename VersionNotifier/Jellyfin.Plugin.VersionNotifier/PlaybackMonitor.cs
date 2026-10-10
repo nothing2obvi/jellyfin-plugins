@@ -61,14 +61,14 @@ public sealed class PlaybackMonitor : IHostedService, IDisposable
         {
             if (_stopped) return;
             var id = e.Item?.Id ?? e.Session.NowPlayingItem?.Id ?? Guid.Empty;
-            var source = e.MediaSourceId ?? e.Session.PlayState?.MediaSourceId;
+            var source = e.MediaSourceId ?? e.Session.PlayState?.MediaSourceId ?? string.Empty;
             if (_pending.TryGetValue(e.Session.Id, out var old))
             {
                 if (old.Item == id && old.User == e.Session.UserId &&
                     (string.IsNullOrEmpty(e.PlaySessionId) || old.PlayId == e.PlaySessionId)) return;
                 Remove(e.Session.Id);
             }
-            if (!_configuration().Enabled || id == Guid.Empty || string.IsNullOrEmpty(source)) return;
+            if (!_configuration().Enabled || id == Guid.Empty) return;
             var pending = new Pending(id, source, e.PlaySessionId, e.Session.UserId, e.Session, new());
             _pending[e.Session.Id] = pending;
             _ = NotifyAsync(e.Session.Id, pending, _configuration().EffectiveDelay);
@@ -133,8 +133,9 @@ public sealed class PlaybackMonitor : IHostedService, IDisposable
             if (_stopped || p.Cancellation.IsCancellationRequested || !_pending.TryGetValue(id, out var current) || !ReferenceEquals(current, p)) return false;
             var session = _sessions.Sessions.FirstOrDefault(s => s.Id == id);
             return _configuration().Enabled && ReferenceEquals(session, p.Session) && session?.UserId == p.User && session.NowPlayingItem?.Id == p.Item &&
-                string.Equals(session.PlayState?.MediaSourceId, p.Source, StringComparison.OrdinalIgnoreCase) &&
-                session.SupportedCommands.Contains(GeneralCommandType.DisplayMessage);
+                (string.IsNullOrEmpty(p.Source)
+                    ? string.IsNullOrEmpty(session.PlayState?.MediaSourceId)
+                    : string.Equals(session.PlayState?.MediaSourceId, p.Source, StringComparison.OrdinalIgnoreCase));
         }
     }
 

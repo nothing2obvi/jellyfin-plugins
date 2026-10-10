@@ -11,14 +11,14 @@ Built for **Jellyfin 12.x**, targeting the **12.0.0 SDK / .NET 10**. Older Jelly
 1. Open **Dashboard → Plugins → Repositories**, and add:
    - **Name:** `nothing2obvi Plugins`
    - **URL:** `https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/manifest.json`
-2. Open **Catalog**, select **Version Notifier**, and install version **1.0.0.0**.
+2. Open **Catalog**, select **Version Notifier**, and install version **1.0.2.0**.
 3. Restart Jellyfin, then open **Dashboard → Plugins → Version Notifier**.
 
 Already using this repository? Refresh the catalog and look for Version Notifier.
 
-For manual installation, download [the release ZIP](https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jellyfin-plugins/version-notifier-1.0.0.0-jellyfin12.zip), stop Jellyfin, and extract it into `VersionNotifier_1.0.0.0` inside your plugins directory (usually `/config/plugins` in Docker). Start Jellyfin again. Install the complete package to include its dashboard artwork.
+For manual installation, download [the release ZIP](https://github.com/nothing2obvi/jellyfin-plugin-version-notifier/releases/download/v1.0.2.0/version-notifier-1.0.2.0-jellyfin12.zip), stop Jellyfin, and extract it into `VersionNotifier_1.0.2.0` inside your plugins directory (usually `/config/plugins` in Docker). Start Jellyfin again. Install the complete package to include its dashboard artwork.
 
-To build from source, run `./build.sh` from this folder with the .NET 10 SDK and Python 3 installed. It runs tests and creates `output/version-notifier-1.0.0.0-jellyfin12.zip`.
+To build from source, run `./build.sh` from this folder with the .NET 10 SDK and Python 3 installed. It runs tests and creates `output/version-notifier-1.0.2.0-jellyfin12.zip`.
 
 ## Settings
 
@@ -41,13 +41,13 @@ Matching runs after the delay, using filtered provider-ID queries and, for episo
 - Only the initiating playback session receives the message, with an eight-second display timeout requested from the client.
 - Repeated starts, seeks, pauses, and resumes do not repeat the notification for an active playback. Stops, title changes, session endings, and shutdown cancel pending work. Starting a genuinely new playback can notify again.
 - Switching sources cancels the pending alert; the plugin verifies the current item, user, and source immediately before sending.
-- Clients must advertise Jellyfin's `DisplayMessage` command. Actual display style and timeout depend on the client; delivery failures are caught and logged at debug level without interrupting playback.
+- Notifications are attempted even if clients do not advertise `DisplayMessage` support. Actual display style and timeout depend on the client; delivery failures are caught and logged at debug level without interrupting playback.
 - Missing resolution data, unresolvable media-source IDs, or missing reliable metadata cause the plugin to skip the alert. Separate copies with different episode numbering/display orders are deliberately not guessed.
 - This uses scanned media information, without probing or opening files. An offline mount or file removed since the last library scan may still be advertised by Jellyfin; refresh the library to clear stale entries.
 
 ## Verification
 
-Automated tests exercise grouped and separate-library movies/episodes, selected-source resolution, cropped UHD, identity conflicts, episode ranges, access restrictions, configuration defaults and customization, duplicate events, cancellation, session changes, unsupported clients, and send failures. The test harness uses Jellyfin 12 types with substituted library/session services.
+Automated tests exercise grouped and separate-library movies/episodes, selected-source resolution, cropped UHD, identity conflicts, episode ranges, access restrictions, configuration defaults and customization, duplicate events, cancellation, session changes, clients with empty advertised capabilities, and send failures. The test harness uses Jellyfin 12 types with substituted library/session services.
 
 A real-server check is still needed for dashboard rendering, Jellyfin's actual grouping and permission filtering, and message delivery on your particular clients. Suggested smoke test: play HD and 4K copies in both library layouts, try a restricted user, then stop/switch playback during the delay.
 

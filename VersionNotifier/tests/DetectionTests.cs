@@ -43,6 +43,7 @@ public class DetectionTests
         Assert.True(Finder.HasAlternative(a.Id, a.Id.ToString("N"), _user));
         Assert.False(Finder.HasAlternative(a.Id, b.Id.ToString("N"), _user));
         Assert.False(Finder.HasAlternative(a.Id, "unavailable", _user));
+        Assert.False(Finder.HasAlternative(a.Id, "", _user));
     }
 
     [Theory]
@@ -55,6 +56,7 @@ public class DetectionTests
         Add(a, Source(a.Id)); Add(b, Source(b.Id, 3840, 2160));
         _library.GetItemList(Arg.Any<InternalItemsQuery>()).Returns([b]);
         Assert.Equal(expected, Finder.HasAlternative(a.Id, a.Id.ToString("N"), _user));
+        Assert.Equal(expected, Finder.HasAlternative(a.Id, "", _user));
     }
 
     [Fact]
