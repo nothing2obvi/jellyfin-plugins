@@ -34,7 +34,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override string Name => "Artist Pruner";
 
     /// <inheritdoc />
-    public override string Description => "Preview and reversibly correct extra music album-artist associations using embedded credits.";
+    public override string Description => "Preview and reversibly correct extra artist credits on tracks and albums using embedded credits.";
 
     /// <inheritdoc />
     public override Guid Id => PluginId;

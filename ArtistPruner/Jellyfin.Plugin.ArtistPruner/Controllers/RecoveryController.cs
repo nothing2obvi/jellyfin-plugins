@@ -9,8 +9,11 @@ namespace Jellyfin.Plugin.ArtistPruner.Controllers;
 [ApiController]
 [Authorize(Policy = Policies.RequiresElevation)]
 [Route("ArtistPruner/Backups")]
-public sealed class RecoveryController(RecoveryStore store, CleanupService cleanup, ILogger<RecoveryController> logger) : ControllerBase
+public sealed class RecoveryController(RecoveryStore store, CleanupService cleanup, ILogger<RecoveryController> logger, PreviewStore preview) : ControllerBase
 {
+    [HttpGet("/ArtistPruner/Preview")]
+    public IActionResult Preview() => Ok(preview.Read());
+
     [HttpGet]
     public IActionResult List()
     {

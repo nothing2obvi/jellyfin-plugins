@@ -12,6 +12,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         services.AddSingleton(_ => new RecoveryStore(Path.Combine(
             Plugin.Instance?.DataFolderPath ?? throw new InvalidOperationException("Plugin not initialized."), "backups")));
+        services.AddSingleton(_ => new PreviewStore(Path.Combine(Plugin.Instance!.DataFolderPath, "preview.json")));
         services.AddSingleton<CleanupService>();
         services.AddSingleton<IArtistPruneService, ArtistPruneService>();
         services.AddHostedService<ScanCompletedService>();

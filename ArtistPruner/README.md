@@ -1,5 +1,7 @@
 # Artist Pruner
 
+![Artist Pruner](assets/artist-pruner.png)
+
 Preview music-credit discrepancies and optionally apply reversible corrections.
 **Testing release:** dry-run is enabled by default, but full mode is available.
 Separate builds support **Jellyfin 10.11.x (.NET 9)** and **12.x (.NET 10)**.
@@ -8,20 +10,21 @@ Separate builds support **Jellyfin 10.11.x (.NET 9)** and **12.x (.NET 10)**.
 
 - **Dry-run:** probes local tracks in Music libraries, compares track/album credits,
   and logs discrepancies and eligible corrections. No library writes or backups.
-- **Full mode:** removes only surplus **album-artist credits on albums** when raw
-  embedded tags, Jellyfin's probe, and stored track credits agree for every track.
-  It preserves the primary album artist and never adds, renames, or merges names.
+- **Full mode:** removes surplus **artist and album-artist credits on tracks and albums**
+  when raw embedded tags and Jellyfin's probe agree. Album evidence is the union
+  of physical tags across every track; stored credits are the correction target.
+  It preserves the primary credit in each field and never adds, renames, or merges names.
   It writes and validates a recovery point before persisting the changes.
 
 Full mode does **not delete artist records, artwork, music files, or NFO files**.
-Track-credit discrepancies and unsupported cases remain audit-only. Therefore,
+Name replacements, empty results, and unsupported cases remain review-only. Therefore,
 retained artist entries may still appear in the Artists view after correction.
 This is not a general duplicate-artist deletion tool.
 
-Affected albums and retained extra artist records are metadata-locked to prevent
+Affected tracks, albums, and retained extra artist records are metadata-locked to prevent
 normal refreshes from undoing corrections and native orphan cleanup from deleting
 recovery data. Restore reverses those locks. Until restored or manually unlocked,
-affected albums will not automatically pick up future tag changes. Avoid manual
+affected items will not automatically pick up future tag changes. Avoid manual
 unlocking/deletion before restoration.
 
 ## Install and test
@@ -34,7 +37,8 @@ assemblies into that directory. Do not install both ABI builds simultaneously.
 1. Make an independent Jellyfin server backup before testing full mode.
 2. Open **Dashboard → Plugins → Artist Pruner**; keep **Dry-run mode** checked.
 3. Run **Prune Music Artists** in **Dashboard → Scheduled Tasks** and review server
-   logs for proposed corrections. A discrepancy alone is not an eligible change.
+   logs for proposed corrections, or click **Show proposed prunes** on the plugin
+   page to view the latest run as a table. A discrepancy alone is not an eligible change.
 4. To apply eligible corrections, uncheck **Dry-run mode**, save, and rerun the
    task. Full mode re-evaluates the library; it does not apply a saved preview.
 5. Refresh the configuration page's recovery list and test **Restore selected
@@ -43,6 +47,13 @@ assemblies into that directory. Do not install both ABI builds simultaneously.
 Automatic execution after successful full-library scans is optional and off by
 default. Individual folder refreshes do not trigger it. Native recurring task
 schedules are supported; none is enabled by default.
+
+The preview table is a structured companion to the same run's logs, not a parser
+for historic server logs. It includes item name/ID, field, stored and probed file
+credits, proposed removals, and review-only status. Running, failed, cancelled,
+and interrupted reports are explicitly labelled; they are not complete plans.
+Run the task again after upgrading to populate it. A new run replaces the old
+report. Reports and recovery data are administrator-only.
 
 ## Recovery and safety limits
 
@@ -62,6 +73,8 @@ compatible and are left untouched.
 
 - Eligible full-mode formats: FLAC, MP3, Ogg, and Opus. Other formats are audit-only.
 - Exact case/Unicode comparisons; no transliteration or fuzzy identity matching.
+- Plural ARTISTS/ALBUMARTISTS tags are conservatively review-only because they
+  can contain collaborators omitted by default tag accessors.
 - Missing/malformed tags, parser disagreements, locked albums/tracks, duplicate
   matching artist identities, and changes to the primary artist are skipped.
 - The plugin rejects overlapping operations and observed full-library scans.
@@ -78,6 +91,7 @@ Use a .NET 10 SDK (the test runner targets .NET 10):
 ```sh
 dotnet run --project ArtistPruner/tests -c Release -p:JellyfinTargetAbi=10.11.0.0
 dotnet run --project ArtistPruner/tests -c Release -p:JellyfinTargetAbi=12.0.0.0
+node ArtistPruner/tests/preview-page.test.cjs
 bash ArtistPruner/build.sh all
 ```
 

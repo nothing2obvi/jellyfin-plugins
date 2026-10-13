@@ -3,16 +3,21 @@
 <div id="ArtistPrunerConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox,emby-input,emby-select">
 <div data-role="content"><div class="content-primary">
 <h2>Artist Pruner</h2>
-<p>Preview discrepancies, or remove eligible extra album-artist credits supported by all tracks' embedded tags. Artist records and music files are never deleted.</p>
+<p>Preview discrepancies, or remove eligible extra artist and album-artist credits on tracks and albums, supported by physical-file tags. Artist records and music files are never deleted.</p>
 <form id="ArtistPrunerConfigForm">
 <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="Enabled" /><span>Enable Artist Pruner</span></label></div>
 <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="DryRun" /><span>Dry-run mode (preview only)</span></label></div>
-<p>Dry-run is enabled by default. Turning it off applies eligible corrections after creating a validated backup. Full mode locks affected album and artist metadata to prevent scans from undoing changes or deleting recovery data. Restore reverses those locks. Locked albums will not automatically pick up later tag edits until restored or manually unlocked.</p>
+<p>Dry-run is enabled by default. Turning it off applies eligible corrections after creating a validated backup. Full mode locks affected track, album and artist metadata to prevent scans from undoing changes or deleting recovery data. Restore reverses those locks. Locked items will not automatically pick up later tag edits until restored or manually unlocked.</p>
 <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="AutoCleanAfterScan" /><span>Run after successful full library scans</span></label></div>
 <div class="inputContainer"><label for="BackupRetentionCount">Restored backups to retain</label><input is="emby-input" id="BackupRetentionCount" type="number" min="1" max="100" required value="5" /></div>
 <p>Unrestored recovery points are always kept. Configure recurring runs in Dashboard → Scheduled Tasks. Review proposed and applied changes in the server logs.</p>
 <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
 </form>
+<h3>Proposed prunes</h3>
+<p>Run Prune Music Artists with Dry-run enabled, then show the latest report. This is the structured companion to the plugin logs, not an import of old logs. Only rows marked Proposed are eligible removals. Review-only rows are not changes. Failed/running reports are incomplete.</p>
+<button is="emby-button" type="button" id="ShowPrunes" class="raised">Show proposed prunes</button>
+<p id="PreviewStatus" role="status"></p>
+<div style="overflow-x:auto"><table id="PruneTable" hidden style="width:100%;text-align:left"><thead><tr><th>Item</th><th>Type / field</th><th>Stored credits</th><th>File evidence</th><th>Would remove</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 <h3>Recovery points</h3>
 <p>Restore the newest unrestored point first. Conflicting edits are preserved and cause restoration to stop.</p>
 <select is="emby-select" id="BackupList" aria-label="Recovery point"></select>
@@ -33,7 +38,7 @@
             points.forEach(function (point) {
                 var option = document.createElement('option');
                 option.value = point.Id || point.id;
-                option.textContent = new Date(point.CreatedUtc || point.createdUtc).toLocaleString() + ' — ' + (point.State || point.state) + ' (' + (point.Albums || point.albums) + ' albums)';
+                option.textContent = new Date(point.CreatedUtc || point.createdUtc).toLocaleString() + ' — ' + (point.State || point.state) + ' (' + (point.Albums || point.albums) + ' items)';
                 list.appendChild(option);
             });
             page.querySelector('#BackupStatus').textContent = points.length ? '' : 'No recovery points yet. Dry-run creates none.';
@@ -65,6 +70,31 @@
             Dashboard.processPluginConfigurationUpdateResult(result);
         } catch (error) { Dashboard.alert('Unable to save Artist Pruner settings.'); }
         finally { Dashboard.hideLoadingMsg(); }
+    });
+    page.querySelector('#ShowPrunes').addEventListener('click', async function () {
+        this.disabled = true;
+        var status = page.querySelector('#PreviewStatus');
+        var table = page.querySelector('#PruneTable');
+        var body = table.querySelector('tbody');
+        body.replaceChildren(); table.hidden = true;
+        function get(obj, key) { return obj[key] !== undefined ? obj[key] : obj[key[0].toLowerCase() + key.slice(1)]; }
+        try {
+            var report = await ApiClient.ajax({type: 'GET', url: ApiClient.getUrl('ArtistPruner/Preview'), dataType: 'json'});
+            if (!report) { status.textContent = 'No report yet. Run the scheduled task after installing this update.'; return; }
+            var rows = get(report, 'Rows') || [];
+            status.textContent = get(report, 'Status') + ' — ' + (get(report, 'DryRun') ? 'Dry-run' : 'Full mode') + ' — ' + new Date(get(report, 'StartedUtc')).toLocaleString() + '. ' + get(report, 'Message') + ' Rows: ' + rows.length + '. Full-mode rows describe the plan; see the run summary for application success.';
+            rows.forEach(function (row) {
+                var tr = document.createElement('tr');
+                [get(row, 'Name') + ' (' + get(row, 'ItemId') + ')', get(row, 'Kind') + ' / ' + get(row, 'Field'),
+                 (get(row, 'Before') || []).join(', '), (get(row, 'FileCredits') || []).join(', '),
+                 (get(row, 'Removed') || []).join(', ') || 'None', get(row, 'Status')].forEach(function (value) {
+                    var td = document.createElement('td'); td.textContent = value; td.style.padding = '0.5em'; tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+            table.hidden = rows.length === 0;
+        } catch (error) { status.textContent = 'Unable to load the preview report. Check the server logs.'; }
+        finally { this.disabled = false; }
     });
     page.querySelector('#RefreshBackups').addEventListener('click', backups);
     page.querySelector('#RestoreBackup').addEventListener('click', async function () {

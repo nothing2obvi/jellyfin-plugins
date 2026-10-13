@@ -25,19 +25,21 @@ public sealed class ArtistPruneService : IArtistPruneService
     private readonly Func<PluginConfiguration> _configuration;
     private readonly SemaphoreSlim _gate;
     private readonly CleanupService? _cleanup;
+    private readonly PreviewStore? _preview;
 
-    public ArtistPruneService(ILibraryManager library, IMediaEncoder encoder, ILogger<ArtistPruneService> logger, CleanupService cleanup)
+    public ArtistPruneService(ILibraryManager library, IMediaEncoder encoder, ILogger<ArtistPruneService> logger, CleanupService cleanup, PreviewStore preview)
         : this(library, encoder, logger, () => Plugin.Instance?.Configuration
-            ?? throw new InvalidOperationException("Artist Pruner is not initialized."), cleanup) { }
+            ?? throw new InvalidOperationException("Artist Pruner is not initialized."), cleanup, preview) { }
 
     public ArtistPruneService(ILibraryManager library, IMediaEncoder encoder,
-        ILogger<ArtistPruneService> logger, Func<PluginConfiguration> configuration, CleanupService? cleanup = null)
+        ILogger<ArtistPruneService> logger, Func<PluginConfiguration> configuration, CleanupService? cleanup = null, PreviewStore? preview = null)
     {
         _library = library;
         _encoder = encoder;
         _logger = logger;
         _configuration = configuration;
         _cleanup = cleanup;
+        _preview = preview;
         _gate = cleanup?.Gate ?? new SemaphoreSlim(1, 1);
     }
 
@@ -51,10 +53,12 @@ public sealed class ArtistPruneService : IArtistPruneService
             var config = _configuration();
             var result = new PruneResult { WasDryRun = config.DryRun };
             var plans = new List<AlbumChange>();
+            _preview?.Begin(result.WasDryRun);
             if (!config.Enabled)
             {
                 result.Summary = "Artist Pruner is disabled.";
                 _logger.LogInformation("{Summary}", result.Summary);
+                _preview?.Finish("Disabled", result.Summary);
                 return result;
             }
             if (!result.WasDryRun && _cleanup is null)
@@ -69,6 +73,7 @@ public sealed class ArtistPruneService : IArtistPruneService
                 result.Summary = "No music libraries configured; no changes made.";
                 _logger.LogInformation("{Summary}", result.Summary);
                 progress?.Report(100);
+                _preview?.Finish("Completed", result.Summary);
                 return result;
             }
 
@@ -116,6 +121,9 @@ public sealed class ArtistPruneService : IArtistPruneService
                         || !CreditComparison.SameCredits(track.AlbumArtists, info.AlbumArtists))
                     {
                         result.CreditMismatches++;
+                        var plan = _cleanup?.PlanTrack(track, (info.Artists, info.AlbumArtists));
+                        if (plan is not null) plans.Add(plan);
+                        Record(track, "Track", track.Artists.ToArray(), track.AlbumArtists.ToArray(), info.Artists, info.AlbumArtists, plan);
                         _logger.LogInformation(
                             "Credit discrepancy {ItemId}: stored artists {StoredArtists}, probed {ProbedArtists}; stored album artists {StoredAlbumArtists}, probed {ProbedAlbumArtists}. Review only.",
                             track.Id, track.Artists, info.Artists, track.AlbumArtists, info.AlbumArtists);
@@ -163,6 +171,7 @@ public sealed class ArtistPruneService : IArtistPruneService
                     {
                         result.AlbumCreditMismatches++;
                         var plan = _cleanup?.Plan(album, children, credits);
+                        Record(album, "Album", album.Artists.ToArray(), album.AlbumArtists.ToArray(), artists, albumArtists, plan);
                         if (plan is not null)
                         {
                             plans.Add(plan);
@@ -218,12 +227,34 @@ public sealed class ArtistPruneService : IArtistPruneService
             CheckScan(cancellationToken);
             result.ChangesProposed = plans.Count;
             if (!result.WasDryRun) result.AssociationsCorrected = _cleanup!.Apply(plans, cancellationToken);
-            result.Summary = $"{(result.WasDryRun ? "Dry run" : "Cleanup")}: {result.TracksInspected} tracks probed, {result.TracksSkipped} unavailable/ambiguous, {result.CreditMismatches} track credit discrepancies; {result.AlbumsInspected} albums inspected, {result.AlbumsSkipped} albums inconclusive, {result.AlbumCreditMismatches} album credit discrepancies; {result.ArtistsInspected} artists inspected, {result.UnsupportedNames} names need review. Eligible albums: {plans.Count}; albums corrected: {result.AssociationsCorrected}; entries removed: 0; entries skipped: {result.EntriesSkipped}.";
+            result.Summary = $"{(result.WasDryRun ? "Dry run" : "Cleanup")}: {result.TracksInspected} tracks probed, {result.TracksSkipped} unavailable/ambiguous, {result.CreditMismatches} track credit discrepancies; {result.AlbumsInspected} albums inspected, {result.AlbumsSkipped} albums inconclusive, {result.AlbumCreditMismatches} album credit discrepancies; {result.ArtistsInspected} artists inspected, {result.UnsupportedNames} names need review. Eligible items: {plans.Count}; items corrected: {result.AssociationsCorrected}; entries removed: 0; entries skipped: {result.EntriesSkipped}.";
             _logger.LogInformation("{Summary}", result.Summary);
+            _preview?.Finish("Completed", result.Summary);
             progress?.Report(100);
             return result;
         }
+        catch (Exception ex)
+        {
+            _preview?.Finish(ex is OperationCanceledException ? "Cancelled" : "Failed", ex.Message);
+            throw;
+        }
         finally { _gate.Release(); }
+    }
+
+    private void Record(BaseItem item, string kind, string[] artists, string[] albumArtists,
+        string[] fileArtists, string[] fileAlbumArtists, AlbumChange? plan)
+    {
+        void Field(string field, string[] before, string[] evidence, string[]? after)
+        {
+            if (CreditComparison.SameCredits(before, evidence)) return;
+            var removed = after is null ? Array.Empty<string>() : before.Except(after, StringComparer.Ordinal).ToArray();
+            var status = removed.Length > 0 ? "Proposed" : "Review only — not eligible (replacement, missing/ambiguous tags, lock, or identity check)";
+            _preview?.Add(new(item.Id, item.Name, kind, field, before.ToArray(), evidence.ToArray(), removed, status));
+            if (removed.Length > 0)
+                _logger.LogInformation("Proposed prune {Id} ({Name}), {Field}: remove {Removed}; retain {After}", item.Id, item.Name, field, removed, after);
+        }
+        Field("Artists", artists, fileArtists, plan?.AfterArtists);
+        Field("Album artists", albumArtists, fileAlbumArtists, plan?.After);
     }
 
     private void CheckScan(CancellationToken token)

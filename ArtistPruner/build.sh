@@ -4,8 +4,8 @@ root="$(cd -- "$(dirname -- "$0")" && pwd)"
 build_target() {
     local abi framework version suffix
     case "$1" in
-        10.11) abi=10.11.0.0; framework=net9.0; version=0.1.0.0; suffix=jellyfin10.11 ;;
-        12) abi=12.0.0.0; framework=net10.0; version=0.2.0.0; suffix=jellyfin12 ;;
+        10.11) abi=10.11.0.0; framework=net9.0; version=0.1.1.0; suffix=jellyfin10.11 ;;
+        12) abi=12.0.0.0; framework=net10.0; version=0.2.1.0; suffix=jellyfin12 ;;
         *) echo 'Usage: bash ArtistPruner/build.sh [all|10.11|12]' >&2; exit 2 ;;
     esac
     "${DOTNET:-dotnet}" build "$root/Jellyfin.Plugin.ArtistPruner" -c Release -p:JellyfinTargetAbi="$abi"
@@ -18,9 +18,9 @@ out.mkdir(exist_ok=True)
 manifest = {
     'guid': 'e8b5f1a3-7c9d-4e2b-8a1f-3d6c5e4b9a0f',
     'name': 'Artist Pruner', 'version': version, 'targetAbi': abi,
-    'overview': 'Preview and reversibly correct extra album-artist credits',
+    'overview': 'Preview and prune extra track and album artist credits',
     'description': 'Test release with optional full mode, validated recovery points, and restore. No artist records or music files are deleted.',
-    'owner': 'nothing2obvi', 'category': 'Music'
+    'owner': 'nothing2obvi', 'category': 'Music', 'imagePath': 'artist-pruner.png'
 }
 package = out / f'artistpruner-{version}-{suffix}.zip'
 with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
@@ -30,6 +30,7 @@ with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
         archive.write(root / notice, notice)
     archive.writestr('meta.json', json.dumps(manifest, indent=2))
     archive.write(root / 'LICENSE', 'LICENSE')
+    archive.write(root / 'assets/artist-pruner.png', 'artist-pruner.png')
 print(package)
 PY
 }

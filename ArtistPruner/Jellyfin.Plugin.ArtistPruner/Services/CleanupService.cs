@@ -26,49 +26,78 @@ public sealed class CleanupService
 
     public AlbumChange? Plan(MusicAlbum album, IReadOnlyList<Guid> tracks,
         IReadOnlyDictionary<Guid, (string[] Artists, string[] AlbumArtists)> probed)
+        => PlanItem(album, tracks, probed);
+
+    public AlbumChange? PlanTrack(Audio track, (string[] Artists, string[] AlbumArtists) probe)
+        => PlanItem(track, [track.Id], new Dictionary<Guid, (string[], string[])> { [track.Id] = probe });
+
+    private AlbumChange? PlanItem(BaseItem item, IReadOnlyList<Guid> tracks,
+        IReadOnlyDictionary<Guid, (string[] Artists, string[] AlbumArtists)> probed)
     {
-        if (album.IsLocked || album.LockedFields.Length > 0 || tracks.Count == 0) return null;
+        if (item.IsLocked || item.LockedFields.Length > 0 || tracks.Count == 0) return null;
         var names = new HashSet<string>(StringComparer.Ordinal);
+        var performers = new HashSet<string>(StringComparer.Ordinal);
+        var evidence = new Dictionary<Guid, string[]>();
         foreach (var id in tracks)
         {
-            if (_library.GetItemById(id) is not Audio track || track.IsLocked || !track.IsFileProtocol
+            if (_library.GetItemById(id) is not Audio track || !track.IsFileProtocol
                 || !probed.TryGetValue(id, out var probe)) return null;
             (string[] Artists, string[] AlbumArtists) embedded;
             try { embedded = EmbeddedCredits.Read(track.Path); }
             catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidDataException or TagLib.CorruptFileException or TagLib.UnsupportedFormatException)
-            { _logger.LogInformation("Skipping album {Id}: {Reason}", album.Id, ex.Message); return null; }
-            if (!CreditComparison.SameCredits(embedded.Artists, track.Artists)
-                || !CreditComparison.SameCredits(embedded.Artists, probe.Artists)
-                || !CreditComparison.SameCredits(embedded.AlbumArtists, track.AlbumArtists)
+            { _logger.LogInformation("Skipping item {Id}: {Reason}", item.Id, ex.Message); return null; }
+            // The database is what we correct, not an additional source of truth.
+            if (!CreditComparison.SameCredits(embedded.Artists, probe.Artists)
                 || !CreditComparison.SameCredits(embedded.AlbumArtists, probe.AlbumArtists)) return null;
+            evidence[id] = [System.Text.Json.JsonSerializer.Serialize(embedded.Artists), System.Text.Json.JsonSerializer.Serialize(embedded.AlbumArtists)];
             names.UnionWith(embedded.AlbumArtists);
+            performers.UnionWith(embedded.Artists);
         }
-        var before = album.AlbumArtists.ToArray();
-        // Never add/rename credits or change the primary artist (also used in user-data keys).
-        if (before.Length == 0 || !names.Contains(before[0]) || !names.IsSubsetOf(before)
-            || names.Count >= before.Length || before.Distinct(StringComparer.Ordinal).Count() != before.Length) return null;
-        var after = before.Where(names.Contains).ToArray();
-        var removed = before.Except(after, StringComparer.Ordinal).ToArray();
+        var (oldArtists, before) = Credits(item);
+        var after = Pruned(before, names);
+        var afterArtists = Pruned(oldArtists, performers);
+        if (after is null || afterArtists is null
+            || (before.SequenceEqual(after) && oldArtists.SequenceEqual(afterArtists))) return null;
+        var removed = before.Except(after, StringComparer.Ordinal)
+            .Concat(oldArtists.Except(afterArtists, StringComparer.Ordinal)).Distinct(StringComparer.Ordinal);
         var protections = new List<ArtistProtection>();
         foreach (var name in removed)
         {
+            // Avoid version-specific UseRawName API. Exact ordinal post-filtering is mandatory.
             var artists = _library.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = [BaseItemKind.MusicArtist], Name = name,
-#if JELLYFIN12
-                UseRawName = true,
-#endif
                 GroupByPresentationUniqueKey = false, EnableTotalRecordCount = false
             }).OfType<MusicArtist>().Where(a => a.Name == name).ToArray();
-            // Ambiguous identity or missing entity: do not alter its relationship.
             if (artists.Length != 1) return null;
             var artist = artists[0];
             protections.Add(new ArtistProtection { Id = artist.Id, Name = artist.Name, Path = artist.Path ?? "",
                 ParentId = artist.ParentId, WasLocked = artist.IsLocked, ProviderIds = new(artist.ProviderIds) });
         }
-        return new AlbumChange { Id = album.Id, Path = album.Path, ParentId = album.ParentId,
-            Before = before, After = after, Artists = album.Artists.ToArray(), TrackIds = tracks.ToArray(),
-            ProviderIds = new(album.ProviderIds), ProtectedArtists = protections };
+        return new AlbumChange { Id = item.Id, Kind = item is Audio ? "Audio" : "MusicAlbum", Path = item.Path,
+            ParentId = item.ParentId, Before = before, After = after, Artists = oldArtists,
+            AfterArtists = afterArtists, Evidence = evidence, TrackIds = tracks.ToArray(),
+            ProviderIds = new(item.ProviderIds), ProtectedArtists = protections };
+    }
+
+    private static string[]? Pruned(string[] before, HashSet<string> embedded)
+    {
+        // Removal only: never empty a credit field, change its primary, or invent a replacement.
+        if (before.Length == 0 || !embedded.Contains(before[0]) || !embedded.IsSubsetOf(before)
+            || before.Distinct(StringComparer.Ordinal).Count() != before.Length) return null;
+        return before.Where(embedded.Contains).ToArray();
+    }
+
+    private static (string[] Artists, string[] AlbumArtists) Credits(BaseItem item) => item switch
+    {
+        Audio a => (a.Artists.ToArray(), a.AlbumArtists.ToArray()),
+        MusicAlbum a => (a.Artists.ToArray(), a.AlbumArtists.ToArray()),
+        _ => throw new InvalidOperationException("Unsupported credit item.")
+    };
+    private static void WriteCredits(BaseItem item, string[] artists, string[] albumArtists)
+    {
+        if (item is Audio audio) { audio.Artists = artists; audio.AlbumArtists = albumArtists; }
+        else if (item is MusicAlbum album) { album.Artists = artists; album.AlbumArtists = albumArtists; }
     }
 
     // Caller holds Gate for the entire audit + apply. Persist the whole batch atomically via
@@ -97,7 +126,7 @@ public sealed class CleanupService
         }
         point.State = "Applied";
         _store.Save(point);
-        _logger.LogInformation("Corrected {Count} albums; recovery point {Id}. Affected albums/artists are locked until restored or manually unlocked.", plans.Count, point.Id);
+        _logger.LogInformation("Corrected {Count} items; recovery point {Id}. Affected albums/artists are locked until restored or manually unlocked.", plans.Count, point.Id);
         return plans.Count;
     }
 
@@ -114,7 +143,7 @@ public sealed class CleanupService
             var items = Resolve(point.Changes, restoring: true);
             // Capture only mutable fields for failure recovery; unrelated edits stay on the current objects.
             var old = items.Select(item => (Item: item, Locked: item.IsLocked,
-                Credits: (item as MusicAlbum)?.AlbumArtists.ToArray())).ToArray();
+                Credits: item is Audio or MusicAlbum ? Credits(item) : ((string[] Artists, string[] AlbumArtists)?)null)).ToArray();
             Check(token);
             Set(items, point.Changes, restoring: true);
             try { _writer.SaveItems(items, token); }
@@ -123,7 +152,7 @@ public sealed class CleanupService
                 foreach (var snapshot in old)
                 {
                     snapshot.Item.IsLocked = snapshot.Locked;
-                    if (snapshot.Item is MusicAlbum album) album.AlbumArtists = snapshot.Credits!;
+                    if (snapshot.Credits is {} credits) WriteCredits(snapshot.Item, credits.Artists, credits.AlbumArtists);
                 }
                 throw;
             }
@@ -131,7 +160,7 @@ public sealed class CleanupService
             _store.Save(point);
             _store.Retain(Plugin.Instance?.Configuration.BackupRetentionCount ?? 5);
             _logger.LogInformation("Restored recovery point {Id}", id);
-            return $"Restored {point.Changes.Count} albums and their previous metadata locks.";
+            return $"Restored {point.Changes.Count} items and their previous metadata locks.";
         }
         finally { Gate.Release(); }
     }
@@ -144,34 +173,40 @@ public sealed class CleanupService
         if (music.Length == 0) throw new InvalidOperationException("No music libraries configured.");
         foreach (var plan in plans)
         {
-            if (_library.GetItemById(plan.Id) is not MusicAlbum album || album.Path != plan.Path
-                || album.ParentId != plan.ParentId || !SameIds(album.ProviderIds, plan.ProviderIds)
-                || !album.Artists.SequenceEqual(plan.Artists)
+            var item = _library.GetItemById(plan.Id);
+            var kind = plan.Kind == "Audio" ? BaseItemKind.Audio : BaseItemKind.MusicAlbum;
+            if (item is null || (plan.Kind == "Audio" ? item is not Audio : item is not MusicAlbum)
+                || item.Path != plan.Path || item.ParentId != plan.ParentId || !SameIds(item.ProviderIds, plan.ProviderIds)
                 || _library.GetItemIds(new InternalItemsQuery { ItemIds = [plan.Id], AncestorIds = music,
-                    IncludeItemTypes = [BaseItemKind.MusicAlbum], Recursive = true, Limit = 1 }).Count != 1)
-                throw new InvalidOperationException($"Album {plan.Id} changed or left the music library; no changes applied.");
-            var before = album.AlbumArtists.SequenceEqual(plan.Before) && !album.IsLocked;
-            var after = album.AlbumArtists.SequenceEqual(plan.After) && album.IsLocked;
-            if (restoring ? !before && !after : !before || album.LockedFields.Length > 0)
-                throw new InvalidOperationException($"Album {plan.Id} has conflicting edits; no changes applied.");
+                    IncludeItemTypes = [kind], Recursive = true, Limit = 1 }).Count != 1)
+                throw new InvalidOperationException($"Item {plan.Id} changed or left the music library; no changes applied.");
+            var current = Credits(item);
+            var before = current.AlbumArtists.SequenceEqual(plan.Before) && current.Artists.SequenceEqual(plan.Artists) && !item.IsLocked;
+            var after = current.AlbumArtists.SequenceEqual(plan.After) && current.Artists.SequenceEqual(plan.AfterArtists ?? plan.Artists) && item.IsLocked;
+            if (restoring ? !before && !after : !before || item.LockedFields.Length > 0)
+                throw new InvalidOperationException($"Item {plan.Id} has conflicting edits; no changes applied.");
             if (!restoring)
             {
-                var children = _library.GetItemIds(new InternalItemsQuery { AncestorIds = [album.Id], Recursive = true,
-                    IncludeItemTypes = [BaseItemKind.Audio], GroupByPresentationUniqueKey = false });
+                IReadOnlyList<Guid> children = item is Audio ? new[] { item.Id } : _library.GetItemIds(new InternalItemsQuery
+                { AncestorIds = [item.Id], Recursive = true, IncludeItemTypes = [BaseItemKind.Audio], GroupByPresentationUniqueKey = false });
                 if (!new HashSet<Guid>(children).SetEquals(plan.TrackIds))
                     throw new InvalidOperationException("Album membership changed since preview.");
-                // Fresh raw tags + current track credits must still justify this exact removal.
                 var evidence = plan.TrackIds.ToDictionary(trackId => trackId, trackId =>
                 {
                     var track = _library.GetItemById(trackId) as Audio ?? throw new InvalidOperationException("Track disappeared.");
-                    return (track.Artists.ToArray(), track.AlbumArtists.ToArray());
+                    var raw = EmbeddedCredits.Read(track.Path);
+                    if (plan.Evidence.TryGetValue(trackId, out var saved)
+                        && !saved.SequenceEqual(new[] { System.Text.Json.JsonSerializer.Serialize(raw.Artists), System.Text.Json.JsonSerializer.Serialize(raw.AlbumArtists) }))
+                        throw new InvalidOperationException("Embedded credits changed; run preview again.");
+                    return raw;
                 });
-                var fresh = Plan(album, children, evidence);
+                var fresh = PlanItem(item, children, evidence);
                 if (fresh is null || !fresh.After.SequenceEqual(plan.After)
+                    || !(fresh.AfterArtists ?? fresh.Artists).SequenceEqual(plan.AfterArtists ?? plan.Artists)
                     || !fresh.ProtectedArtists.Select(a => a.Id).SequenceEqual(plan.ProtectedArtists.Select(a => a.Id)))
                     throw new InvalidOperationException("Embedded credits or artist identities changed; run preview again.");
             }
-            items[album.Id] = album;
+            items[item.Id] = item;
             foreach (var saved in plan.ProtectedArtists)
             {
                 if (_library.GetItemById(saved.Id) is not MusicArtist artist || artist.Name != saved.Name
@@ -193,9 +228,9 @@ public sealed class CleanupService
         var byId = items.ToDictionary(i => i.Id);
         foreach (var plan in plans)
         {
-            var album = (MusicAlbum)byId[plan.Id];
-            album.AlbumArtists = restoring ? plan.Before : plan.After;
-            album.IsLocked = !restoring;
+            var item = byId[plan.Id];
+            WriteCredits(item, restoring ? plan.Artists : plan.AfterArtists ?? plan.Artists, restoring ? plan.Before : plan.After);
+            item.IsLocked = !restoring;
             foreach (var saved in plan.ProtectedArtists) byId[saved.Id].IsLocked = restoring ? saved.WasLocked : true;
         }
     }

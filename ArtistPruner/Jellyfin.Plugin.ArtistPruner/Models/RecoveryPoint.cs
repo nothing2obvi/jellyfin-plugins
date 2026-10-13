@@ -12,6 +12,9 @@ public sealed class ArtistProtection
 
 public sealed class AlbumChange
 {
+    public string Kind { get; set; } = "MusicAlbum";
+    public string[]? AfterArtists { get; set; }
+    public Dictionary<Guid, string[]> Evidence { get; set; } = [];
     public Guid Id { get; set; }
     public string Path { get; set; } = "";
     public Guid ParentId { get; set; }
@@ -25,7 +28,7 @@ public sealed class AlbumChange
 
 public sealed class RecoveryPoint
 {
-    public int Schema { get; set; } = 1;
+    public int Schema { get; set; } = 2;
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
     // Prepared is durable BEFORE any mutation. Restore accepts Prepared after a crash.

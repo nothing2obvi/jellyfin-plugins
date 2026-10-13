@@ -68,7 +68,7 @@ public sealed class RecoveryStore
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     private static void Validate(RecoveryPoint point)
     {
-        if (point.Schema != 1 || point.Id == Guid.Empty || point.CreatedUtc == default
+        if (point.Schema is not (1 or 2) || point.Id == Guid.Empty || point.CreatedUtc == default
             || point.State is not ("Prepared" or "Applied" or "Restored")
             || point.Changes is null || point.Changes.Count == 0
             || point.Changes.Select(c => c.Id).Distinct().Count() != point.Changes.Count)
@@ -78,7 +78,10 @@ public sealed class RecoveryStore
             if (change.Id == Guid.Empty || string.IsNullOrWhiteSpace(change.Path)
                 || change.Before is null || change.After is null || change.Artists is null
                 || change.ProviderIds is null || change.TrackIds is null || change.ProtectedArtists is null
-                || change.After.Length == 0 || change.Before.Length <= change.After.Length
+                || change.After.Length == 0 || change.Before.Length < change.After.Length
+                || change.Kind is not ("Audio" or "MusicAlbum")
+                || (change.AfterArtists is not null && (change.AfterArtists.Length == 0 || change.Artists.Length == 0
+                    || change.AfterArtists[0] != change.Artists[0] || change.AfterArtists.Except(change.Artists, StringComparer.Ordinal).Any()))
                 || change.Before[0] != change.After[0] || change.ProtectedArtists.Count == 0
                 || change.Before.Concat(change.After).Any(string.IsNullOrWhiteSpace)
                 || change.After.Except(change.Before, StringComparer.Ordinal).Any()
