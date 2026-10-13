@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Artist Pruner</title></head><body>
+<div id="ArtistPrunerConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-button,emby-checkbox,emby-input,emby-select">
+<div data-role="content"><div class="content-primary">
+<h2>Artist Pruner</h2>
+<p>Preview discrepancies, or remove eligible extra album-artist credits supported by all tracks' embedded tags. Artist records and music files are never deleted.</p>
+<form id="ArtistPrunerConfigForm">
+<div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="Enabled" /><span>Enable Artist Pruner</span></label></div>
+<div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="DryRun" /><span>Dry-run mode (preview only)</span></label></div>
+<p>Dry-run is enabled by default. Turning it off applies eligible corrections after creating a validated backup. Full mode locks affected album and artist metadata to prevent scans from undoing changes or deleting recovery data. Restore reverses those locks. Locked albums will not automatically pick up later tag edits until restored or manually unlocked.</p>
+<div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="AutoCleanAfterScan" /><span>Run after successful full library scans</span></label></div>
+<div class="inputContainer"><label for="BackupRetentionCount">Restored backups to retain</label><input is="emby-input" id="BackupRetentionCount" type="number" min="1" max="100" required value="5" /></div>
+<p>Unrestored recovery points are always kept. Configure recurring runs in Dashboard → Scheduled Tasks. Review proposed and applied changes in the server logs.</p>
+<button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+</form>
+<h3>Recovery points</h3>
+<p>Restore the newest unrestored point first. Conflicting edits are preserved and cause restoration to stop.</p>
+<select is="emby-select" id="BackupList" aria-label="Recovery point"></select>
+<button is="emby-button" type="button" id="RefreshBackups" class="raised">Refresh list</button>
+<button is="emby-button" type="button" id="RestoreBackup" class="raised">Restore selected backup</button>
+<p id="BackupStatus" role="status"></p>
+</div></div>
+<script>
+(function () {
+    var page = document.querySelector('#ArtistPrunerConfigPage');
+    var pluginId = 'e8b5f1a3-7c9d-4e2b-8a1f-3d6c5e4b9a0f';
+    async function backups() {
+        var list = page.querySelector('#BackupList');
+        list.replaceChildren();
+        page.querySelector('#RestoreBackup').disabled = true;
+        try {
+            var points = await ApiClient.ajax({type: 'GET', url: ApiClient.getUrl('ArtistPruner/Backups'), dataType: 'json'});
+            points.forEach(function (point) {
+                var option = document.createElement('option');
+                option.value = point.Id || point.id;
+                option.textContent = new Date(point.CreatedUtc || point.createdUtc).toLocaleString() + ' — ' + (point.State || point.state) + ' (' + (point.Albums || point.albums) + ' albums)';
+                list.appendChild(option);
+            });
+            page.querySelector('#BackupStatus').textContent = points.length ? '' : 'No recovery points yet. Dry-run creates none.';
+            page.querySelector('#RestoreBackup').disabled = points.length === 0;
+        } catch (error) { page.querySelector('#BackupStatus').textContent = 'Unable to read recovery points. Check server logs; keep all backup files.'; }
+    }
+    page.addEventListener('pageshow', async function () {
+        Dashboard.showLoadingMsg();
+        try {
+            var config = await ApiClient.getPluginConfiguration(pluginId);
+            page.querySelector('#Enabled').checked = config.Enabled;
+            page.querySelector('#DryRun').checked = config.DryRun;
+            page.querySelector('#AutoCleanAfterScan').checked = config.AutoCleanAfterLibraryScan;
+            page.querySelector('#BackupRetentionCount').value = config.BackupRetentionCount || 5;
+            await backups();
+        } catch (error) { Dashboard.alert('Unable to load Artist Pruner settings.'); }
+        finally { Dashboard.hideLoadingMsg(); }
+    });
+    page.querySelector('form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        Dashboard.showLoadingMsg();
+        try {
+            var config = await ApiClient.getPluginConfiguration(pluginId);
+            config.Enabled = page.querySelector('#Enabled').checked;
+            config.AutoCleanAfterLibraryScan = page.querySelector('#AutoCleanAfterScan').checked;
+            config.DryRun = page.querySelector('#DryRun').checked;
+            config.BackupRetentionCount = Math.max(1, Math.min(100, Number(page.querySelector('#BackupRetentionCount').value) || 5));
+            var result = await ApiClient.updatePluginConfiguration(pluginId, config);
+            Dashboard.processPluginConfigurationUpdateResult(result);
+        } catch (error) { Dashboard.alert('Unable to save Artist Pruner settings.'); }
+        finally { Dashboard.hideLoadingMsg(); }
+    });
+    page.querySelector('#RefreshBackups').addEventListener('click', backups);
+    page.querySelector('#RestoreBackup').addEventListener('click', async function () {
+        var id = page.querySelector('#BackupList').value;
+        if (!id || !window.confirm('Restore this recovery point? Only plugin-managed credits and locks will be reverted.')) return;
+        this.disabled = true;
+        Dashboard.showLoadingMsg();
+        try {
+            var result = await ApiClient.ajax({type: 'POST', url: ApiClient.getUrl('ArtistPruner/Backups/' + encodeURIComponent(id) + '/Restore'), dataType: 'json'});
+            Dashboard.alert(result.Message || result.message);
+            await backups();
+        } catch (error) {
+            Dashboard.alert('Restoration stopped. Check for a running scan, newer recovery points, conflicting edits, or a damaged backup. No conflicting edits are overwritten.');
+        } finally { this.disabled = false; Dashboard.hideLoadingMsg(); }
+    });
+}());
+</script></div></body></html>

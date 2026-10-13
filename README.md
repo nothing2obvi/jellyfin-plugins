@@ -81,6 +81,14 @@ Version Notifier tells viewers when an accessible 4K copy of their movie or epis
 
 ---
 
+### Artist Pruner
+
+Preview music-credit discrepancies or apply reversible removal of eligible extra album-artist credits. Includes dry-run (default), full mode, recovery points, and restore. Artist records and music files are never deleted. Separate Jellyfin 10.11.x and 12.x builds; testing release.
+
+[Installation and safety limits](ArtistPruner/README.md)
+
+---
+
 ## Requirements
 
 - Jellyfin 10.11.0 or higher; Version Notifier requires Jellyfin 12.x. Check each plugin’s README for compatibility.

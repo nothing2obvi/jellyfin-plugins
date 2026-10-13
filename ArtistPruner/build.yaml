@@ -1,0 +1,21 @@
+---
+name: "Artist Pruner"
+guid: "e8b5f1a3-7c9d-4e2b-8a1f-3d6c5e4b9a0f"
+version: "0.2.0.0"
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+overview: "Preview and reversibly correct extra album-artist credits"
+description: |
+  Compares music file probe results with track and album credits.
+  Reports discrepancies through Jellyfin's native scheduled task and logs.
+  Optional full mode corrects eligible album credits with backup and restore.
+category: "Music"
+owner: "nothing2obvi"
+artifacts:
+  - "Jellyfin.Plugin.ArtistPruner.dll"
+  - "TagLibSharp.dll"
+  - "TagLibSharp-LICENSE.txt"
+  - "THIRD-PARTY-NOTICES.md"
+changelog: |
+  Testing release: optional full-mode album-credit corrections, validated recovery
+  journals, administrator restore, and separate Jellyfin 10.11/12 builds.

@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <JellyfinTargetAbi Condition="'$(JellyfinTargetAbi)' == ''">12.0.0.0</JellyfinTargetAbi>
+    <JellyfinPackageVersion Condition="'$(JellyfinPackageVersion)' == '' And '$(JellyfinTargetAbi)' == '12.0.0.0'">12.0.0</JellyfinPackageVersion>
+    <JellyfinPackageVersion Condition="'$(JellyfinPackageVersion)' == '' And '$(JellyfinTargetAbi)' == '10.11.0.0'">10.11.0</JellyfinPackageVersion>
+    <ArtistPrunerVersion Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">0.2.0.0</ArtistPrunerVersion>
+    <ArtistPrunerVersion Condition="'$(JellyfinTargetAbi)' == '10.11.0.0'">0.1.0.0</ArtistPrunerVersion>
+  </PropertyGroup>
+</Project>

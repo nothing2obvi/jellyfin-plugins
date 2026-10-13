@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DefineConstants Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">$(DefineConstants);JELLYFIN12</DefineConstants>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Jellyfin.Plugin.ArtistPruner/Jellyfin.Plugin.ArtistPruner.csproj" />
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinPackageVersion)" />
+    <None Include="fixtures/credits.flac" CopyToOutputDirectory="PreserveNewest" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

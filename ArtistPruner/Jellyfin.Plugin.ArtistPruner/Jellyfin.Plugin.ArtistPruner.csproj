@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework Condition="'$(JellyfinTargetAbi)' == '10.11.0.0'">net9.0</TargetFramework>
+    <TargetFramework Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">net10.0</TargetFramework>
+    <DefineConstants Condition="'$(JellyfinTargetAbi)' == '12.0.0.0'">$(DefineConstants);JELLYFIN12</DefineConstants>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>$(ArtistPrunerVersion)</Version>
+    <AssemblyVersion>$(ArtistPrunerVersion)</AssemblyVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinPackageVersion)" ExcludeAssets="runtime" />
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <EmbeddedResource Include="Configuration/configPage.html" />
+  </ItemGroup>
+</Project>
