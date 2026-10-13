@@ -334,11 +334,27 @@
   {
     "guid": "e8b5f1a3-7c9d-4e2b-8a1f-3d6c5e4b9a0f",
     "name": "Artist Pruner",
-    "overview": "Preview and reversibly correct extra album-artist credits",
-    "description": "Testing release. Dry-run by default; optional full mode with validated recovery points and restore. Corrects eligible surplus album-artist credits without deleting artist records or music files. Locks affected metadata until restored or manually unlocked.",
+    "overview": "Preview and prune extra track and album artist credits",
+    "description": "Testing release. Dry-run by default; optional reversible pruning of extra artist and album-artist credits on tracks and albums. Includes a proposed-prunes table, validated recovery points, and restore. Artist records and music files are never deleted. Affected metadata is locked until restored or manually unlocked.",
     "owner": "nothing2obvi",
     "category": "Music",
     "versions": [
+      {
+        "version": "0.2.1.0",
+        "changelog": "Fix UseRawName crash; add track and album credit pruning, proposed-prunes table with run status, plugin artwork, and backwards-compatible restore. Testing release.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/artistpruner-0.2.1/artistpruner-0.2.1.0-jellyfin12.zip",
+        "checksum": "5729b62584d3c9af275ebdcb51e5962e",
+        "timestamp": "2026-10-13T23:48:18Z"
+      },
+      {
+        "version": "0.1.1.0",
+        "changelog": "Fix UseRawName crash; add track and album credit pruning, proposed-prunes table with run status, plugin artwork, and backwards-compatible restore. Testing release.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/artistpruner-0.2.1/artistpruner-0.1.1.0-jellyfin10.11.zip",
+        "checksum": "7aac473d907430ddfb96a46f70e8f924",
+        "timestamp": "2026-10-13T23:48:18Z"
+      },
       {
         "version": "0.2.0.0",
         "changelog": "Testing release: dry-run plus reversible full-mode album-credit corrections, validated backups, and administrator restore. No artist or file deletion.",
@@ -355,6 +371,7 @@
         "checksum": "af3690bd2ce81f58975ae69c7093eec5",
         "timestamp": "2026-10-13T22:31:44Z"
       }
-    ]
+    ],
+    "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/ArtistPruner/assets/artist-pruner.png"
   }
 ]
