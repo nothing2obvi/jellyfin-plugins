@@ -330,5 +330,31 @@
         "timestamp": "2026-10-10T03:25:55Z"
       }
     ]
+  },
+  {
+    "guid": "e8b5f1a3-7c9d-4e2b-8a1f-3d6c5e4b9a0f",
+    "name": "Artist Pruner",
+    "overview": "Preview and reversibly correct extra album-artist credits",
+    "description": "Testing release. Dry-run by default; optional full mode with validated recovery points and restore. Corrects eligible surplus album-artist credits without deleting artist records or music files. Locks affected metadata until restored or manually unlocked.",
+    "owner": "nothing2obvi",
+    "category": "Music",
+    "versions": [
+      {
+        "version": "0.2.0.0",
+        "changelog": "Testing release: dry-run plus reversible full-mode album-credit corrections, validated backups, and administrator restore. No artist or file deletion.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/artistpruner-0.2.0/artistpruner-0.2.0.0-jellyfin12.zip",
+        "checksum": "aa778bc2b1b850d04754be08179625b7",
+        "timestamp": "2026-10-13T22:31:44Z"
+      },
+      {
+        "version": "0.1.0.0",
+        "changelog": "Testing release: dry-run plus reversible full-mode album-credit corrections, validated backups, and administrator restore. No artist or file deletion.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/artistpruner-0.2.0/artistpruner-0.1.0.0-jellyfin10.11.zip",
+        "checksum": "af3690bd2ce81f58975ae69c7093eec5",
+        "timestamp": "2026-10-13T22:31:44Z"
+      }
+    ]
   }
 ]
