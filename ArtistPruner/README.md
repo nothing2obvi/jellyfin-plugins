@@ -1,9 +1,13 @@
 # Artist Pruner
 
+> **WARNING: IN DEVELOPMENT — DO NOT USE.** Artist Pruner is unfinished and is not safe or supported for use on Jellyfin libraries. Do not install or run it, including dry-run mode. Existing downloads are development artifacts, not releases suitable for use.
+
+See [development status](DEVELOPMENT.md). The feature descriptions and commands below are developer reference only, not instructions or encouragement to use the plugin.
+
 ![Artist Pruner](assets/artist-pruner.png)
 
 Preview music-credit discrepancies and optionally apply reversible corrections.
-**Testing release:** dry-run is enabled by default, but full mode is available.
+**Development artifact — do not use.** Dry-run and full mode are implemented, but neither is approved for use.
 Separate builds support **Jellyfin 10.11.x (.NET 9)** and **12.x (.NET 10)**.
 
 ## Modes
@@ -27,7 +31,7 @@ recovery data. Restore reverses those locks. Until restored or manually unlocked
 affected items will not automatically pick up future tag changes. Avoid manual
 unlocking/deletion before restoration.
 
-## Install and test
+## Installation reference — developers only; do not use
 
 Install Artist Pruner from this repository's plugin catalog and restart Jellyfin,
 or extract the matching release ZIP into its own directory under Jellyfin's
@@ -84,7 +88,7 @@ compatible and are left untouched.
 - Music videos and non-Music libraries are excluded. Unowned global artists are
   not treated as proven orphans. Provider/scanner behavior is not fixed upstream.
 
-## Build and verification
+## Development build and verification
 
 Use a .NET 10 SDK (the test runner targets .NET 10):
 

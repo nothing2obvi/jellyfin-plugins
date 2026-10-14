@@ -83,11 +83,13 @@ Version Notifier tells viewers when an accessible 4K copy of their movie or epis
 
 ### Artist Pruner
 
+> **WARNING: IN DEVELOPMENT — DO NOT USE.** Artist Pruner is unfinished and is not safe or supported for use on Jellyfin libraries. Do not install or run it, including dry-run mode. Existing downloads are development artifacts, not releases suitable for use.
+
 <p align="center"><img src="ArtistPruner/assets/artist-pruner.png" alt="Artist Pruner" width="60%" /></p>
 
 Preview music-credit discrepancies or apply reversible removal of eligible extra artist/album-artist credits on tracks and albums. Includes a proposed-prunes table, dry-run (default), full mode, recovery points, and restore. Artist records and music files are never deleted. Separate Jellyfin 10.11.x and 12.x builds; testing release.
 
-[Installation and safety limits](ArtistPruner/README.md)
+[Development status and warnings](ArtistPruner/README.md)
 
 ---
 

@@ -334,8 +334,8 @@
   {
     "guid": "e8b5f1a3-7c9d-4e2b-8a1f-3d6c5e4b9a0f",
     "name": "Artist Pruner",
-    "overview": "Preview and prune extra track and album artist credits",
-    "description": "Testing release. Dry-run by default; optional reversible pruning of extra artist and album-artist credits on tracks and albums. Includes a proposed-prunes table, validated recovery points, and restore. Artist records and music files are never deleted. Affected metadata is locked until restored or manually unlocked.",
+    "overview": "IN DEVELOPMENT — DO NOT USE",
+    "description": "WARNING: Artist Pruner is unfinished and should not be installed or run, including dry-run mode. Published downloads are development artifacts, not safe or supported releases. Disable existing installations and automatic/scheduled runs. Preserve backups and recovery files. See the repository README and ArtistPruner/DEVELOPMENT.md.",
     "owner": "nothing2obvi",
     "category": "Music",
     "versions": [
