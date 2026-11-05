@@ -51,16 +51,22 @@ public class QualityDetectionService : IQualityDetectionService
         return GetQualityFromItem(item);
     }
 
-    public static VideoQuality DetermineQuality(int width, int height)
-    {
-        var maxDimension = Math.Max(width, height);
+public static VideoQuality DetermineQuality(int width, int height)
+{
+    var aspectRatio = height > 0 ? (double)width / height : 0;
 
-        if (maxDimension >= 3800) return VideoQuality.UHD4K;
-        if (maxDimension >= 1900) return VideoQuality.FHD1080p;
-        if (maxDimension >= 1260) return VideoQuality.HD720p;
-        if (maxDimension > 0) return VideoQuality.SD;
-        return VideoQuality.Unknown;
-    }
+    // Handle 4:3 1080p sources such as 1440x1080
+    if (aspectRatio >= 1.25 && aspectRatio <= 1.4 && height >= 1000)
+        return VideoQuality.FHD1080p;
+
+    var maxDimension = Math.Max(width, height);
+
+    if (maxDimension >= 3800) return VideoQuality.UHD4K;
+    if (maxDimension >= 1900) return VideoQuality.FHD1080p;
+    if (maxDimension >= 1260) return VideoQuality.HD720p;
+    if (maxDimension > 0) return VideoQuality.SD;
+    return VideoQuality.Unknown;
+}
 
     /// <inheritdoc />
     public VideoQuality GetQualityFromItem(BaseItem item)
