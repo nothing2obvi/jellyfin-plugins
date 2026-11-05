@@ -373,5 +373,24 @@
       }
     ],
     "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/ArtistPruner/assets/artist-pruner.png"
+  },
+  {
+    "guid": "603574cd-910d-462b-a51b-d518dd05b0e1",
+    "name": "JMP Notice",
+    "overview": "Personal server notices for Jellyfin Media Player users",
+    "description": "Displays a native notice when Jellyfin Media Player connects and whenever a distinct playback begins. Configurable message and duration; no playback modification. Personal-preference plugin. Live client delivery remains unverified; see README for detection limitations.",
+    "owner": "nothing2obvi",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/nothing2obvi/jellyfin-plugins/main/jellyfin-plugin-jmp-notice/assets/jmp-notice.png",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "Initial 0.1 release: connection and distinct playback-start notices, client-name filtering, duplicate-event protection, overlap coalescing, configurable text and duration. Jellyfin 12 only. Live client delivery unverified; see README for limitations.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/nothing2obvi/jellyfin-plugins/releases/download/jmp-notice-0.1/jmp-notice-0.1.0.0-jellyfin12.zip",
+        "checksum": "8b68807ad1d5edd6cc10caf44aed3fbb",
+        "timestamp": "2026-11-05T00:32:12Z"
+      }
+    ]
   }
 ]

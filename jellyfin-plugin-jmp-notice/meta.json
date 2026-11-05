@@ -1,0 +1,16 @@
+{
+  "category": "General",
+  "guid": "603574cd-910d-462b-a51b-d518dd05b0e1",
+  "name": "JMP Notice",
+  "description": "Shows a migration notice to Jellyfin Media Player sessions.",
+  "overview": "A personal server notice for Jellyfin Media Player users.",
+  "owner": "nothing2obvi",
+  "version": "0.1.0.0",
+  "targetAbi": "12.0.0.0",
+  "status": "Active",
+  "autoUpdate": false,
+  "imagePath": "jmp-notice.png",
+  "assemblies": [
+    "Jellyfin.Plugin.JmpNotice.dll"
+  ]
+}

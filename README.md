@@ -81,6 +81,18 @@ Version Notifier tells viewers when an accessible 4K copy of their movie or epis
 
 ---
 
+### JMP Notice
+
+<p align="center"><img src="jellyfin-plugin-jmp-notice/assets/jmp-notice.png" alt="JMP Notice" width="60%" /></p>
+
+JMP Notice displays a native notification when Jellyfin Media Player connects and whenever a distinct playback begins. Includes configurable message text and duration, with duplicate-event protection and no playback modification.
+
+**Requires Jellyfin 12.x.** Initial release **0.1** (package version **0.1.0.0**). This is a personal-preference plugin; live client delivery remains unverified. See the README for detection limitations and the personal-use disclaimer.
+
+[Installation and details](jellyfin-plugin-jmp-notice/README.md)
+
+---
+
 ### Artist Pruner
 
 > **WARNING: IN DEVELOPMENT — DO NOT USE.** Artist Pruner is unfinished and is not safe or supported for use on Jellyfin libraries. Do not install or run it, including dry-run mode. Existing downloads are development artifacts, not releases suitable for use.
@@ -95,8 +107,8 @@ Preview music-credit discrepancies or apply reversible removal of eligible extra
 
 ## Requirements
 
-- Jellyfin 10.11.0 or higher; Version Notifier requires Jellyfin 12.x. Check each plugin’s README for compatibility.
-- .NET 9 SDK for the original plugins, or .NET 10 SDK for Version Notifier, if building from source.
+- Jellyfin 10.11.0 or higher; Version Notifier and JMP Notice require Jellyfin 12.x. Check each plugin’s README for compatibility.
+- .NET 9 SDK for the original plugins, or .NET 10 SDK for Version Notifier and JMP Notice, if building from source.
 
 ## License
 

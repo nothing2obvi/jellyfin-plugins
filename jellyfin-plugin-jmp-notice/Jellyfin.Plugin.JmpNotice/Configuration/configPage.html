@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head><title>JMP Notice</title></head><body>
+<div id="JmpNoticePage" data-role="page" class="page type-interior pluginConfigurationPage">
+<div data-role="content"><div class="content-primary"><form id="JmpNoticeForm">
+<h2>JMP Notice</h2>
+<p>Show an informational message to Jellyfin Media Player sessions.</p>
+<div class="checkboxContainer checkboxContainer-withDescription"><label><input is="emby-checkbox" type="checkbox" id="Enabled"><span>Enable notifications</span></label></div>
+<div class="inputContainer"><label class="inputLabel" for="DurationSeconds">Display duration (seconds)</label><input is="emby-input" type="number" id="DurationSeconds" min="1" max="60" step="1" required><div class="fieldDescription">1–60 seconds. Default: 12.</div></div>
+<div class="inputContainer"><label class="inputLabel" for="Message">Notification message</label><input is="emby-input" type="text" id="Message" required></div>
+<button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+</form></div></div>
+<script>
+(function () {
+    const id = '603574cd-910d-462b-a51b-d518dd05b0e1';
+    const page = document.querySelector('#JmpNoticePage');
+    page.addEventListener('pageshow', async function () {
+        Dashboard.showLoadingMsg();
+        try {
+            const config = await ApiClient.getPluginConfiguration(id);
+            page.querySelector('#Enabled').checked = config.Enabled;
+            page.querySelector('#DurationSeconds').value = config.DurationSeconds;
+            page.querySelector('#Message').value = config.Message;
+        } catch (error) { Dashboard.alert('Could not load JMP Notice settings.'); }
+        finally { Dashboard.hideLoadingMsg(); }
+    });
+    page.querySelector('form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (!this.reportValidity()) return;
+        Dashboard.showLoadingMsg();
+        try {
+            const config = await ApiClient.getPluginConfiguration(id);
+            config.Enabled = page.querySelector('#Enabled').checked;
+            config.DurationSeconds = Number(page.querySelector('#DurationSeconds').value);
+            config.Message = page.querySelector('#Message').value.trim() || 'Jellyfin Media Player has been archived. Please see the Discord announcement for better alternatives.';
+            Dashboard.processPluginConfigurationUpdateResult(await ApiClient.updatePluginConfiguration(id, config));
+        } catch (error) { Dashboard.alert('Could not save JMP Notice settings.'); }
+        finally { Dashboard.hideLoadingMsg(); }
+    });
+}());
+</script></div></body></html>
